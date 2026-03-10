@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="auth_industries">
+        <item>Coffee Shop / Cafe</item>
+        <item>Restaurant</item>
+        <item>Retail Store</item>
+        <item>Beauty &amp; Spa</item>
+        <item>Fitness &amp; Gym</item>
+        <item>Hotel &amp; Hospitality</item>
+        <item>Automotive</item>
+        <item>Entertainment</item>
+        <item>Healthcare</item>
+        <item>Other</item>
+    </string-array>
+</resources>

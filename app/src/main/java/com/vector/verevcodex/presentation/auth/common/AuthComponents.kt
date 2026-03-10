@@ -1,0 +1,281 @@
+package com.vector.verevcodex.presentation.auth.common
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.vector.verevcodex.R
+
+@Composable
+fun AuthGradientScreenScaffold(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
+    horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        colorResource(R.color.brand_forest_deep),
+                        colorResource(R.color.brand_green),
+                    )
+                )
+            )
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(contentPadding),
+    ) {
+        AuthBackgroundDecor()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = horizontalAlignment,
+            verticalArrangement = verticalArrangement,
+            content = content,
+        )
+    }
+}
+
+@Composable
+fun AuthCenteredSection(
+    modifier: Modifier = Modifier,
+    maxWidth: Dp = 620.dp,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = maxWidth),
+            content = content,
+        )
+    }
+}
+
+@Composable
+fun AuthProgressPill(active: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (active) colorResource(R.color.brand_gold) else Color.White.copy(alpha = 0.28f))
+            .size(width = 48.dp, height = 6.dp)
+    )
+}
+
+@Composable
+fun AuthErrorMessage(
+    errorKey: String?,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+) {
+    authErrorRes(errorKey)?.let {
+        Text(
+            text = stringResource(it),
+            color = colorResource(R.color.error_red),
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = textAlign,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+fun AuthPrimaryButton(
+    text: String,
+    loading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+        ),
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.horizontalGradient(listOf(colorResource(R.color.brand_gold), colorResource(R.color.brand_tan))))
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (loading) stringResource(R.string.auth_loading) else text,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+    }
+}
+
+@Composable
+fun AuthBackRow(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(18.dp))
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(36.dp),
+            )
+            Text(
+                text = text,
+                modifier = Modifier.padding(start = 10.dp),
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+            )
+        }
+    }
+}
+
+@Composable
+fun AuthHeroIcon(
+    icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    backgroundBrush: Brush = Brush.linearGradient(listOf(colorResource(R.color.brand_gold), colorResource(R.color.brand_tan))),
+) {
+    Box(
+        modifier = modifier
+            .size(96.dp)
+            .clip(CircleShape)
+            .background(backgroundBrush),
+        contentAlignment = Alignment.Center,
+    ) {
+        icon()
+    }
+}
+
+@Composable
+fun AuthInfoPanel(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 22.dp),
+            color = colorResource(R.color.text_secondary),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+fun AuthBackgroundDecor(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 80.dp, start = 10.dp)
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.05f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 80.dp, end = 8.dp)
+                .size(160.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.05f))
+        )
+    }
+}
+
+@Composable
+fun AuthEmailChip(email: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(Icons.Default.Email, contentDescription = null, tint = colorResource(R.color.brand_green))
+            Text(
+                text = email,
+                color = colorResource(R.color.brand_green),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
