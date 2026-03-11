@@ -4,11 +4,11 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Update
 import com.vector.verevcodex.data.db.entity.CampaignEntity
 import com.vector.verevcodex.data.db.entity.CampaignTargetEntity
 import com.vector.verevcodex.data.db.entity.CustomerBusinessRelationEntity
+import com.vector.verevcodex.data.db.entity.CustomerCredentialEntity
 import com.vector.verevcodex.data.db.entity.CustomerEntity
 import com.vector.verevcodex.data.db.entity.NotificationEntity
 import com.vector.verevcodex.data.db.entity.OwnerEntity
@@ -71,8 +71,15 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
     fun observeCustomer(customerId: String): Flow<CustomerEntity?>
 
-    @Query("SELECT * FROM customers WHERE nfcId = :nfcId LIMIT 1")
-    suspend fun findByNfcId(nfcId: String): CustomerEntity?
+    @Query(
+        """
+        SELECT c.* FROM customers c
+        LEFT JOIN customer_credentials cc ON cc.customerId = c.id
+        WHERE c.nfcId = :identifier OR cc.loyaltyId = :identifier OR cc.referenceValue = :identifier
+        LIMIT 1
+        """
+    )
+    suspend fun findByLoyaltyId(identifier: String): CustomerEntity?
 
     @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
     suspend fun getCustomer(customerId: String): CustomerEntity?
@@ -85,6 +92,21 @@ interface CustomerDao {
 
     @Update
     suspend fun update(item: CustomerEntity)
+}
+
+@Dao
+interface CustomerCredentialDao {
+    @Query("SELECT * FROM customer_credentials WHERE customerId = :customerId ORDER BY method")
+    fun observeCredentials(customerId: String): Flow<List<CustomerCredentialEntity>>
+
+    @Query("SELECT * FROM customer_credentials WHERE customerId = :customerId AND method = :method LIMIT 1")
+    suspend fun getCredential(customerId: String, method: String): CustomerCredentialEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(item: CustomerCredentialEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<CustomerCredentialEntity>)
 }
 
 @Dao
@@ -125,6 +147,9 @@ interface LoyaltyDao {
     @Query("SELECT * FROM reward_programs WHERE (:storeId IS NULL OR storeId = :storeId) ORDER BY name")
     fun observePrograms(storeId: String?): Flow<List<RewardProgramEntity>>
 
+    @Query("SELECT * FROM reward_programs WHERE id = :programId LIMIT 1")
+    suspend fun getProgram(programId: String): RewardProgramEntity?
+
     @Query("SELECT * FROM rewards WHERE (:storeId IS NULL OR storeId = :storeId) ORDER BY pointsRequired")
     fun observeRewards(storeId: String?): Flow<List<RewardEntity>>
 
@@ -136,6 +161,12 @@ interface LoyaltyDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPrograms(items: List<RewardProgramEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProgram(item: RewardProgramEntity)
+
+    @Query("DELETE FROM reward_programs WHERE id = :programId")
+    suspend fun deleteProgram(programId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRewards(items: List<RewardEntity>)

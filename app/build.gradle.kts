@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,18 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+val localProperties: Properties by lazy {
+    Properties().apply {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { load(it) }
+        }
+    }
+}
+
+fun localProperty(key: String): String =
+    localProperties.getProperty(key).orEmpty()
 
 android {
     namespace = "com.vector.verevcodex"
@@ -16,6 +30,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "GOOGLE_WALLET_ISSUER_EMAIL", "\"${localProperty("google.wallet.issuerEmail")}\"")
+        buildConfigField("String", "GOOGLE_WALLET_LOYALTY_CLASS_ID", "\"${localProperty("google.wallet.loyaltyClassId")}\"")
+        buildConfigField("String", "GOOGLE_WALLET_PROGRAM_NAME", "\"${localProperty("google.wallet.programName")}\"")
+        buildConfigField("String", "GOOGLE_WALLET_ISSUER_NAME", "\"${localProperty("google.wallet.issuerName")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -57,6 +76,7 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -73,7 +93,16 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     implementation(libs.google.material)
+    implementation(libs.google.play.services.code.scanner)
+    implementation(libs.google.mlkit.barcode.scanning)
+    implementation(libs.google.play.services.pay)
+    implementation(libs.google.zxing.core)
+    implementation(libs.airbnb.lottie.compose)
     implementation(libs.hilt.android)
 
     ksp(libs.androidx.room.compiler)

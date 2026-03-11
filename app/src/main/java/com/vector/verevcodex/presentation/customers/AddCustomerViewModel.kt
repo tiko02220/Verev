@@ -1,14 +1,27 @@
 package com.vector.verevcodex.presentation.customers
 
+import android.app.Activity
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.core.identifiers.LoyaltyIdCodec
+import com.vector.verevcodex.core.nfc.NfcCardWriteCoordinator
+import com.vector.verevcodex.core.nfc.NfcCardWriteRequest
+import com.vector.verevcodex.core.nfc.NfcCardWriteState
+import com.vector.verevcodex.core.wallet.GoogleWalletPassFactory
+import com.vector.verevcodex.core.wallet.GoogleWalletSaveResult
+import com.vector.verevcodex.core.wallet.GoogleWalletProvisioningManager
+import com.vector.verevcodex.domain.model.CustomerCredentialMethod
+import com.vector.verevcodex.domain.model.CustomerCredentialStatus
 import com.vector.verevcodex.domain.model.CustomerDraft
 import com.vector.verevcodex.domain.usecase.CreateCustomerUseCase
+import com.vector.verevcodex.domain.usecase.ObserveCustomerCredentialsUseCase
 import com.vector.verevcodex.domain.usecase.ObserveSelectedStoreUseCase
+import com.vector.verevcodex.domain.usecase.UpsertCustomerCredentialUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,9 +33,15 @@ import kotlinx.coroutines.launch
 class AddCustomerViewModel @Inject constructor(
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     private val createCustomerUseCase: CreateCustomerUseCase,
+    private val observeCustomerCredentialsUseCase: ObserveCustomerCredentialsUseCase,
+    private val upsertCustomerCredentialUseCase: UpsertCustomerCredentialUseCase,
+    private val googleWalletPassFactory: GoogleWalletPassFactory,
+    private val googleWalletProvisioningManager: GoogleWalletProvisioningManager,
+    private val nfcCardWriteCoordinator: NfcCardWriteCoordinator,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddCustomerUiState())
     val uiState: StateFlow<AddCustomerUiState> = _uiState.asStateFlow()
+    private var credentialObservationJob: Job? = null
 
     init {
         observeSelectedStoreUseCase()
@@ -31,6 +50,37 @@ class AddCustomerViewModel @Inject constructor(
                     selectedStoreId = store?.id,
                     selectedStoreName = store?.name.orEmpty(),
                 )
+            }
+            .launchIn(viewModelScope)
+
+        googleWalletProvisioningManager.state
+            .onEach { walletState ->
+                _uiState.value = _uiState.value.copy(
+                    walletAvailability = walletState.availability,
+                    walletSaveResult = walletState.saveResult,
+                    walletIsSaving = walletState.isSaving,
+                )
+                if (walletState.saveResult == GoogleWalletSaveResult.SAVED) {
+                    syncCredentialMethod(
+                        method = CustomerCredentialMethod.GOOGLE_WALLET,
+                        referenceValue = _uiState.value.walletPassRequest?.objectId,
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+
+        nfcCardWriteCoordinator.state
+            .onEach { writeState ->
+                _uiState.value = _uiState.value.copy(
+                    nfcWritePhase = writeState.toUiPhase(),
+                    nfcStatusRes = writeState.toStatusRes(),
+                )
+                if (writeState is NfcCardWriteState.Success) {
+                    syncCredentialMethod(
+                        method = CustomerCredentialMethod.NFC_CARD,
+                        referenceValue = writeState.request.loyaltyId,
+                    )
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -74,13 +124,25 @@ class AddCustomerViewModel @Inject constructor(
                             storeId,
                         )
                     }.onSuccess { customer ->
+                        val customerName = listOf(customer.firstName, customer.lastName).joinToString(" ").trim()
+                        val activationLink = LoyaltyIdCodec.activationUrl(customer.loyaltyId)
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
                             createdCustomerId = customer.id,
-                            generatedEnrollmentCode = customer.nfcId,
-                            activationLink = "https://verev.app/enroll/${customer.id}",
-                            successName = listOf(customer.firstName, customer.lastName).joinToString(" ").trim(),
+                            generatedLoyaltyId = customer.loyaltyId,
+                            activationLink = activationLink,
+                            successName = customerName,
+                            barcodeValue = customer.loyaltyId,
+                            selectedProvisioningOption = CustomerCardProvisioningOption.BARCODE_IMAGE,
+                            walletPassRequest = googleWalletPassFactory.createLoyaltyPass(
+                                loyaltyId = customer.loyaltyId,
+                                customerName = customerName,
+                                currentPoints = customer.currentPoints,
+                                activationLink = activationLink,
+                            ),
                         )
+                        observeCredentials(customer.id)
+                        googleWalletProvisioningManager.refreshAvailability()
                     }.onFailure {
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
@@ -92,7 +154,55 @@ class AddCustomerViewModel @Inject constructor(
         }
     }
 
+    fun selectProvisioningOption(option: CustomerCardProvisioningOption) {
+        _uiState.value = _uiState.value.copy(selectedProvisioningOption = option)
+        when (option) {
+            CustomerCardProvisioningOption.GOOGLE_WALLET -> googleWalletProvisioningManager.refreshAvailability()
+            CustomerCardProvisioningOption.NFC_CARD -> {
+                if (_uiState.value.nfcWritePhase == NfcWritePhase.IDLE) startNfcWrite()
+            }
+            CustomerCardProvisioningOption.BARCODE_IMAGE -> Unit
+        }
+    }
+
+    fun startNfcWrite() {
+        val state = _uiState.value
+        if (state.generatedLoyaltyId.isBlank() || state.activationLink.isBlank()) return
+        nfcCardWriteCoordinator.startWrite(
+            NfcCardWriteRequest(
+                loyaltyId = state.generatedLoyaltyId,
+                activationLink = state.activationLink,
+                customerName = state.successName,
+            )
+        )
+    }
+
+    fun retryNfcWrite() {
+        nfcCardWriteCoordinator.retry()
+    }
+
+    fun clearNfcState() {
+        nfcCardWriteCoordinator.clear()
+    }
+
+    fun refreshWalletAvailability() {
+        googleWalletProvisioningManager.refreshAvailability()
+    }
+
+    fun launchWalletSave(activity: Activity) {
+        _uiState.value.walletPassRequest?.let { request ->
+            googleWalletProvisioningManager.launchSave(activity, request)
+        }
+    }
+
+    fun clearWalletTransientState() {
+        googleWalletProvisioningManager.clearTransientResult()
+    }
+
     fun resetForm() {
+        googleWalletProvisioningManager.clearTransientResult()
+        nfcCardWriteCoordinator.clear()
+        credentialObservationJob?.cancel()
         _uiState.value = AddCustomerUiState(
             selectedStoreId = _uiState.value.selectedStoreId,
             selectedStoreName = _uiState.value.selectedStoreName,
@@ -104,19 +214,34 @@ class AddCustomerViewModel @Inject constructor(
     }
 
     private fun sanitize(value: String): String = value.replace("\n", "")
-}
 
-data class AddCustomerUiState(
-    val selectedStoreId: String? = null,
-    val selectedStoreName: String = "",
-    val firstName: String = "",
-    val lastName: String = "",
-    val email: String = "",
-    val phoneNumber: String = "",
-    val isSaving: Boolean = false,
-    @StringRes val errorRes: Int? = null,
-    val createdCustomerId: String? = null,
-    val generatedEnrollmentCode: String = "",
-    val activationLink: String = "",
-    val successName: String = "",
-)
+    private fun observeCredentials(customerId: String) {
+        credentialObservationJob?.cancel()
+        credentialObservationJob = observeCustomerCredentialsUseCase(customerId)
+            .onEach { credentials ->
+                _uiState.value = _uiState.value.copy(credentials = credentials)
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun syncCredentialMethod(
+        method: CustomerCredentialMethod,
+        referenceValue: String?,
+    ) {
+        val state = _uiState.value
+        val customerId = state.createdCustomerId ?: return
+        val loyaltyId = state.generatedLoyaltyId
+        if (loyaltyId.isBlank()) return
+        val existing = state.credentials.firstOrNull { it.method == method }
+        if (existing?.status == CustomerCredentialStatus.LINKED && existing.referenceValue == referenceValue) return
+        viewModelScope.launch {
+            upsertCustomerCredentialUseCase(
+                customerId = customerId,
+                loyaltyId = loyaltyId,
+                method = method,
+                status = CustomerCredentialStatus.LINKED,
+                referenceValue = referenceValue,
+            )
+        }
+    }
+}

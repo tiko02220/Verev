@@ -9,6 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -16,18 +19,38 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.core.UiState
+import com.vector.verevcodex.domain.model.ScanMethod
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.scan.ScanMethodSheet
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 fun DashboardScreen(
     contentPadding: PaddingValues = PaddingValues(),
-    onOpenScan: () -> Unit = {},
+    onOpenScan: (ScanMethod, Boolean) -> Unit = { _, _ -> },
     onOpenAddCustomer: () -> Unit = {},
     onOpenPromotions: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showScanMethodChooser by remember { mutableStateOf(false) }
+    var rememberScanChoice by remember { mutableStateOf(false) }
+
+    if (showScanMethodChooser) {
+        ScanMethodSheet(
+            rememberChoice = rememberScanChoice,
+            onRememberChoiceChanged = { rememberScanChoice = it },
+            onSelectMethod = { method ->
+                showScanMethodChooser = false
+                onOpenScan(method, rememberScanChoice)
+                rememberScanChoice = false
+            },
+            onDismiss = {
+                showScanMethodChooser = false
+                rememberScanChoice = false
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -70,7 +93,12 @@ fun DashboardScreen(
             is UiState.Success -> {
                 val snapshot = snapshotState.data
                 item { DashboardOverviewCard(snapshot) }
-                item { DashboardQuickActions(onOpenScan = onOpenScan, onOpenAddCustomer = onOpenAddCustomer) }
+                item {
+                    DashboardQuickActions(
+                        onOpenScan = { showScanMethodChooser = true },
+                        onOpenAddCustomer = onOpenAddCustomer,
+                    )
+                }
                 item { DashboardPromotionCard(snapshot = snapshot, onOpenPromotions = onOpenPromotions) }
                 item { DashboardTodayStats(snapshot) }
             }

@@ -34,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.ScanMethod
 import com.vector.verevcodex.presentation.analytics.AnalyticsDashboardScreen
 import com.vector.verevcodex.presentation.analytics.StaffAnalyticsScreen
 import com.vector.verevcodex.presentation.auth.forgot.ForgotPasswordScreen
@@ -41,6 +42,7 @@ import com.vector.verevcodex.presentation.auth.forgot.RecoveryMode
 import com.vector.verevcodex.presentation.auth.login.LoginScreen
 import com.vector.verevcodex.presentation.auth.signup.SignupScreen
 import com.vector.verevcodex.presentation.customers.AddCustomerScreen
+import com.vector.verevcodex.presentation.customers.CustomerCredentialManagementScreen
 import com.vector.verevcodex.presentation.customers.CustomerListScreen
 import com.vector.verevcodex.presentation.customers.CustomerProfileScreen
 import com.vector.verevcodex.presentation.dashboard.DashboardScreen
@@ -71,12 +73,23 @@ sealed class Screen(val route: String, @StringRes val labelRes: Int) {
     data object ForgotPin : Screen("forgot_pin", R.string.auth_forgot_pin_title)
     data object StoreSelection : Screen("store_selection", R.string.merchant_select_store)
     data object Dashboard : Screen("dashboard", R.string.merchant_tab_home)
-    data object Scan : Screen("scan", R.string.merchant_scan)
+    data object Scan : Screen("scan?method={method}", R.string.merchant_scan) {
+        const val ARG_METHOD = "method"
+        fun createRoute(method: ScanMethod? = null): String = if (method == null) {
+            "scan"
+        } else {
+            "scan?method=${method.name.lowercase()}"
+        }
+    }
     data object Customers : Screen("customers", R.string.merchant_tab_customers)
     data object AddCustomer : Screen("add_customer", R.string.merchant_add_customer_title)
     data object CustomerProfile : Screen("customer_profile/{customerId}", R.string.merchant_customer_profile) {
         const val ARG_CUSTOMER_ID = "customerId"
         fun createRoute(customerId: String): String = "customer_profile/$customerId"
+    }
+    data object CustomerCredentialManagement : Screen("customer_credentials/{customerId}", R.string.merchant_customer_credentials_section) {
+        const val ARG_CUSTOMER_ID = "customerId"
+        fun createRoute(customerId: String): String = "customer_credentials/$customerId"
     }
     data object Transactions : Screen("transactions", R.string.merchant_transactions)
     data object Rewards : Screen("rewards", R.string.merchant_rewards_title)
@@ -159,17 +172,35 @@ fun MerchantAppNavHost(
             MerchantShell(navController = navController) { padding ->
                 DashboardScreen(
                     contentPadding = padding,
-                    onOpenScan = { navController.navigate(Screen.Scan.route) },
+                    onOpenScan = { method, rememberChoice ->
+                        scanViewModel.enterScan(method = method, rememberChoice = rememberChoice)
+                        navController.navigate(Screen.Scan.createRoute(method))
+                    },
                     onOpenAddCustomer = { navController.navigate(Screen.AddCustomer.route) },
                     onOpenPromotions = { navController.navigate(Screen.Campaigns.route) },
                 )
             }
         }
-        composable(Screen.Scan.route) {
+        composable(
+            route = Screen.Scan.route,
+            arguments = listOf(navArgument(Screen.Scan.ARG_METHOD) {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }),
+        ) { entry ->
+            val methodArg = entry.arguments?.getString(Screen.Scan.ARG_METHOD)
+            val initialMethod = when (methodArg?.lowercase()) {
+                "nfc" -> ScanMethod.NFC
+                "barcode" -> ScanMethod.BARCODE
+                else -> null
+            }
             MerchantShell(navController = navController) { padding ->
                 ScanScreen(
                     viewModel = scanViewModel,
                     contentPadding = padding,
+                    initialMethod = initialMethod,
+                    onBack = { navController.popBackStack() },
                     onOpenCustomer = { customerId ->
                         navController.navigate(Screen.CustomerProfile.createRoute(customerId))
                     },
@@ -205,6 +236,20 @@ fun MerchantAppNavHost(
         ) {
             MerchantShell(navController = navController) { padding ->
                 CustomerProfileScreen(
+                    contentPadding = padding,
+                    onBack = { navController.popBackStack() },
+                    onManageCredentials = { customerId ->
+                        navController.navigate(Screen.CustomerCredentialManagement.createRoute(customerId))
+                    },
+                )
+            }
+        }
+        composable(
+            route = Screen.CustomerCredentialManagement.route,
+            arguments = listOf(navArgument(Screen.CustomerCredentialManagement.ARG_CUSTOMER_ID) { type = NavType.StringType }),
+        ) {
+            MerchantShell(navController = navController) { padding ->
+                CustomerCredentialManagementScreen(
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
                 )
@@ -343,22 +388,28 @@ private fun MerchantShell(
         TopLevelDestination(Screen.Settings, Icons.Default.Settings),
     )
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val topLevelRoutes = destinations.map { it.screen.route }.toSet()
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
+    val showTopBar = currentRoute in topLevelRoutes
+    val showBottomBar = currentRoute in topLevelRoutes
+    val showFab = currentRoute in topLevelRoutes
 
     Scaffold(
         containerColor = VerevColors.AppBackground,
         topBar = {
-            MerchantTopBar(
-                currentUser = shellState.currentUser,
-                selectedStore = shellState.selectedStore,
-                stores = shellState.stores,
-                onStoreSelected = shellViewModel::selectStore,
-            )
+            if (showTopBar) {
+                MerchantTopBar(
+                    currentUser = shellState.currentUser,
+                    selectedStore = shellState.selectedStore,
+                    stores = shellState.stores,
+                    onStoreSelected = shellViewModel::selectStore,
+                )
+            }
         },
         floatingActionButton = {
-            if (currentRoute != Screen.Scan.route) {
+            if (showFab) {
                 FloatingActionButton(
-                    onClick = { navController.navigate(Screen.Scan.route) },
+                    onClick = { navController.navigate(Screen.Scan.createRoute(ScanMethod.NFC)) },
                     containerColor = VerevColors.Gold,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp),
@@ -368,17 +419,19 @@ private fun MerchantShell(
             }
         },
         bottomBar = {
-            MerchantBottomBar(
-                destinations = destinations.map { MerchantBottomDestination(it.screen.route, it.screen.labelRes, it.icon) },
-                currentRoute = currentRoute,
-                onDestinationClick = { destination ->
-                    navController.navigate(destination.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-            )
+            if (showBottomBar) {
+                MerchantBottomBar(
+                    destinations = destinations.map { MerchantBottomDestination(it.screen.route, it.screen.labelRes, it.icon) },
+                    currentRoute = currentRoute,
+                    onDestinationClick = { destination ->
+                        navController.navigate(destination.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().background(VerevColors.AppBackground)) {

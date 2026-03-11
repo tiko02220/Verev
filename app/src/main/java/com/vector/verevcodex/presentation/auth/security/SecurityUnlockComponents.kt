@@ -69,11 +69,6 @@ internal fun SecurityBrandHeader() {
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
-        Text(
-            text = stringResource(R.string.auth_security_brand_portal),
-            color = Color.White.copy(alpha = 0.82f),
-            style = MaterialTheme.typography.headlineSmall,
-        )
     }
 }
 
@@ -91,9 +86,9 @@ internal fun SecurityUnlockCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = stringResource(R.string.auth_welcome_back),
@@ -112,19 +107,6 @@ internal fun SecurityUnlockCard(
                     isActive = state.promptBiometric,
                     onClick = onUseBiometric,
                 )
-                Button(
-                    onClick = onUseBiometric,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = colorResource(R.color.brand_green),
-                    ),
-                ) {
-                    Text(
-                        text = stringResource(R.string.auth_unlock_use_biometric),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
             }
             AuthPinBoxes(
                 value = pinValue,
@@ -211,7 +193,13 @@ private fun SecurityBiometricCheckingCard(
                 tint = colorResource(R.color.brand_green).copy(alpha = if (isActive) animatedAlpha else 1f),
             )
             Text(
-                text = stringResource(R.string.auth_unlock_checking_biometric),
+                text = stringResource(
+                    if (isActive) {
+                        R.string.auth_unlock_checking_biometric
+                    } else {
+                        R.string.auth_unlock_use_biometric
+                    },
+                ),
                 color = colorResource(R.color.brand_green).copy(alpha = if (isActive) animatedAlpha else 1f),
                 style = MaterialTheme.typography.titleMedium,
             )

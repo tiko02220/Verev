@@ -3,6 +3,7 @@ package com.vector.verevcodex.data.db
 import com.vector.verevcodex.data.db.entity.CampaignEntity
 import com.vector.verevcodex.data.db.entity.CampaignTargetEntity
 import com.vector.verevcodex.data.db.entity.CustomerBusinessRelationEntity
+import com.vector.verevcodex.data.db.entity.CustomerCredentialEntity
 import com.vector.verevcodex.data.db.entity.CustomerEntity
 import com.vector.verevcodex.data.db.entity.NotificationEntity
 import com.vector.verevcodex.data.db.entity.OwnerEntity
@@ -40,9 +41,9 @@ object SeedData {
     )
 
     val customers = listOf(
-        CustomerEntity("44444444-4444-4444-4444-444444444441", "Anna", "Sargsyan", "+37491112233", "anna@example.com", "04AABBCC", LocalDate.now().minusMonths(6).toString(), 18, 142000.0, 380, "GOLD", LocalDateTime.now().minusDays(2).toString(), stores[0].id),
-        CustomerEntity("44444444-4444-4444-4444-444444444442", "David", "Mkrtchyan", "+37493111223", "david@example.com", "04DD0011", LocalDate.now().minusMonths(2).toString(), 7, 56000.0, 120, "SILVER", LocalDateTime.now().minusDays(4).toString(), stores[0].id),
-        CustomerEntity("44444444-4444-4444-4444-444444444443", "Sona", "Karapetyan", "+37494123456", "sona@example.com", "04EE2299", LocalDate.now().minusMonths(4).toString(), 10, 88000.0, 65, "BRONZE", LocalDateTime.now().minusDays(8).toString(), stores[1].id),
+        CustomerEntity("44444444-4444-4444-4444-444444444441", "Anna", "Sargsyan", "+37491112233", "anna@example.com", "VRV-04AABBCC", LocalDate.now().minusMonths(6).toString(), 18, 142000.0, 380, "GOLD", LocalDateTime.now().minusDays(2).toString(), stores[0].id),
+        CustomerEntity("44444444-4444-4444-4444-444444444442", "David", "Mkrtchyan", "+37493111223", "david@example.com", "VRV-04DD0011", LocalDate.now().minusMonths(2).toString(), 7, 56000.0, 120, "SILVER", LocalDateTime.now().minusDays(4).toString(), stores[0].id),
+        CustomerEntity("44444444-4444-4444-4444-444444444443", "Sona", "Karapetyan", "+37494123456", "sona@example.com", "VRV-04EE2299", LocalDate.now().minusMonths(4).toString(), 10, 88000.0, 65, "BRONZE", LocalDateTime.now().minusDays(8).toString(), stores[1].id),
     )
 
     val customerRelations = listOf(
@@ -51,10 +52,61 @@ object SeedData {
         CustomerBusinessRelationEntity("55555555-5555-5555-5555-555555555553", customers[2].id, stores[1].id, LocalDateTime.now().minusMonths(4).toString(), "Hair color membership"),
     )
 
+    val customerCredentials = listOf(
+        CustomerCredentialEntity("cred-1-barcode", customers[0].id, customers[0].loyaltyId, "BARCODE_IMAGE", "LINKED", customers[0].loyaltyId, LocalDateTime.now().minusMonths(6).toString()),
+        CustomerCredentialEntity("cred-1-wallet", customers[0].id, customers[0].loyaltyId, "GOOGLE_WALLET", "AVAILABLE", null, LocalDateTime.now().minusMonths(6).toString()),
+        CustomerCredentialEntity("cred-1-nfc", customers[0].id, customers[0].loyaltyId, "NFC_CARD", "LINKED", customers[0].loyaltyId, LocalDateTime.now().minusMonths(6).toString()),
+        CustomerCredentialEntity("cred-2-barcode", customers[1].id, customers[1].loyaltyId, "BARCODE_IMAGE", "LINKED", customers[1].loyaltyId, LocalDateTime.now().minusMonths(2).toString()),
+        CustomerCredentialEntity("cred-2-wallet", customers[1].id, customers[1].loyaltyId, "GOOGLE_WALLET", "AVAILABLE", null, LocalDateTime.now().minusMonths(2).toString()),
+        CustomerCredentialEntity("cred-2-nfc", customers[1].id, customers[1].loyaltyId, "NFC_CARD", "AVAILABLE", null, LocalDateTime.now().minusMonths(2).toString()),
+        CustomerCredentialEntity("cred-3-barcode", customers[2].id, customers[2].loyaltyId, "BARCODE_IMAGE", "LINKED", customers[2].loyaltyId, LocalDateTime.now().minusMonths(4).toString()),
+        CustomerCredentialEntity("cred-3-wallet", customers[2].id, customers[2].loyaltyId, "GOOGLE_WALLET", "AVAILABLE", null, LocalDateTime.now().minusMonths(4).toString()),
+        CustomerCredentialEntity("cred-3-nfc", customers[2].id, customers[2].loyaltyId, "NFC_CARD", "AVAILABLE", null, LocalDateTime.now().minusMonths(4).toString()),
+    )
+
     val programs = listOf(
-        RewardProgramEntity("66666666-6666-6666-6666-666666666661", stores[0].id, "Bean Points", "1 point per 100 AMD", "POINTS", "1 point per 100 AMD, Gold bonus after 300 points", true),
-        RewardProgramEntity("66666666-6666-6666-6666-666666666662", stores[1].id, "Luna Tier Club", "Tiered salon perks", "TIER", "Bronze/Silver/Gold/VIP with visit thresholds", true),
-        RewardProgramEntity("66666666-6666-6666-6666-666666666663", stores[0].id, "Weekend Stamp", "Stamp every weekend visit", "DIGITAL_STAMP", "8 stamps unlock free pastry", true),
+        RewardProgramEntity(
+            "66666666-6666-6666-6666-666666666661",
+            stores[0].id,
+            "Bean Points",
+            "1 point per 100 AMD",
+            "POINTS",
+            "1 point per 100 AMD, Gold bonus after 300 points",
+            true,
+            earningEnabled = true,
+            rewardRedemptionEnabled = true,
+            visitCheckInEnabled = false,
+            cashbackEnabled = false,
+            tierTrackingEnabled = false,
+        ),
+        RewardProgramEntity(
+            "66666666-6666-6666-6666-666666666662",
+            stores[1].id,
+            "Luna Tier Club",
+            "Tiered salon perks",
+            "TIER",
+            "Bronze/Silver/Gold/VIP with visit thresholds",
+            true,
+            earningEnabled = false,
+            rewardRedemptionEnabled = false,
+            visitCheckInEnabled = true,
+            cashbackEnabled = false,
+            tierTrackingEnabled = true,
+        ),
+        RewardProgramEntity(
+            "66666666-6666-6666-6666-666666666663",
+            stores[0].id,
+            "Weekend Stamp",
+            "Stamp every weekend visit",
+            "DIGITAL_STAMP",
+            "8 stamps unlock free pastry",
+            true,
+            earningEnabled = false,
+            rewardRedemptionEnabled = false,
+            visitCheckInEnabled = true,
+            cashbackEnabled = false,
+            tierTrackingEnabled = false,
+        ),
     )
 
     val rewards = listOf(

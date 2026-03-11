@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -33,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +72,44 @@ fun MerchantPageHeader(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions)
         }
+    }
+}
+
+@Composable
+fun MerchantBackHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onBack)
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.auth_back),
+                tint = VerevColors.Forest,
+            )
+            Text(
+                text = stringResource(R.string.auth_back),
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        MerchantPageHeader(
+            title = title,
+            subtitle = subtitle,
+        )
     }
 }
 
@@ -306,37 +347,58 @@ fun MerchantFormField(
     readOnly: Boolean = false,
     enabled: Boolean = true,
     supportingText: String? = null,
+    isError: Boolean = false,
+    errorText: String? = null,
     keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onValueChange(it.replace("\n", "")) },
-        modifier = modifier.fillMaxWidth(),
-        label = { Text(label) },
-        leadingIcon = { Icon(leadingIcon, contentDescription = null) },
-        supportingText = supportingText?.let { text ->
-            { Text(text = text, color = VerevColors.Forest.copy(alpha = 0.5f)) }
-        },
-        singleLine = singleLine,
-        readOnly = readOnly,
-        enabled = enabled,
-        keyboardOptions = keyboardOptions,
-        shape = RoundedCornerShape(18.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VerevColors.Gold,
-            unfocusedBorderColor = colorResource(R.color.text_hint).copy(alpha = 0.18f),
-            disabledBorderColor = colorResource(R.color.text_hint).copy(alpha = 0.14f),
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            disabledContainerColor = Color.White,
-            focusedLabelColor = VerevColors.Forest,
-            unfocusedLabelColor = VerevColors.Forest.copy(alpha = 0.56f),
-            focusedLeadingIconColor = VerevColors.Gold,
-            unfocusedLeadingIconColor = VerevColors.Forest.copy(alpha = 0.5f),
-            disabledLeadingIconColor = VerevColors.Forest.copy(alpha = 0.32f),
-            cursorColor = VerevColors.Gold,
-        ),
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { onValueChange(it.replace("\n", "")) },
+            modifier = modifier.fillMaxWidth(),
+            label = { Text(label) },
+            leadingIcon = { Icon(leadingIcon, contentDescription = null) },
+            supportingText = if (errorText == null) {
+                supportingText?.let { text ->
+                    { Text(text = text, color = VerevColors.Forest.copy(alpha = 0.5f)) }
+                }
+            } else {
+                null
+            },
+            singleLine = singleLine,
+            readOnly = readOnly,
+            enabled = enabled,
+            isError = isError,
+            keyboardOptions = keyboardOptions,
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = VerevColors.Gold,
+                unfocusedBorderColor = colorResource(R.color.text_hint).copy(alpha = 0.18f),
+                errorBorderColor = colorResource(R.color.error_red),
+                errorLabelColor = colorResource(R.color.error_red),
+                errorLeadingIconColor = colorResource(R.color.error_red),
+                errorCursorColor = colorResource(R.color.error_red),
+                disabledBorderColor = colorResource(R.color.text_hint).copy(alpha = 0.14f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                errorContainerColor = Color.White,
+                focusedLabelColor = VerevColors.Forest,
+                unfocusedLabelColor = VerevColors.Forest.copy(alpha = 0.56f),
+                focusedLeadingIconColor = VerevColors.Gold,
+                unfocusedLeadingIconColor = VerevColors.Forest.copy(alpha = 0.5f),
+                disabledLeadingIconColor = VerevColors.Forest.copy(alpha = 0.32f),
+                cursorColor = VerevColors.Gold,
+            ),
+        )
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorResource(R.color.error_red),
+            )
+        }
+    }
 }
 
 @Composable

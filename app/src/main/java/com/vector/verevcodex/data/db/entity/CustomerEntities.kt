@@ -1,6 +1,8 @@
 package com.vector.verevcodex.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "customers")
@@ -10,7 +12,7 @@ data class CustomerEntity(
     val lastName: String,
     val phoneNumber: String,
     val email: String,
-    val nfcId: String,
+    @ColumnInfo(name = "nfcId") val loyaltyId: String,
     val enrolledDate: String,
     val totalVisits: Int,
     val totalSpent: Double,
@@ -20,11 +22,16 @@ data class CustomerEntity(
     val favoriteStoreId: String?,
 )
 
-@Entity(tableName = "customer_business_relations")
-data class CustomerBusinessRelationEntity(
+@Entity(
+    tableName = "customer_credentials",
+    indices = [Index(value = ["customerId", "method"], unique = true)],
+)
+data class CustomerCredentialEntity(
     @PrimaryKey val id: String,
     val customerId: String,
-    val storeId: String,
-    val joinedAt: String,
-    val notes: String,
+    val loyaltyId: String,
+    val method: String,
+    val status: String,
+    val referenceValue: String?,
+    val updatedAt: String,
 )

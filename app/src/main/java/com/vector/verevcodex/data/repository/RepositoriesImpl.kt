@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.vector.verevcodex.core.identifiers.LoyaltyIdCodec
 import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.db.SeedData
 import com.vector.verevcodex.data.db.entity.CustomerBusinessRelationEntity
+import com.vector.verevcodex.data.db.entity.CustomerCredentialEntity
 import com.vector.verevcodex.data.db.entity.CustomerEntity
 import com.vector.verevcodex.data.db.entity.PointsLedgerEntity
 import com.vector.verevcodex.data.db.entity.StaffMemberEntity
@@ -15,10 +17,16 @@ import com.vector.verevcodex.data.mapper.toEntity
 import com.vector.verevcodex.domain.model.BusinessAnalytics
 import com.vector.verevcodex.domain.model.Campaign
 import com.vector.verevcodex.domain.model.Customer
+import com.vector.verevcodex.domain.model.CustomerCredential
+import com.vector.verevcodex.domain.model.CustomerCredentialMethod
+import com.vector.verevcodex.domain.model.CustomerCredentialStatus
 import com.vector.verevcodex.domain.model.CustomerDraft
 import com.vector.verevcodex.domain.model.DashboardSnapshot
 import com.vector.verevcodex.domain.model.LoyaltyTier
 import com.vector.verevcodex.domain.model.ReportExport
+import com.vector.verevcodex.domain.model.RewardProgram
+import com.vector.verevcodex.domain.model.RewardProgramDraft
+import com.vector.verevcodex.domain.model.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.StaffAnalytics
 import com.vector.verevcodex.domain.model.Store
 import com.vector.verevcodex.domain.model.Transaction
@@ -60,6 +68,7 @@ class DatabaseSeeder @Inject constructor(
         database.storeDao().insertAll(SeedData.stores)
         database.staffDao().insertAll(SeedData.staff)
         database.customerDao().insertAll(SeedData.customers)
+        database.customerCredentialDao().insertAll(SeedData.customerCredentials)
         database.customerBusinessRelationDao().insertAll(SeedData.customerRelations)
         database.transactionDao().insertAll(SeedData.transactions)
         database.transactionItemDao().insertAll(SeedData.transactionItems)
@@ -128,7 +137,10 @@ class CustomerRepositoryImpl @Inject constructor(
     override fun observeCustomer(customerId: String): Flow<Customer?> =
         database.customerDao().observeCustomer(customerId).map { it?.toDomain() }
 
-    override suspend fun findByNfcId(nfcId: String): Customer? = database.customerDao().findByNfcId(nfcId)?.toDomain()
+    override fun observeCustomerCredentials(customerId: String): Flow<List<CustomerCredential>> =
+        database.customerCredentialDao().observeCredentials(customerId).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun findByLoyaltyId(loyaltyId: String): Customer? = database.customerDao().findByLoyaltyId(loyaltyId)?.toDomain()
 
     override suspend fun createCustomer(draft: CustomerDraft, storeId: String): Customer {
         val customer = CustomerEntity(
@@ -137,7 +149,7 @@ class CustomerRepositoryImpl @Inject constructor(
             lastName = draft.lastName.trim(),
             phoneNumber = draft.phoneNumber.trim(),
             email = draft.email.trim().lowercase(),
-            nfcId = draft.nfcId?.trim()?.ifBlank { null } ?: "MANUAL-${UUID.randomUUID().toString().take(8)}",
+            loyaltyId = draft.loyaltyId?.trim()?.ifBlank { null } ?: LoyaltyIdCodec.generate(),
             enrolledDate = LocalDate.now().toString(),
             totalVisits = 0,
             totalSpent = 0.0,
@@ -156,19 +168,71 @@ class CustomerRepositoryImpl @Inject constructor(
                 notes = "Manual registration from dashboard flow",
             )
         )
+        database.customerCredentialDao().insertAll(
+            listOf(
+                CustomerCredentialEntity(
+                    id = UUID.randomUUID().toString(),
+                    customerId = customer.id,
+                    loyaltyId = customer.loyaltyId,
+                    method = CustomerCredentialMethod.BARCODE_IMAGE.name,
+                    status = CustomerCredentialStatus.LINKED.name,
+                    referenceValue = customer.loyaltyId,
+                    updatedAt = LocalDateTime.now().toString(),
+                ),
+                CustomerCredentialEntity(
+                    id = UUID.randomUUID().toString(),
+                    customerId = customer.id,
+                    loyaltyId = customer.loyaltyId,
+                    method = CustomerCredentialMethod.GOOGLE_WALLET.name,
+                    status = CustomerCredentialStatus.AVAILABLE.name,
+                    referenceValue = null,
+                    updatedAt = LocalDateTime.now().toString(),
+                ),
+                CustomerCredentialEntity(
+                    id = UUID.randomUUID().toString(),
+                    customerId = customer.id,
+                    loyaltyId = customer.loyaltyId,
+                    method = CustomerCredentialMethod.NFC_CARD.name,
+                    status = CustomerCredentialStatus.AVAILABLE.name,
+                    referenceValue = null,
+                    updatedAt = LocalDateTime.now().toString(),
+                ),
+            )
+        )
         return customer.toDomain()
     }
 
-    override suspend fun registerQuickCustomer(firstName: String, phoneNumber: String, nfcId: String, storeId: String): Customer {
+    override suspend fun registerQuickCustomer(firstName: String, phoneNumber: String, loyaltyId: String, storeId: String): Customer {
         return createCustomer(
             draft = CustomerDraft(
                 firstName = firstName,
                 lastName = "",
                 phoneNumber = phoneNumber,
                 email = "",
-                nfcId = nfcId,
+                loyaltyId = loyaltyId,
             ),
             storeId = storeId,
+        )
+    }
+
+    override suspend fun upsertCustomerCredential(
+        customerId: String,
+        loyaltyId: String,
+        method: CustomerCredentialMethod,
+        status: CustomerCredentialStatus,
+        referenceValue: String?,
+    ) {
+        val existing = database.customerCredentialDao().getCredential(customerId, method.name)
+        database.customerCredentialDao().insert(
+            CustomerCredentialEntity(
+                id = existing?.id ?: UUID.randomUUID().toString(),
+                customerId = customerId,
+                loyaltyId = loyaltyId,
+                method = method.name,
+                status = status.name,
+                referenceValue = referenceValue,
+                updatedAt = LocalDateTime.now().toString(),
+            )
         )
     }
 
@@ -185,7 +249,8 @@ class CustomerRepositoryImpl @Inject constructor(
 class LoyaltyRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
 ) : LoyaltyRepository {
-    override fun observePrograms(storeId: String?) = database.loyaltyDao().observePrograms(storeId).map { list -> list.map { it.toDomain() } }
+    override fun observePrograms(storeId: String?): Flow<List<RewardProgram>> =
+        database.loyaltyDao().observePrograms(storeId).map { list -> list.map { it.toDomain() } }
 
     override fun observeRewards(storeId: String?) = database.loyaltyDao().observeRewards(storeId).map { list -> list.map { it.toDomain() } }
 
@@ -194,6 +259,58 @@ class LoyaltyRepositoryImpl @Inject constructor(
         MutableStateFlow(runBlocking { database.loyaltyDao().getCampaignTargets() }),
     ) { campaigns, targets ->
         campaigns.mapNotNull { campaign -> targets.firstOrNull { it.campaignId == campaign.id }?.let { campaign.toDomain(it) } }
+    }
+
+    override fun observeActiveScanActions(storeId: String?): Flow<List<RewardProgramScanAction>> =
+        observePrograms(storeId).map { programs ->
+            programs
+                .asSequence()
+                .filter { it.active }
+                .flatMap { it.configuration.scanActions.asSequence() }
+                .distinct()
+                .sortedBy { it.ordinal }
+                .toList()
+        }
+
+    override suspend fun createProgram(draft: RewardProgramDraft): RewardProgram {
+        val program = RewardProgram(
+            id = UUID.randomUUID().toString(),
+            storeId = draft.storeId,
+            name = draft.name.trim(),
+            description = draft.description.trim(),
+            type = draft.type,
+            rulesSummary = draft.rulesSummary.trim(),
+            active = draft.active,
+            configuration = draft.configuration,
+        )
+        database.loyaltyDao().insertProgram(program.toEntity())
+        return program
+    }
+
+    override suspend fun updateProgram(programId: String, draft: RewardProgramDraft): RewardProgram {
+        val existing = database.loyaltyDao().getProgram(programId)
+            ?: error("Program $programId does not exist")
+        val updated = RewardProgram(
+            id = existing.id,
+            storeId = draft.storeId,
+            name = draft.name.trim(),
+            description = draft.description.trim(),
+            type = draft.type,
+            rulesSummary = draft.rulesSummary.trim(),
+            active = draft.active,
+            configuration = draft.configuration,
+        )
+        database.loyaltyDao().insertProgram(updated.toEntity())
+        return updated
+    }
+
+    override suspend fun setProgramEnabled(programId: String, enabled: Boolean) {
+        val current = database.loyaltyDao().getProgram(programId) ?: return
+        database.loyaltyDao().insertProgram(current.copy(active = enabled))
+    }
+
+    override suspend fun deleteProgram(programId: String) {
+        database.loyaltyDao().deleteProgram(programId)
     }
 }
 
