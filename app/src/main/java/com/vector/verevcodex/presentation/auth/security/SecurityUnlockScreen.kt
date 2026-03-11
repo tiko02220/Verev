@@ -61,11 +61,11 @@ fun SecurityUnlockScreen(
     }
 
     AuthGradientScreenScaffold {
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(16.dp))
         AuthCenteredSection(maxWidth = 520.dp) {
             SecurityBrandHeader()
         }
-        Spacer(Modifier.height(38.dp))
+        Spacer(Modifier.height(24.dp))
         AuthCenteredSection(maxWidth = 520.dp) {
             SecurityUnlockCard(
                 state = state,
@@ -79,7 +79,7 @@ fun SecurityUnlockScreen(
                 onLogoutRequested = { showLogoutDialog = true },
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
         androidx.compose.material3.Text(
             text = "\uD83D\uDD12 ${stringResource(R.string.auth_unlock_secure_note)}",
             color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.82f),

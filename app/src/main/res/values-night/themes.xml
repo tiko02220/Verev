@@ -1,3 +1,11 @@
 <resources>
     <style name="Theme.VerevCodex" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <style name="Theme.VerevCodex.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_forest_deep</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_round</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.VerevCodex</item>
+        <item name="android:windowBackground">@drawable/splash_system_background</item>
+    </style>
 </resources>

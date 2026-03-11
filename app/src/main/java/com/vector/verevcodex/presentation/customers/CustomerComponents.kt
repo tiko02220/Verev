@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,8 +35,6 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.Customer
 import com.vector.verevcodex.domain.model.LoyaltyTier
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
-import com.vector.verevcodex.presentation.merchant.common.MerchantPageHeader
-import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantSearchField
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.MerchantTextAction
@@ -46,45 +45,52 @@ import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
-internal fun CustomersHeader(totalCount: Int) {
-    MerchantPageHeader(
-        title = stringResource(R.string.merchant_customers_title),
-        subtitle = stringResource(R.string.merchant_customers_subtitle, totalCount),
-    )
-}
-
-@Composable
-internal fun CustomerSearchBar(
+internal fun CustomersHeaderPanel(
+    totalCount: Int,
     query: String,
-    onQueryChange: (String) -> Unit,
-) {
-    MerchantSearchField(
-        value = query,
-        onValueChange = onQueryChange,
-        label = stringResource(R.string.merchant_customer_search_label),
-        leadingIcon = Icons.Default.Search,
-    )
-}
-
-@Composable
-internal fun CustomerTierFilters(
     selectedTier: LoyaltyTier?,
+    onQueryChange: (String) -> Unit,
     onTierSelected: (LoyaltyTier?) -> Unit,
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            MerchantFilterChip(
-                text = stringResource(R.string.merchant_filter_all),
-                selected = selectedTier == null,
-                onClick = { onTierSelected(null) },
+    CustomerBodySection(
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CustomerHeaderStat(
+                title = stringResource(R.string.merchant_customers_title),
+                value = formatCompactCount(totalCount),
+                modifier = Modifier.weight(1f),
+            )
+            CustomerHeaderStat(
+                title = stringResource(R.string.merchant_customer_tier_filter_label),
+                value = if (selectedTier == null) stringResource(R.string.merchant_filter_all) else selectedTier.displayName(),
+                modifier = Modifier.weight(1f),
             )
         }
-        items(LoyaltyTier.entries) { tier ->
-            MerchantFilterChip(
-                text = tier.displayName(),
-                selected = selectedTier == tier,
-                onClick = { onTierSelected(tier) },
-            )
+        MerchantSearchField(
+            value = query,
+            onValueChange = onQueryChange,
+            label = stringResource(R.string.merchant_customer_search_label),
+            leadingIcon = Icons.Default.Search,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                MerchantFilterChip(
+                    text = stringResource(R.string.merchant_filter_all),
+                    selected = selectedTier == null,
+                    onClick = { onTierSelected(null) },
+                )
+            }
+            items(LoyaltyTier.entries) { tier ->
+                MerchantFilterChip(
+                    text = tier.displayName(),
+                    selected = selectedTier == tier,
+                    onClick = { onTierSelected(tier) },
+                )
+            }
         }
     }
 }
@@ -96,37 +102,44 @@ internal fun CustomerCard(
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    MerchantPrimaryCard(modifier = modifier) {
+    CustomerBodySection(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(60.dp)
                     .clip(CircleShape)
                     .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = listOf(customer.firstName, customer.lastName).filter { it.isNotBlank() }.joinToString(" "),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = VerevColors.Forest,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                 )
-                Spacer(Modifier.size(2.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = customer.email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.64f),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
                     style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.6f),
+                    color = VerevColors.Forest.copy(alpha = 0.52f),
                 )
             }
             CustomerTierPill(customer.loyaltyTier)
         }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -137,32 +150,69 @@ internal fun CustomerCard(
                 modifier = Modifier.weight(1f),
             )
             CustomerMiniStat(
-                label = stringResource(R.string.merchant_metric_spent),
-                value = formatWholeCurrency(customer.totalSpent),
-                modifier = Modifier.weight(1f),
-            )
-            CustomerMiniStat(
                 label = stringResource(R.string.merchant_metric_visits),
                 value = formatCompactCount(customer.totalVisits),
                 modifier = Modifier.weight(1f),
             )
+            CustomerMiniStat(
+                label = stringResource(R.string.merchant_metric_spent),
+                value = formatWholeCurrency(customer.totalSpent),
+                modifier = Modifier.weight(1f),
+            )
         }
+
         Text(
             text = stringResource(R.string.merchant_customer_last_visit, formatRelativeDateTime(customer.lastVisit)),
             style = MaterialTheme.typography.bodySmall,
-            color = VerevColors.Forest.copy(alpha = 0.5f),
+            color = VerevColors.Forest.copy(alpha = 0.52f),
         )
-        Button(
-            onClick = onRewardBoost,
+
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text = stringResource(R.string.merchant_customer_goodwill_points))
+            Button(
+                onClick = onRewardBoost,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Gold,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text(text = stringResource(R.string.merchant_customer_goodwill_points), fontWeight = FontWeight.Medium)
+            }
+            MerchantTextAction(
+                text = stringResource(R.string.merchant_customer_view_profile),
+                onClick = onOpenProfile,
+            )
         }
-        MerchantTextAction(
-            text = stringResource(R.string.merchant_customer_view_profile),
-            onClick = onOpenProfile,
+    }
+}
+
+@Composable
+private fun CustomerHeaderStat(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(VerevColors.AppBackground)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest.copy(alpha = 0.54f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -177,7 +227,7 @@ private fun CustomerMiniStat(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(VerevColors.AppBackground)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -189,7 +239,7 @@ private fun CustomerMiniStat(
 @Composable
 private fun CustomerTierPill(tier: LoyaltyTier) {
     val (backgroundColor, contentColor) = when (tier) {
-        LoyaltyTier.BRONZE -> VerevColors.Tan.copy(alpha = 0.2f) to VerevColors.Tan
+        LoyaltyTier.BRONZE -> VerevColors.Tan.copy(alpha = 0.18f) to VerevColors.Tan
         LoyaltyTier.SILVER -> Color(0xFFE2E8F0) to Color(0xFF475569)
         LoyaltyTier.GOLD -> Color(0xFFFef3C7) to VerevColors.Gold
         LoyaltyTier.VIP -> Color(0xFFE9D5FF) to Color(0xFF7C3AED)

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vector.verevcodex.data.db.AppDatabase
+import com.vector.verevcodex.data.repository.DatabaseSeeder
 import com.vector.verevcodex.data.db.entity.OwnerEntity
 import com.vector.verevcodex.data.db.entity.StoreEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
@@ -25,6 +26,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 
 private val Context.authDataStore by preferencesDataStore(name = "auth_prefs")
 
@@ -32,11 +34,16 @@ private val Context.authDataStore by preferencesDataStore(name = "auth_prefs")
 class AuthRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     @ApplicationContext context: Context,
+    seeder: DatabaseSeeder,
 ) : AuthRepository {
     private val dataStore = context.authDataStore
     private val currentAccountKey = stringPreferencesKey("current_account_id")
     private var pendingResetEmail: String? = null
     private var pendingResetCode: String? = null
+
+    init {
+        runBlocking { seeder.seedIfNeeded() }
+    }
 
     override fun observeSession(): Flow<AuthSession?> = dataStore.data.map { preferences ->
         val accountId = preferences[currentAccountKey] ?: return@map null

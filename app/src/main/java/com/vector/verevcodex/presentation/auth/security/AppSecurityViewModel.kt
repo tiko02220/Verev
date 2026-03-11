@@ -2,8 +2,6 @@ package com.vector.verevcodex.presentation.auth.security
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.auth.AuthSession
-import com.vector.verevcodex.domain.model.auth.SecurityConfig
 import com.vector.verevcodex.domain.usecase.auth.LogoutUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveCurrentSecurityConfigUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
@@ -38,13 +36,18 @@ class AppSecurityViewModel @Inject constructor(
             session to security
         }.onEach { (session, security) ->
             val current = _uiState.value
+            val authEntryDestination = when {
+                session != null -> null
+                current.authEntryDestination != null -> current.authEntryDestination
+                else -> AuthEntryDestination.LOGIN
+            }
             if (!firstObservationHandled) {
                 firstObservationHandled = true
                 _uiState.value = current.copy(
                     isInitialized = true,
                     session = session,
                     securityConfig = security,
-                    authEntryDestination = AuthEntryDestination.LOGIN,
+                    authEntryDestination = authEntryDestination,
                     requiresUnlock = session != null && security != null,
                     pinDigits = List(4) { "" },
                     pinError = null,
@@ -56,8 +59,8 @@ class AppSecurityViewModel @Inject constructor(
                     isInitialized = true,
                     session = session,
                     securityConfig = security,
+                    authEntryDestination = authEntryDestination,
                     requiresUnlock = when {
-                        current.exitDestination != null -> true
                         session == null || security == null -> false
                         else -> current.requiresUnlock
                     },
@@ -123,48 +126,26 @@ class AppSecurityViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             authEntryDestination = AuthEntryDestination.LOGIN,
             authEntryNonce = _uiState.value.authEntryNonce + 1,
-            requiresUnlock = true,
+            requiresUnlock = false,
             promptBiometric = false,
-            exitDestination = SecurityExitDestination.LOGIN,
         )
+        viewModelScope.launch {
+            logoutUseCase()
+            lastBackgroundedAtMillis = null
+        }
     }
 
     fun recoverAccess() {
         _uiState.value = _uiState.value.copy(
             authEntryDestination = AuthEntryDestination.FORGOT_PIN,
             authEntryNonce = _uiState.value.authEntryNonce + 1,
-            requiresUnlock = true,
+            requiresUnlock = false,
             promptBiometric = false,
-            exitDestination = SecurityExitDestination.FORGOT_PIN,
         )
-    }
-
-    fun consumeExitDestination() {
         viewModelScope.launch {
             logoutUseCase()
             lastBackgroundedAtMillis = null
-            _uiState.value = _uiState.value.copy(
-                requiresUnlock = false,
-                exitDestination = null,
-                pinDigits = List(4) { "" },
-                pinError = null,
-                pinErrorCount = 0,
-                promptBiometric = false,
-            )
         }
-    }
-
-    fun showLoginAuthScreen() {
-        _uiState.value = _uiState.value.copy(
-            authEntryDestination = AuthEntryDestination.LOGIN,
-            authEntryNonce = _uiState.value.authEntryNonce + 1,
-            requiresUnlock = false,
-            exitDestination = null,
-            pinDigits = List(4) { "" },
-            pinError = null,
-            pinErrorCount = 0,
-            promptBiometric = false,
-        )
     }
 
     private fun verifyPin(pin: String = _uiState.value.pinDigits.joinToString("")) {
@@ -192,28 +173,4 @@ class AppSecurityViewModel @Inject constructor(
     private companion object {
         const val APP_LOCK_TIMEOUT_MS = 30_000L
     }
-}
-
-data class AppSecurityUiState(
-    val isInitialized: Boolean = false,
-    val session: AuthSession? = null,
-    val securityConfig: SecurityConfig? = null,
-    val authEntryDestination: AuthEntryDestination = AuthEntryDestination.LOGIN,
-    val authEntryNonce: Int = 0,
-    val requiresUnlock: Boolean = false,
-    val pinDigits: List<String> = List(4) { "" },
-    val pinError: String? = null,
-    val pinErrorCount: Int = 0,
-    val promptBiometric: Boolean = false,
-    val exitDestination: SecurityExitDestination? = null,
-)
-
-enum class SecurityExitDestination {
-    LOGIN,
-    FORGOT_PIN,
-}
-
-enum class AuthEntryDestination {
-    LOGIN,
-    FORGOT_PIN,
 }

@@ -3,8 +3,7 @@ package com.vector.verevcodex.presentation.customers
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.Customer
-import com.vector.verevcodex.domain.model.Transaction
+import com.vector.verevcodex.domain.usecase.ObserveCustomerCredentialsUseCase
 import com.vector.verevcodex.domain.usecase.ObserveCustomerUseCase
 import com.vector.verevcodex.domain.usecase.ObserveTransactionsUseCase
 import com.vector.verevcodex.presentation.navigation.Screen
@@ -21,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 class CustomerProfileViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeCustomerUseCase: ObserveCustomerUseCase,
+    observeCustomerCredentialsUseCase: ObserveCustomerCredentialsUseCase,
     observeTransactionsUseCase: ObserveTransactionsUseCase,
 ) : ViewModel() {
     private val customerId: String? = savedStateHandle[Screen.CustomerProfile.ARG_CUSTOMER_ID]
@@ -35,10 +35,12 @@ class CustomerProfileViewModel @Inject constructor(
         } else {
             combine(
                 observeCustomerUseCase(currentCustomerId),
+                observeCustomerCredentialsUseCase(currentCustomerId),
                 observeTransactionsUseCase(),
-            ) { customer, transactions ->
+            ) { customer, credentials, transactions ->
                 CustomerProfileUiState(
                     customer = customer,
+                    credentials = credentials,
                     transactions = transactions
                         .filter { it.customerId == currentCustomerId }
                         .sortedByDescending { it.timestamp },
@@ -47,9 +49,3 @@ class CustomerProfileViewModel @Inject constructor(
         }
     }
 }
-
-data class CustomerProfileUiState(
-    val customer: Customer? = null,
-    val transactions: List<Transaction> = emptyList(),
-    val isMissingCustomer: Boolean = false,
-)

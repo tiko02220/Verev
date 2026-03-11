@@ -34,6 +34,11 @@ data class RewardProgramEntity(
     val type: String,
     val rulesSummary: String,
     val active: Boolean,
+    val earningEnabled: Boolean,
+    val rewardRedemptionEnabled: Boolean,
+    val visitCheckInEnabled: Boolean,
+    val cashbackEnabled: Boolean,
+    val tierTrackingEnabled: Boolean,
 )
 
 @Entity(tableName = "rewards")

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -211,24 +212,33 @@ fun MerchantBottomBar(
     currentRoute: String?,
     onDestinationClick: (MerchantBottomDestination) -> Unit,
 ) {
-    NavigationBar(
-        containerColor = Color.White,
-        modifier = Modifier.navigationBarsPadding(),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .navigationBarsPadding(),
     ) {
-        destinations.forEach { destination ->
-            NavigationBarItem(
-                selected = currentRoute == destination.route,
-                onClick = { onDestinationClick(destination) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = VerevColors.Gold,
-                    selectedTextColor = VerevColors.Gold,
-                    indicatorColor = VerevColors.Gold.copy(alpha = 0.12f),
-                    unselectedIconColor = VerevColors.Inactive,
-                    unselectedTextColor = VerevColors.Inactive,
-                ),
-                icon = { Icon(destination.icon, contentDescription = stringResource(destination.labelRes)) },
-                label = { Text(stringResource(destination.labelRes)) },
-            )
+        NavigationBar(
+            containerColor = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp),
+        ) {
+            destinations.forEach { destination ->
+                NavigationBarItem(
+                    selected = currentRoute == destination.route,
+                    onClick = { onDestinationClick(destination) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = VerevColors.Gold,
+                        selectedTextColor = VerevColors.Gold,
+                        indicatorColor = VerevColors.Gold.copy(alpha = 0.12f),
+                        unselectedIconColor = VerevColors.Inactive,
+                        unselectedTextColor = VerevColors.Inactive,
+                    ),
+                    icon = { Icon(destination.icon, contentDescription = stringResource(destination.labelRes)) },
+                    label = { Text(stringResource(destination.labelRes)) },
+                )
+            }
         }
     }
 }
