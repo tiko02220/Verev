@@ -10,18 +10,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -57,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.presentation.merchant.common.MerchantMenuRow
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
 import com.vector.verevcodex.presentation.theme.VerevColors
 
@@ -66,7 +61,11 @@ fun BusinessDetailsScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit,
     onOpenStoreManagement: () -> Unit,
+    onOpenAddBranch: () -> Unit = {},
+    onOpenEditBranch: (String) -> Unit = {},
     onOpenBranding: () -> Unit,
+    onOpenBranchStaffConfig: (String) -> Unit = {},
+    onOpenBranchProgramsConfig: (String) -> Unit = {},
     shellViewModel: ShellViewModel = hiltViewModel(),
 ) {
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
@@ -116,6 +115,51 @@ fun BusinessDetailsScreen(
                 SettingsDetailRow(
                     label = stringResource(R.string.merchant_business_details_hours_label),
                     value = selectedStore?.workingHours ?: stringResource(R.string.merchant_settings_value_unavailable),
+                )
+            }
+        }
+        item {
+            SettingsDetailSection(title = stringResource(R.string.merchant_business_details_branch_tools_title)) {
+                SettingsMenuRow(
+                    title = stringResource(R.string.merchant_add_branch),
+                    subtitle = stringResource(R.string.merchant_business_details_add_branch_subtitle),
+                    icon = Icons.Default.Storefront,
+                    trailingLabel = "",
+                    onClick = onOpenAddBranch,
+                )
+                SettingsMenuRow(
+                    title = stringResource(R.string.merchant_edit_branch),
+                    subtitle = stringResource(R.string.merchant_store_edit_branch_subtitle),
+                    icon = Icons.Default.Description,
+                    trailingLabel = "",
+                    onClick = {
+                        selectedStore?.id?.let(onOpenEditBranch)
+                    },
+                )
+                SettingsMenuRow(
+                    title = stringResource(R.string.merchant_manage_locations),
+                    subtitle = stringResource(R.string.merchant_business_details_manage_locations_subtitle),
+                    icon = Icons.Default.Business,
+                    trailingLabel = "",
+                    onClick = onOpenStoreManagement,
+                )
+                SettingsMenuRow(
+                    title = stringResource(R.string.merchant_branch_staff_config_title),
+                    subtitle = stringResource(R.string.merchant_business_details_branch_staff_subtitle),
+                    icon = Icons.Default.Tune,
+                    trailingLabel = "",
+                    onClick = {
+                        selectedStore?.id?.let(onOpenBranchStaffConfig)
+                    },
+                )
+                SettingsMenuRow(
+                    title = stringResource(R.string.merchant_branch_programs_title),
+                    subtitle = stringResource(R.string.merchant_business_details_branch_programs_subtitle),
+                    icon = Icons.Default.Tune,
+                    trailingLabel = "",
+                    onClick = {
+                        selectedStore?.id?.let(onOpenBranchProgramsConfig)
+                    },
                 )
             }
         }

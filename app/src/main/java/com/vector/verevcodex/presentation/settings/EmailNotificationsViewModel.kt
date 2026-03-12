@@ -28,10 +28,10 @@ class EmailNotificationsViewModel @Inject constructor(
                 val current = settings ?: EmailNotificationSettings()
                 _uiState.update { state ->
                     state.copy(
-                        promotionsAndCampaigns = current.promotionsAndCampaigns,
-                        loyaltyActivity = current.loyaltyActivity,
-                        weeklyBusinessSummary = current.weeklyBusinessSummary,
-                        securityAlerts = current.securityAlerts,
+                        settings = current,
+                        savedSettings = current,
+                        isLoading = false,
+                        hasChanges = false,
                         isSaving = false,
                     )
                 }
@@ -41,48 +41,48 @@ class EmailNotificationsViewModel @Inject constructor(
 
     fun dismissMessage() = _uiState.update { it.copy(messageRes = null, errorRes = null) }
 
-    fun setPromotionsAndCampaigns(enabled: Boolean) = save(
-        EmailNotificationSettings(
-            promotionsAndCampaigns = enabled,
-            loyaltyActivity = _uiState.value.loyaltyActivity,
-            weeklyBusinessSummary = _uiState.value.weeklyBusinessSummary,
-            securityAlerts = _uiState.value.securityAlerts,
-        )
-    )
+    fun setEmailEnabled(enabled: Boolean) = updateSettings { copy(emailEnabled = enabled) }
 
-    fun setLoyaltyActivity(enabled: Boolean) = save(
-        EmailNotificationSettings(
-            promotionsAndCampaigns = _uiState.value.promotionsAndCampaigns,
-            loyaltyActivity = enabled,
-            weeklyBusinessSummary = _uiState.value.weeklyBusinessSummary,
-            securityAlerts = _uiState.value.securityAlerts,
-        )
-    )
+    fun setPushEnabled(enabled: Boolean) = updateSettings { copy(pushEnabled = enabled) }
 
-    fun setWeeklyBusinessSummary(enabled: Boolean) = save(
-        EmailNotificationSettings(
-            promotionsAndCampaigns = _uiState.value.promotionsAndCampaigns,
-            loyaltyActivity = _uiState.value.loyaltyActivity,
-            weeklyBusinessSummary = enabled,
-            securityAlerts = _uiState.value.securityAlerts,
-        )
-    )
+    fun setSoundEnabled(enabled: Boolean) = updateSettings { copy(soundEnabled = enabled) }
 
-    fun setSecurityAlerts(enabled: Boolean) = save(
-        EmailNotificationSettings(
-            promotionsAndCampaigns = _uiState.value.promotionsAndCampaigns,
-            loyaltyActivity = _uiState.value.loyaltyActivity,
-            weeklyBusinessSummary = _uiState.value.weeklyBusinessSummary,
-            securityAlerts = enabled,
-        )
-    )
+    fun setTransactionEmails(enabled: Boolean) = updateSettings { copy(transactionEmails = enabled) }
 
-    private fun save(settings: EmailNotificationSettings) {
+    fun setDailyBusinessSummary(enabled: Boolean) = updateSettings { copy(dailyBusinessSummary = enabled) }
+
+    fun setWeeklyBusinessSummary(enabled: Boolean) = updateSettings { copy(weeklyBusinessSummary = enabled) }
+
+    fun setMarketingEmails(enabled: Boolean) = updateSettings { copy(marketingEmails = enabled) }
+
+    fun setNewCustomerPush(enabled: Boolean) = updateSettings { copy(newCustomerPush = enabled) }
+
+    fun setTransactionPush(enabled: Boolean) = updateSettings { copy(transactionPush = enabled) }
+
+    fun setRewardRedeemedPush(enabled: Boolean) = updateSettings { copy(rewardRedeemedPush = enabled) }
+
+    fun setProgramUpdatesPush(enabled: Boolean) = updateSettings { copy(programUpdatesPush = enabled) }
+
+    fun setStaffActivityPush(enabled: Boolean) = updateSettings { copy(staffActivityPush = enabled) }
+
+    fun setSystemAlertsPush(enabled: Boolean) = updateSettings { copy(systemAlertsPush = enabled) }
+
+    fun save() {
+        val state = _uiState.value
+        if (!state.hasChanges || state.isSaving) return
+        val settings = state.settings
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorRes = null, messageRes = null) }
             updateEmailNotificationSettingsUseCase(settings)
                 .onSuccess {
-                    _uiState.update { it.copy(isSaving = false, messageRes = R.string.merchant_settings_message_notifications_updated) }
+                    _uiState.update {
+                        it.copy(
+                            savedSettings = settings,
+                            hasChanges = false,
+                            isSaving = false,
+                            messageRes = R.string.merchant_settings_message_notifications_updated,
+                        )
+                    }
                 }
                 .onFailure { throwable ->
                     _uiState.update {
@@ -92,6 +92,18 @@ class EmailNotificationsViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private fun updateSettings(transform: EmailNotificationSettings.() -> EmailNotificationSettings) {
+        _uiState.update { state ->
+            val updated = state.settings.transform()
+            state.copy(
+                settings = updated,
+                hasChanges = updated != state.savedSettings,
+                errorRes = null,
+                messageRes = null,
+            )
         }
     }
 }

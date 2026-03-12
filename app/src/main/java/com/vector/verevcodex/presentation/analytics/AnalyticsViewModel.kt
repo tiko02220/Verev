@@ -34,11 +34,12 @@ class AnalyticsViewModel @Inject constructor(
         .flatMapLatest { (storeId, range) ->
             combine(
                 observeBusinessAnalyticsUseCase(storeId, range),
-                observeStaffAnalyticsUseCase(storeId),
+                observeStaffAnalyticsUseCase(storeId, range),
                 selectedRange,
             ) { business, staff, currentRange ->
                 AnalyticsDashboardUiState(
                     selectedRange = currentRange,
+                    isLoading = false,
                     businessAnalytics = business,
                     staffAnalytics = staff,
                 )

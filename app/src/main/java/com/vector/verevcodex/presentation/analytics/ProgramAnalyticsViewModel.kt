@@ -30,7 +30,11 @@ class ProgramAnalyticsViewModel @Inject constructor(
     ) { store, range -> store?.id to range }
         .flatMapLatest { (storeId, range) ->
             observeProgramAnalyticsUseCase(storeId, range).combine(selectedRange) { analytics, currentRange ->
-                ProgramAnalyticsUiState(selectedRange = currentRange, analytics = analytics)
+                ProgramAnalyticsUiState(
+                    selectedRange = currentRange,
+                    isLoading = false,
+                    analytics = analytics,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgramAnalyticsUiState())

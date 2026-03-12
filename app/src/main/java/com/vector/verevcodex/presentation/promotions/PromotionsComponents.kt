@@ -37,7 +37,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -258,7 +263,12 @@ internal fun PromotionListCard(
 }
 
 @Composable
-internal fun PromotionDetailCard(promotion: Campaign, onEdit: () -> Unit, onDelete: () -> Unit) {
+internal fun PromotionDetailCard(
+    promotion: Campaign,
+    onOpenPayment: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     MerchantPrimaryCard(contentPadding = PaddingValues(20.dp)) {
         Surface(
             shape = RoundedCornerShape(24.dp),
@@ -287,6 +297,15 @@ internal fun PromotionDetailCard(promotion: Campaign, onEdit: () -> Unit, onDele
             stringResource(R.string.merchant_promotion_payment_flow_title),
             if (promotion.paymentFlowEnabled) stringResource(R.string.merchant_promotion_payment_flow_enabled) else stringResource(R.string.merchant_promotion_payment_flow_disabled),
         )
+        if (promotion.paymentFlowEnabled) {
+            OutlinedButton(onClick = onOpenPayment, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                Icon(Icons.Default.Payments, contentDescription = null)
+                Text(
+                    text = stringResource(R.string.merchant_network_promotion_payment_title),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) {
                 Text(stringResource(R.string.merchant_edit))
@@ -297,6 +316,144 @@ internal fun PromotionDetailCard(promotion: Campaign, onEdit: () -> Unit, onDele
             }
         }
     }
+}
+
+@Composable
+internal fun NetworkPromotionPaymentDialog(
+    promotion: Campaign,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    var paymentMethod by remember { mutableStateOf("card") }
+    var cardNumber by remember { mutableStateOf("") }
+    var expiryDate by remember { mutableStateOf("") }
+    var cvv by remember { mutableStateOf("") }
+    var errorRes by remember { mutableStateOf<Int?>(null) }
+    val breakdown = promotion.toNetworkPromotionBreakdown()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    errorRes = when {
+                        paymentMethod == "card" && cardNumber.length < 16 -> R.string.merchant_network_promotion_payment_error_card_number
+                        paymentMethod == "card" && expiryDate.length < 5 -> R.string.merchant_network_promotion_payment_error_expiry
+                        paymentMethod == "card" && cvv.length < 3 -> R.string.merchant_network_promotion_payment_error_cvv
+                        else -> null
+                    }
+                    if (errorRes == null) onConfirm()
+                },
+            ) {
+                Text(stringResource(R.string.merchant_network_promotion_payment_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.auth_cancel))
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.merchant_network_promotion_payment_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                PromotionMetricRow(
+                    label = stringResource(R.string.merchant_network_promotion_payment_campaign),
+                    value = promotion.name,
+                )
+                PromotionMetricRow(
+                    label = stringResource(R.string.merchant_network_promotion_payment_period),
+                    value = "${promotion.startDate} - ${promotion.endDate}",
+                )
+                PromotionMetricRow(
+                    label = stringResource(R.string.merchant_network_promotion_payment_reach),
+                    value = stringResource(R.string.merchant_network_promotion_payment_reach_value, breakdown.estimatedReach),
+                )
+                PromotionMetricRow(
+                    label = stringResource(R.string.merchant_network_promotion_payment_total),
+                    value = breakdown.totalLabel,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            paymentMethod = "card"
+                            errorRes = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Icon(Icons.Default.Payments, contentDescription = null)
+                        Text(stringResource(R.string.merchant_network_promotion_payment_method_card), modifier = Modifier.padding(start = 6.dp))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            paymentMethod = "wallet"
+                            errorRes = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Icon(Icons.Default.Stars, contentDescription = null)
+                        Text(stringResource(R.string.merchant_network_promotion_payment_method_wallet), modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+                if (paymentMethod == "card") {
+                    OutlinedTextField(
+                        value = cardNumber,
+                        onValueChange = {
+                            errorRes = null
+                            cardNumber = it.filter(Char::isDigit).take(16)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.merchant_network_promotion_payment_card_number)) },
+                        singleLine = true,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = expiryDate,
+                            onValueChange = {
+                                errorRes = null
+                                expiryDate = it.take(5)
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(R.string.merchant_network_promotion_payment_expiry)) },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = cvv,
+                            onValueChange = {
+                                errorRes = null
+                                cvv = it.filter(Char::isDigit).take(4)
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { Text(stringResource(R.string.merchant_network_promotion_payment_cvv)) },
+                            singleLine = true,
+                        )
+                    }
+                } else {
+                    PromotionMetricRow(
+                        label = stringResource(R.string.merchant_network_promotion_payment_wallet_balance),
+                        value = stringResource(R.string.merchant_network_promotion_payment_wallet_balance_value),
+                    )
+                }
+                errorRes?.let {
+                    Text(
+                        text = stringResource(it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.ErrorText,
+                    )
+                }
+            }
+        },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = Color.White,
+    )
 }
 
 @Composable

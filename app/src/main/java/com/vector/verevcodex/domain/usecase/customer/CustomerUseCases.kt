@@ -1,6 +1,8 @@
 package com.vector.verevcodex.domain.usecase.customer
 
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
@@ -30,6 +32,10 @@ class ObserveCustomerCredentialsUseCase(private val repository: CustomerReposito
 
 class ObserveCustomerPointsLedgerUseCase(private val repository: CustomerRepository) {
     operator fun invoke(customerId: String) = repository.observeCustomerPointsLedger(customerId)
+}
+
+class ObserveCustomerBonusActionsUseCase(private val repository: CustomerRepository) {
+    operator fun invoke(customerId: String) = repository.observeCustomerBonusActions(customerId)
 }
 
 class FindCustomerByLoyaltyIdUseCase(private val repository: CustomerRepository) {
@@ -78,4 +84,14 @@ class UpsertCustomerCredentialUseCase(private val repository: CustomerRepository
 
 class AdjustCustomerPointsUseCase(private val repository: CustomerRepository) {
     suspend operator fun invoke(customerId: String, delta: Int, reason: String) = repository.adjustPoints(customerId, delta, reason)
+}
+
+class RecordCustomerBonusActionUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(
+        customerId: String,
+        storeId: String?,
+        type: CustomerBonusActionType,
+        title: String,
+        details: String,
+    ) = repository.recordBonusAction(customerId, storeId, type, title, details)
 }

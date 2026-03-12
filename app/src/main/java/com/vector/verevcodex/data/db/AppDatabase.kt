@@ -3,6 +3,7 @@ package com.vector.verevcodex.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.vector.verevcodex.data.db.dao.auth.AuthDao
+import com.vector.verevcodex.data.db.dao.customer.CustomerBonusActionDao
 import com.vector.verevcodex.data.db.dao.customer.CustomerBusinessRelationDao
 import com.vector.verevcodex.data.db.dao.customer.CustomerCredentialDao
 import com.vector.verevcodex.data.db.dao.customer.CustomerDao
@@ -20,6 +21,7 @@ import com.vector.verevcodex.data.db.entity.business.BusinessLocationEntity
 import com.vector.verevcodex.data.db.entity.loyalty.CampaignEntity
 import com.vector.verevcodex.data.db.entity.loyalty.CampaignTargetEntity
 import com.vector.verevcodex.data.db.entity.settings.BranchConfigurationEntity
+import com.vector.verevcodex.data.db.entity.customer.CustomerBonusActionEntity
 import com.vector.verevcodex.data.db.entity.settings.BrandingSettingsEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerBusinessRelationEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerCredentialEntity
@@ -46,6 +48,7 @@ import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
         CustomerEntity::class,
         CustomerCredentialEntity::class,
         CustomerBusinessRelationEntity::class,
+        CustomerBonusActionEntity::class,
         TransactionEntity::class,
         TransactionItemEntity::class,
         RewardProgramEntity::class,
@@ -61,7 +64,7 @@ import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
         BillingInvoiceEntity::class,
         BranchConfigurationEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -72,6 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun customerCredentialDao(): CustomerCredentialDao
     abstract fun customerBusinessRelationDao(): CustomerBusinessRelationDao
+    abstract fun customerBonusActionDao(): CustomerBonusActionDao
     abstract fun transactionDao(): TransactionDao
     abstract fun transactionItemDao(): TransactionItemDao
     abstract fun loyaltyDao(): LoyaltyDao

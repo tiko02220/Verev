@@ -21,6 +21,9 @@ interface LoyaltyDao {
     @Query("SELECT * FROM rewards WHERE (:storeId IS NULL OR storeId = :storeId) ORDER BY pointsRequired")
     fun observeRewards(storeId: String?): Flow<List<RewardEntity>>
 
+    @Query("SELECT * FROM rewards WHERE id = :rewardId LIMIT 1")
+    suspend fun getReward(rewardId: String): RewardEntity?
+
     @Query("SELECT * FROM campaigns WHERE (:storeId IS NULL OR storeId = :storeId) ORDER BY startDate DESC")
     fun observeCampaigns(storeId: String?): Flow<List<CampaignEntity>>
 
@@ -44,6 +47,12 @@ interface LoyaltyDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRewards(items: List<RewardEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReward(item: RewardEntity)
+
+    @Query("DELETE FROM rewards WHERE id = :rewardId")
+    suspend fun deleteReward(rewardId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCampaigns(items: List<CampaignEntity>)

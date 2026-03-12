@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,13 +30,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
-import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
-import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -47,59 +48,81 @@ internal fun ProgramTypeHeroCard(
     totalCount: Int,
     activeCount: Int,
 ) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(22.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(64.dp)
-                    .background(Brush.linearGradient(type.gradient()), RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .background(type.gradient().first().copy(alpha = 0.12f), RoundedCornerShape(22.dp))
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(type.icon(), contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Brush.linearGradient(type.gradient()), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(type.icon(), contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(spec.titleRes),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(spec.subtitleRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.68f),
+                    )
+                    Text(
+                        text = if (storeName.isBlank()) {
+                            stringResource(R.string.merchant_programs_no_store_selected)
+                        } else {
+                            stringResource(R.string.merchant_programs_store_scope, storeName)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.48f),
+                    )
+                }
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource(spec.titleRes),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.SemiBold,
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ProgramTypeMetricCard(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.merchant_programs_count_label),
+                    value = totalCount.toString(),
                 )
-                Text(
-                    text = stringResource(spec.subtitleRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.Forest.copy(alpha = 0.68f),
-                )
-                Text(
-                    text = if (storeName.isBlank()) {
-                        stringResource(R.string.merchant_programs_no_store_selected)
-                    } else {
-                        stringResource(R.string.merchant_programs_store_scope, storeName)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.48f),
+                ProgramTypeMetricCard(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.merchant_programs_active_label),
+                    value = activeCount.toString(),
                 )
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ProgramTypeMetricCard(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.merchant_programs_count_label),
-                value = totalCount.toString(),
-            )
-            ProgramTypeMetricCard(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.merchant_programs_active_label),
-                value = activeCount.toString(),
-            )
-            ProgramTypeMetricCard(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.merchant_programs_live_actions_label),
-                value = programsActionCount(type, totalCount, activeCount).toString(),
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ProgramTypeMetricCard(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.merchant_programs_live_actions_label),
+                    value = programsActionCount(type, totalCount, activeCount).toString(),
+                )
+                ProgramTypeMetricCard(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.merchant_program_reward_catalog_label),
+                    value = totalCount.toString(),
+                )
+            }
         }
     }
 }
@@ -112,7 +135,6 @@ private fun programsActionCount(type: LoyaltyProgramType, totalCount: Int, activ
         LoyaltyProgramType.DIGITAL_STAMP -> 1
         LoyaltyProgramType.PURCHASE_FREQUENCY -> 1
         LoyaltyProgramType.REFERRAL -> 1
-        LoyaltyProgramType.CASHBACK -> 1
         LoyaltyProgramType.HYBRID -> 5
     }
     return if (activeCount == 0) 0 else (activeCount * perProgramActions).coerceAtLeast(totalCount)
@@ -120,18 +142,27 @@ private fun programsActionCount(type: LoyaltyProgramType, totalCount: Int, activ
 
 @Composable
 private fun ProgramTypeMetricCard(label: String, value: String, modifier: Modifier = Modifier) {
-    MerchantPrimaryCard(modifier = modifier, contentPadding = PaddingValues(16.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = VerevColors.Forest.copy(alpha = 0.5f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.headlineSmall,
-            color = VerevColors.Forest,
-            fontWeight = FontWeight.SemiBold,
-        )
+    Surface(
+        modifier = modifier,
+        color = VerevColors.AppBackground.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(24.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.5f),
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
@@ -142,15 +173,30 @@ internal fun ProgramTypeInsightCard(
     rewards: List<Reward>,
 ) {
     val leadProgram = programs.firstOrNull { it.active } ?: programs.firstOrNull()
-    MerchantPrimaryCard {
-        MerchantSectionTitle(text = stringResource(R.string.merchant_program_focus_title))
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(30.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 22.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+        Text(
+            text = stringResource(R.string.merchant_program_focus_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
         if (leadProgram == null) {
             Text(
                 text = stringResource(R.string.merchant_program_focus_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = VerevColors.Forest.copy(alpha = 0.66f),
             )
-            return@MerchantPrimaryCard
+            return@Surface
         }
         when (type) {
             LoyaltyProgramType.POINTS -> ProgramFactGrid(
@@ -199,9 +245,15 @@ internal fun ProgramTypeInsightCard(
                     stringResource(R.string.merchant_program_form_referral_prefix) to leadProgram.configuration.referralRule.referralCodePrefix,
                 ),
             )
-            LoyaltyProgramType.CASHBACK,
-            LoyaltyProgramType.HYBRID,
-            -> ProgramFactGrid(facts = listOf(stringResource(R.string.merchant_programs_title) to leadProgram.rulesSummary))
+            LoyaltyProgramType.HYBRID -> ProgramFactGrid(
+                facts = listOf(
+                    stringResource(R.string.merchant_program_form_points_awarded) to leadProgram.configuration.pointsRule.pointsAwardedPerStep.toString(),
+                    stringResource(R.string.merchant_program_form_cashback_percent) to "${leadProgram.configuration.cashbackRule.cashbackPercent}%",
+                    stringResource(R.string.merchant_program_form_tier_bonus_percent) to "${leadProgram.configuration.tierRule.tierBonusPercent}%",
+                    stringResource(R.string.merchant_program_form_coupon_name) to leadProgram.configuration.couponRule.couponName,
+                ),
+            )
+        }
         }
     }
 }
@@ -215,21 +267,27 @@ private fun ProgramFactGrid(facts: List<Pair<String, String>>) {
         maxItemsInEachRow = 2,
     ) {
         facts.forEach { (label, value) ->
-            MerchantPrimaryCard(
+            Surface(
                 modifier = Modifier.fillMaxWidth(0.48f),
-                contentPadding = PaddingValues(14.dp),
+                color = VerevColors.AppBackground.copy(alpha = 0.76f),
+                shape = RoundedCornerShape(22.dp),
             ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.52f),
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.Medium,
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.52f),
+                    )
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
             }
         }
     }
@@ -237,117 +295,197 @@ private fun ProgramFactGrid(facts: List<Pair<String, String>>) {
 
 @Composable
 internal fun ProgramTypeGuidanceCard(type: LoyaltyProgramType) {
-    MerchantPrimaryCard(
-        contentPadding = PaddingValues(18.dp),
+    Surface(
+        color = type.gradient().first().copy(alpha = 0.10f),
+        shape = RoundedCornerShape(24.dp),
     ) {
-        Text(
-            text = stringResource(R.string.merchant_program_workflow_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = VerevColors.Forest,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stringResource(type.templateSubtitleRes()),
-            style = MaterialTheme.typography.bodyMedium,
-            color = VerevColors.Forest.copy(alpha = 0.68f),
-        )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(Brush.linearGradient(type.gradient()), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(type.icon(), contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_program_workflow_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(type.templateSubtitleRes()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.68f),
+                )
+            }
+        }
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun ProgramTypeProgramCard(
     type: LoyaltyProgramType,
     program: RewardProgram,
     isBusy: Boolean,
     onEdit: () -> Unit,
+    quickActions: List<ProgramQuickActionUi>,
     onToggleEnabled: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
-    MerchantPrimaryCard {
-        Row(
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 4.dp,
+    ) {
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(52.dp)
-                    .background(Brush.linearGradient(type.gradient()), RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .background(type.gradient().first().copy(alpha = 0.12f))
+                    .padding(18.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(type.icon(), contentDescription = null, tint = Color.White)
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = program.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.SemiBold,
+                Box(
+                    modifier = Modifier
+                        .size(58.dp)
+                        .background(Brush.linearGradient(type.gradient()), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(type.icon(), contentDescription = null, tint = Color.White)
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = program.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = program.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.62f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                MerchantStatusPill(
+                    text = if (program.active) stringResource(R.string.merchant_program_active) else stringResource(R.string.merchant_program_disabled),
+                    backgroundColor = if (program.active) VerevColors.Moss.copy(alpha = 0.16f) else Color(0xFFF3F4F6),
+                    contentColor = if (program.active) VerevColors.Moss else VerevColors.Inactive,
                 )
+            }
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 Text(
-                    text = program.description,
+                    text = stringResource(type.summaryTitleRes()),
                     style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.62f),
+                    color = VerevColors.Forest.copy(alpha = 0.5f),
                 )
-            }
-            MerchantStatusPill(
-                text = if (program.active) stringResource(R.string.merchant_program_active) else stringResource(R.string.merchant_program_disabled),
-                backgroundColor = if (program.active) VerevColors.Moss.copy(alpha = 0.16f) else Color(0xFFF3F4F6),
-                contentColor = if (program.active) VerevColors.Moss else VerevColors.Inactive,
-            )
-        }
-        Text(
-            text = stringResource(type.summaryTitleRes()),
-            style = MaterialTheme.typography.bodySmall,
-            color = VerevColors.Forest.copy(alpha = 0.5f),
-        )
-        Text(
-            text = program.rulesSummary,
-            style = MaterialTheme.typography.bodyLarge,
-            color = VerevColors.Forest,
-            fontWeight = FontWeight.Medium,
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(
-                onClick = onEdit,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = VerevColors.Forest,
-                    contentColor = Color.White,
-                ),
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text(text = stringResource(R.string.merchant_program_edit_action), modifier = Modifier.padding(start = 8.dp))
-            }
-            Button(
-                onClick = { onToggleEnabled(!program.active) },
-                modifier = Modifier.weight(1f),
-                enabled = !isBusy,
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = VerevColors.AppBackground,
-                    contentColor = VerevColors.Forest,
-                ),
-            ) {
-                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
                 Text(
-                    text = if (program.active) stringResource(R.string.merchant_program_pause_action) else stringResource(R.string.merchant_program_resume_action),
-                    modifier = Modifier.padding(start = 8.dp),
+                    text = program.rulesSummary,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = VerevColors.Forest,
+                        ),
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = stringResource(R.string.merchant_program_edit_action),
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { onToggleEnabled(!program.active) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isBusy,
+                        shape = RoundedCornerShape(18.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = VerevColors.Forest,
+                        ),
+                    ) {
+                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = if (program.active) stringResource(R.string.merchant_program_pause_action) else stringResource(R.string.merchant_program_resume_action),
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+                if (quickActions.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        maxItemsInEachRow = 2,
+                    ) {
+                        quickActions.forEach { action ->
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = action.onClick,
+                                modifier = Modifier.fillMaxWidth(0.48f),
+                                enabled = !isBusy,
+                                shape = RoundedCornerShape(18.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.Forest),
+                            ) {
+                                Text(
+                                    text = stringResource(action.labelRes),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onDelete,
+                        enabled = !isBusy,
+                        shape = RoundedCornerShape(18.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = VerevColors.ErrorText,
+                        ),
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = stringResource(R.string.merchant_program_delete_action),
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
             }
-        }
-        Button(
-            onClick = onDelete,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFEECEC),
-                contentColor = VerevColors.ErrorText,
-            ),
-        ) {
-            Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(text = stringResource(R.string.merchant_program_delete_action), modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

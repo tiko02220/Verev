@@ -49,9 +49,11 @@ import com.vector.verevcodex.domain.usecase.customer.AdjustCustomerPointsUseCase
 import com.vector.verevcodex.domain.usecase.customer.CreateCustomerUseCase
 import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.CreateProgramUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.CreateRewardUseCase
 import com.vector.verevcodex.domain.usecase.reports.ExportReportUseCase
 import com.vector.verevcodex.domain.usecase.scan.ClearScanPreferenceUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.DeleteProgramUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.DeleteRewardUseCase
 import com.vector.verevcodex.domain.usecase.promotions.DeletePromotionUseCase
 import com.vector.verevcodex.domain.usecase.customer.FindCustomerByLoyaltyIdUseCase
 import com.vector.verevcodex.domain.usecase.settings.ObserveBrandingSettingsUseCase
@@ -62,6 +64,7 @@ import com.vector.verevcodex.domain.usecase.loyalty.ObserveActiveScanActionsUseC
 import com.vector.verevcodex.domain.usecase.analytics.ObserveBusinessAnalyticsUseCase
 import com.vector.verevcodex.domain.usecase.analytics.ObserveCustomerAnalyticsUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerCredentialsUseCase
+import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerBonusActionsUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerPointsLedgerUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerRelationsByStoreUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerRelationsUseCase
@@ -86,6 +89,7 @@ import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
 import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionUseCase
 import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionsUseCase
 import com.vector.verevcodex.domain.usecase.customer.QuickRegisterCustomerUseCase
+import com.vector.verevcodex.domain.usecase.customer.RecordCustomerBonusActionUseCase
 import com.vector.verevcodex.domain.usecase.customer.UpsertCustomerCredentialUseCase
 import com.vector.verevcodex.domain.usecase.transactions.RecordTransactionUseCase
 import com.vector.verevcodex.domain.usecase.settings.RemovePaymentMethodUseCase
@@ -96,6 +100,7 @@ import com.vector.verevcodex.domain.usecase.scan.SaveScanPreferenceUseCase
 import com.vector.verevcodex.domain.usecase.settings.SetDefaultPaymentMethodUseCase
 import com.vector.verevcodex.domain.usecase.promotions.SetPromotionEnabledUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.SetProgramEnabledUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.SetRewardEnabledUseCase
 import com.vector.verevcodex.domain.usecase.store.SelectStoreUseCase
 import com.vector.verevcodex.domain.usecase.store.CreateStoreUseCase
 import com.vector.verevcodex.domain.usecase.store.UpdateStoreUseCase
@@ -104,6 +109,7 @@ import com.vector.verevcodex.domain.usecase.customer.UpdateCustomerContactUseCas
 import com.vector.verevcodex.domain.usecase.customer.UpdateCustomerNotesAndTagsUseCase
 import com.vector.verevcodex.domain.usecase.promotions.UpdatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateProgramUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.UpdateRewardUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -192,6 +198,7 @@ object UseCaseModule {
     @Provides fun provideObserveCustomerRelationsByStoreUseCase(repository: CustomerRepository) = ObserveCustomerRelationsByStoreUseCase(repository)
     @Provides fun provideObserveCustomerRelationsUseCase(repository: CustomerRepository) = ObserveCustomerRelationsUseCase(repository)
     @Provides fun provideObserveCustomerCredentialsUseCase(repository: CustomerRepository) = ObserveCustomerCredentialsUseCase(repository)
+    @Provides fun provideObserveCustomerBonusActionsUseCase(repository: CustomerRepository) = ObserveCustomerBonusActionsUseCase(repository)
     @Provides fun provideObserveCustomerPointsLedgerUseCase(repository: CustomerRepository) = ObserveCustomerPointsLedgerUseCase(repository)
     @Provides fun provideFindCustomerByLoyaltyIdUseCase(repository: CustomerRepository) = FindCustomerByLoyaltyIdUseCase(repository)
     @Provides fun provideCreateCustomerUseCase(repository: CustomerRepository) = CreateCustomerUseCase(repository)
@@ -200,6 +207,7 @@ object UseCaseModule {
     @Provides fun provideUpdateCustomerNotesAndTagsUseCase(repository: CustomerRepository) = UpdateCustomerNotesAndTagsUseCase(repository)
     @Provides fun provideUpsertCustomerCredentialUseCase(repository: CustomerRepository) = UpsertCustomerCredentialUseCase(repository)
     @Provides fun provideAdjustCustomerPointsUseCase(repository: CustomerRepository) = AdjustCustomerPointsUseCase(repository)
+    @Provides fun provideRecordCustomerBonusActionUseCase(repository: CustomerRepository) = RecordCustomerBonusActionUseCase(repository)
     @Provides fun provideObserveScanPreferencesUseCase(repository: ScanPreferencesRepository) = ObserveScanPreferencesUseCase(repository)
     @Provides fun provideSaveScanPreferenceUseCase(repository: ScanPreferencesRepository) = SaveScanPreferenceUseCase(repository)
     @Provides fun provideClearScanPreferenceUseCase(repository: ScanPreferencesRepository) = ClearScanPreferenceUseCase(repository)
@@ -207,6 +215,10 @@ object UseCaseModule {
     @Provides fun provideObserveRewardsUseCase(repository: LoyaltyRepository) = ObserveRewardsUseCase(repository)
     @Provides fun provideObserveCampaignsUseCase(repository: LoyaltyRepository) = ObserveCampaignsUseCase(repository)
     @Provides fun provideObserveActiveScanActionsUseCase(repository: LoyaltyRepository) = ObserveActiveScanActionsUseCase(repository)
+    @Provides fun provideCreateRewardUseCase(repository: LoyaltyRepository) = CreateRewardUseCase(repository)
+    @Provides fun provideUpdateRewardUseCase(repository: LoyaltyRepository) = UpdateRewardUseCase(repository)
+    @Provides fun provideSetRewardEnabledUseCase(repository: LoyaltyRepository) = SetRewardEnabledUseCase(repository)
+    @Provides fun provideDeleteRewardUseCase(repository: LoyaltyRepository) = DeleteRewardUseCase(repository)
     @Provides fun provideCreatePromotionUseCase(repository: LoyaltyRepository) = CreatePromotionUseCase(repository)
     @Provides fun provideUpdatePromotionUseCase(repository: LoyaltyRepository) = UpdatePromotionUseCase(repository)
     @Provides fun provideSetPromotionEnabledUseCase(repository: LoyaltyRepository) = SetPromotionEnabledUseCase(repository)

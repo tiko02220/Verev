@@ -54,6 +54,7 @@ class StoreManagementViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             editor = StoreEditorState(),
             isEditorVisible = true,
+            editorFieldErrors = emptyMap(),
             errorRes = null,
             messageRes = null,
         )
@@ -72,28 +73,46 @@ class StoreManagementViewModel @Inject constructor(
                 secondaryColor = store.secondaryColor,
             ),
             isEditorVisible = true,
+            editorFieldErrors = emptyMap(),
             errorRes = null,
             messageRes = null,
         )
     }
 
+    fun prepareEdit(storeId: String) {
+        if (_uiState.value.editor.editingStoreId == storeId) return
+        val store = _uiState.value.stores.firstOrNull { it.id == storeId } ?: return
+        startEdit(store)
+    }
+
     fun dismissEditor() {
-        _uiState.value = _uiState.value.copy(isEditorVisible = false, editor = StoreEditorState())
+        _uiState.value = _uiState.value.copy(
+            isEditorVisible = false,
+            editor = StoreEditorState(),
+            editorFieldErrors = emptyMap(),
+        )
     }
 
     fun updateEditor(transform: (StoreEditorState) -> StoreEditorState) {
-        _uiState.value = _uiState.value.copy(editor = transform(_uiState.value.editor))
+        _uiState.value = _uiState.value.copy(
+            editor = transform(_uiState.value.editor),
+            editorFieldErrors = emptyMap(),
+            errorRes = null,
+        )
     }
 
     fun submitEditor() {
         val editor = _uiState.value.editor
-        when {
-            editor.name.isBlank() -> publishError(R.string.merchant_store_editor_error_name)
-            editor.address.isBlank() -> publishError(R.string.merchant_store_editor_error_address)
-            editor.contactInfo.isBlank() -> publishError(R.string.merchant_store_editor_error_contact)
-            editor.category.isBlank() -> publishError(R.string.merchant_store_editor_error_category)
-            editor.workingHours.isBlank() -> publishError(R.string.merchant_store_editor_error_hours)
-            else -> viewModelScope.launch {
+        val fieldErrors = validateEditor(editor)
+        if (fieldErrors.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                editorFieldErrors = fieldErrors,
+                errorRes = null,
+                messageRes = null,
+            )
+            return
+        }
+        viewModelScope.launch {
                 _uiState.value = _uiState.value.copy(isSaving = true, errorRes = null, messageRes = null)
                 val result = if (editor.editingStoreId == null) {
                     createStoreUseCase(
@@ -131,6 +150,7 @@ class StoreManagementViewModel @Inject constructor(
                             isSaving = false,
                             isEditorVisible = false,
                             editor = StoreEditorState(),
+                            editorFieldErrors = emptyMap(),
                             messageRes = if (editor.editingStoreId == null) {
                                 R.string.merchant_store_editor_created
                             } else {
@@ -145,7 +165,6 @@ class StoreManagementViewModel @Inject constructor(
                         )
                     },
                 )
-            }
         }
     }
 
@@ -170,6 +189,16 @@ class StoreManagementViewModel @Inject constructor(
 
     fun dismissFeedback() {
         _uiState.value = _uiState.value.copy(errorRes = null, messageRes = null)
+    }
+
+    private fun validateEditor(editor: StoreEditorState): Map<String, Int> {
+        val errors = linkedMapOf<String, Int>()
+        if (editor.name.isBlank()) errors[STORE_FIELD_NAME] = R.string.merchant_store_editor_error_name
+        if (editor.address.isBlank()) errors[STORE_FIELD_ADDRESS] = R.string.merchant_store_editor_error_address
+        if (editor.contactInfo.isBlank()) errors[STORE_FIELD_CONTACT] = R.string.merchant_store_editor_error_contact
+        if (editor.category.isBlank()) errors[STORE_FIELD_CATEGORY] = R.string.merchant_store_editor_error_category
+        if (editor.workingHours.isBlank()) errors[STORE_FIELD_HOURS] = R.string.merchant_store_editor_error_hours
+        return errors
     }
 
     private fun publishError(@StringRes errorRes: Int) {

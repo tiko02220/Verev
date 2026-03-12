@@ -69,17 +69,6 @@ fun LoyaltyTier.displayName(): String = when (this) {
     LoyaltyTier.VIP -> "VIP"
 }
 
-fun LoyaltyProgramType.displayName(): String = when (this) {
-    LoyaltyProgramType.POINTS -> "Points Rewards"
-    LoyaltyProgramType.CASHBACK -> "Cashback"
-    LoyaltyProgramType.DIGITAL_STAMP -> "Check-in Rewards"
-    LoyaltyProgramType.TIER -> "Tiered Loyalty"
-    LoyaltyProgramType.COUPON -> "Coupons"
-    LoyaltyProgramType.PURCHASE_FREQUENCY -> "Purchase Frequency"
-    LoyaltyProgramType.REFERRAL -> "Referrals"
-    LoyaltyProgramType.HYBRID -> "Hybrid"
-}
-
 fun RewardType.displayName(): String = when (this) {
     RewardType.FREE_PRODUCT -> "Free Product"
     RewardType.DISCOUNT_COUPON -> "Discount Coupon"

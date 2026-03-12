@@ -35,6 +35,7 @@ fun PromotionsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val fieldErrors = state.editorFieldErrors.mapValues { (_, value) -> stringResource(value) }
     val selectedPromotion = state.promotions.firstOrNull { it.id == state.selectedPromotionId }
+    val paymentPromotion = state.promotions.firstOrNull { it.id == state.paymentPromotionId }
     val filteredPromotions = state.promotions.filter { it.matchesPromotionFilter(state.selectedFilter) }
 
     state.editorState?.let { editor ->
@@ -64,6 +65,14 @@ fun PromotionsScreen(
             isSubmitting = state.isSubmitting,
             onDismiss = viewModel::dismissDeleteDialog,
             onConfirm = viewModel::confirmDeletePromotion,
+        )
+    }
+
+    paymentPromotion?.let { promotion ->
+        NetworkPromotionPaymentDialog(
+            promotion = promotion,
+            onDismiss = viewModel::dismissNetworkPromotionPayment,
+            onConfirm = viewModel::publishNetworkPaymentConfirmed,
         )
     }
 
@@ -137,6 +146,7 @@ fun PromotionsScreen(
                     item {
                         PromotionDetailCard(
                             promotion = selectedPromotion,
+                            onOpenPayment = { viewModel.openNetworkPromotionPayment(selectedPromotion.id) },
                             onEdit = { viewModel.openEditPromotion(selectedPromotion.id) },
                             onDelete = { viewModel.requestDelete(selectedPromotion.id) },
                         )

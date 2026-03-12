@@ -1,11 +1,15 @@
 package com.vector.verevcodex.presentation.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import android.app.Activity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.res.colorResource
 import com.vector.verevcodex.R
 
@@ -65,11 +69,24 @@ private fun verevDarkColors() = darkColorScheme(
 
 @Composable
 fun VerevMerchantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val view = LocalView.current
+    val colorScheme = if (darkTheme) verevDarkColors() else verevLightColors()
+
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        window.statusBarColor = Color.Transparent.toArgb()
+        window.navigationBarColor = colorScheme.background.toArgb()
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
+    }
+
     MaterialTheme(
-        colorScheme = if (darkTheme) verevDarkColors() else verevLightColors(),
+        colorScheme = colorScheme,
         typography = AppTypography,
         content = content,
     )

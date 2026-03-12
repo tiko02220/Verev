@@ -5,5 +5,6 @@ import com.vector.verevcodex.domain.model.analytics.RevenueAnalyticsDrillDown
 
 data class RevenueAnalyticsUiState(
     val selectedRange: AnalyticsTimeRange = AnalyticsTimeRange.MONTH,
+    val isLoading: Boolean = true,
     val analytics: RevenueAnalyticsDrillDown? = null,
 )

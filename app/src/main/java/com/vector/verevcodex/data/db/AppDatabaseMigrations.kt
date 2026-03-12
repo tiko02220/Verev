@@ -4,6 +4,31 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigrations {
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `customer_bonus_actions` (
+                    `id` TEXT NOT NULL,
+                    `customerId` TEXT NOT NULL,
+                    `storeId` TEXT,
+                    `type` TEXT NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `details` TEXT NOT NULL,
+                    `createdAt` TEXT NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_customer_bonus_actions_customerId`
+                ON `customer_bonus_actions` (`customerId`)
+                """.trimIndent(),
+            )
+        }
+    }
+
     val MIGRATION_6_7 = object : Migration(6, 7) {
         override fun migrate(database: SupportSQLiteDatabase) {
             recreateSettingsTables(database)
@@ -212,6 +237,7 @@ object AppDatabaseMigrations {
         MIGRATION_1_3,
         MIGRATION_3_7,
         MIGRATION_6_7,
+        MIGRATION_7_8,
     )
 }
 

@@ -34,18 +34,6 @@ object RewardProgramConfigurationFactory {
                 scanActions = setOf(RewardProgramScanAction.EARN_POINTS, RewardProgramScanAction.REDEEM_REWARDS),
                 pointsRule = PointsProgramRule(),
             )
-            LoyaltyProgramType.CASHBACK -> RewardProgramConfiguration(
-                earningEnabled = false,
-                rewardRedemptionEnabled = false,
-                visitCheckInEnabled = false,
-                cashbackEnabled = true,
-                tierTrackingEnabled = false,
-                couponEnabled = false,
-                purchaseFrequencyEnabled = false,
-                referralEnabled = false,
-                scanActions = setOf(RewardProgramScanAction.APPLY_CASHBACK),
-                cashbackRule = CashbackProgramRule(),
-            )
             LoyaltyProgramType.DIGITAL_STAMP -> RewardProgramConfiguration(
                 earningEnabled = false,
                 rewardRedemptionEnabled = false,

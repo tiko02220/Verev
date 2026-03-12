@@ -3,9 +3,9 @@ package com.vector.verevcodex.data.repository.store
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.db.DatabaseSeeder
+import com.vector.verevcodex.data.preferences.merchantPreferenceStore
 import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
 import com.vector.verevcodex.data.mapper.toDomain
 import com.vector.verevcodex.data.mapper.toEntity
@@ -23,8 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
-private val Context.dataStore by preferencesDataStore(name = "merchant_prefs")
-
 @Singleton
 class StoreRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
@@ -33,7 +31,7 @@ class StoreRepositoryImpl @Inject constructor(
     private val businessSettingsRepository: BusinessSettingsRepositoryImpl,
     seeder: DatabaseSeeder,
 ) : StoreRepository {
-    private val dataStore = context.dataStore
+    private val dataStore = context.merchantPreferenceStore
 
     init {
         runBlocking { seeder.seedIfNeeded() }

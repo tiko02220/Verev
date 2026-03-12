@@ -2,12 +2,15 @@ package com.vector.verevcodex.data.repository.customer
 
 import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
 import com.vector.verevcodex.data.db.AppDatabase
+import com.vector.verevcodex.data.db.entity.customer.CustomerBonusActionEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerBusinessRelationEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerCredentialEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerEntity
 import com.vector.verevcodex.data.db.entity.loyalty.PointsLedgerEntity
 import com.vector.verevcodex.data.mapper.toDomain
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
@@ -47,6 +50,9 @@ class CustomerRepositoryImpl @Inject constructor(
 
     override fun observeCustomerPointsLedger(customerId: String): Flow<List<PointsLedger>> =
         database.pointsLedgerDao().observeByCustomerId(customerId).map { ledger -> ledger.map { it.toDomain() } }
+
+    override fun observeCustomerBonusActions(customerId: String): Flow<List<CustomerBonusAction>> =
+        database.customerBonusActionDao().observeActions(customerId).map { actions -> actions.map { it.toDomain() } }
 
     override suspend fun findByLoyaltyId(loyaltyId: String): Customer? =
         database.customerDao().findByLoyaltyId(loyaltyId)?.toDomain()
@@ -204,6 +210,26 @@ class CustomerRepositoryImpl @Inject constructor(
         database.customerDao().update(customer.copy(currentPoints = customer.currentPoints + delta))
         database.pointsLedgerDao().insert(
             PointsLedgerEntity(UUID.randomUUID().toString(), customerId, null, delta, reason, LocalDateTime.now().toString())
+        )
+    }
+
+    override suspend fun recordBonusAction(
+        customerId: String,
+        storeId: String?,
+        type: CustomerBonusActionType,
+        title: String,
+        details: String,
+    ) {
+        database.customerBonusActionDao().insert(
+            CustomerBonusActionEntity(
+                id = UUID.randomUUID().toString(),
+                customerId = customerId,
+                storeId = storeId,
+                type = type.name,
+                title = title,
+                details = details,
+                createdAt = LocalDateTime.now().toString(),
+            )
         )
     }
 }

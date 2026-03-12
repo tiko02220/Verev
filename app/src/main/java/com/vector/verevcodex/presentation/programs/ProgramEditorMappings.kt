@@ -101,9 +101,6 @@ fun ProgramEditorState.validate(): Map<String, Int> {
             if (positiveInt(pointsAwardedPerStep) == null) errors[PROGRAM_FIELD_POINTS_AWARDED] = R.string.merchant_program_error_positive_required
             if (positiveInt(pointsMinimumRedeem) == null) errors[PROGRAM_FIELD_POINTS_REDEEM] = R.string.merchant_program_error_positive_required
         }
-        LoyaltyProgramType.CASHBACK -> {
-            if (positiveDecimal(cashbackPercent) == null) errors[PROGRAM_FIELD_CASHBACK_PERCENT] = R.string.merchant_program_error_percent_required
-        }
         LoyaltyProgramType.DIGITAL_STAMP -> {
             if (positiveInt(checkInVisitsRequired) == null) errors[PROGRAM_FIELD_CHECKIN_VISITS] = R.string.merchant_program_error_positive_required
             if (positiveInt(checkInRewardPoints) == null) errors[PROGRAM_FIELD_CHECKIN_REWARD] = R.string.merchant_program_error_positive_required
@@ -195,18 +192,6 @@ fun ProgramEditorState.toConfiguration(): RewardProgramConfiguration {
             referralEnabled = false,
             scanActions = if (active) setOf(RewardProgramScanAction.EARN_POINTS, RewardProgramScanAction.REDEEM_REWARDS) else emptySet(),
             pointsRule = pointsRule,
-        )
-        LoyaltyProgramType.CASHBACK -> RewardProgramConfiguration(
-            earningEnabled = false,
-            rewardRedemptionEnabled = false,
-            visitCheckInEnabled = false,
-            cashbackEnabled = true,
-            tierTrackingEnabled = false,
-            couponEnabled = false,
-            purchaseFrequencyEnabled = false,
-            referralEnabled = false,
-            scanActions = if (active) setOf(RewardProgramScanAction.APPLY_CASHBACK) else emptySet(),
-            cashbackRule = cashbackRule,
         )
         LoyaltyProgramType.DIGITAL_STAMP -> RewardProgramConfiguration(
             earningEnabled = false,

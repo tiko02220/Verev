@@ -1,11 +1,15 @@
 package com.vector.verevcodex.presentation.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Email
@@ -238,6 +242,7 @@ fun EmailNotificationsScreen(
     viewModel: EmailNotificationsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val settings = state.settings
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -267,32 +272,170 @@ fun EmailNotificationsScreen(
         item {
             SettingsDetailSection(title = stringResource(R.string.merchant_settings_email_notifications)) {
                 SettingsToggleRow(
-                    title = stringResource(R.string.merchant_settings_notify_promotions),
-                    subtitle = stringResource(R.string.merchant_settings_notify_promotions_subtitle),
-                    checked = state.promotionsAndCampaigns,
-                    onCheckedChange = viewModel::setPromotionsAndCampaigns,
-                    enabled = !state.isSaving,
+                    title = stringResource(R.string.merchant_settings_notify_email_master),
+                    subtitle = stringResource(R.string.merchant_settings_notify_email_master_subtitle),
+                    checked = settings.emailEnabled,
+                    onCheckedChange = viewModel::setEmailEnabled,
+                    enabled = !state.isSaving && !state.isLoading,
+                    leadingIcon = Icons.Default.Email,
+                    accent = VerevColors.Gold,
                 )
                 SettingsToggleRow(
-                    title = stringResource(R.string.merchant_settings_notify_loyalty_activity),
-                    subtitle = stringResource(R.string.merchant_settings_notify_loyalty_activity_subtitle),
-                    checked = state.loyaltyActivity,
-                    onCheckedChange = viewModel::setLoyaltyActivity,
-                    enabled = !state.isSaving,
+                    title = stringResource(R.string.merchant_settings_notify_push_master),
+                    subtitle = stringResource(R.string.merchant_settings_notify_push_master_subtitle),
+                    checked = settings.pushEnabled,
+                    onCheckedChange = viewModel::setPushEnabled,
+                    enabled = !state.isSaving && !state.isLoading,
+                    leadingIcon = Icons.Default.NotificationsActive,
+                    accent = VerevColors.Moss,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_sound),
+                    subtitle = stringResource(R.string.merchant_settings_notify_sound_subtitle),
+                    checked = settings.soundEnabled,
+                    onCheckedChange = viewModel::setSoundEnabled,
+                    enabled = !state.isSaving && !state.isLoading,
+                    leadingIcon = if (settings.soundEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                    accent = VerevColors.Gold.copy(alpha = 0.86f),
+                )
+            }
+        }
+        item {
+            SettingsDetailSection(title = stringResource(R.string.merchant_settings_email_preferences_title)) {
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_transaction_emails),
+                    subtitle = stringResource(R.string.merchant_settings_notify_transaction_emails_subtitle),
+                    checked = settings.transactionEmails,
+                    onCheckedChange = viewModel::setTransactionEmails,
+                    enabled = !state.isSaving && !state.isLoading && settings.emailEnabled,
+                    leadingIcon = Icons.Default.Email,
+                    accent = VerevColors.Gold,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_daily_summary),
+                    subtitle = stringResource(R.string.merchant_settings_notify_daily_summary_subtitle),
+                    checked = settings.dailyBusinessSummary,
+                    onCheckedChange = viewModel::setDailyBusinessSummary,
+                    enabled = !state.isSaving && !state.isLoading && settings.emailEnabled,
+                    leadingIcon = Icons.Default.NotificationsActive,
+                    accent = VerevColors.Moss,
                 )
                 SettingsToggleRow(
                     title = stringResource(R.string.merchant_settings_notify_weekly_summary),
                     subtitle = stringResource(R.string.merchant_settings_notify_weekly_summary_subtitle),
-                    checked = state.weeklyBusinessSummary,
+                    checked = settings.weeklyBusinessSummary,
                     onCheckedChange = viewModel::setWeeklyBusinessSummary,
-                    enabled = !state.isSaving,
+                    enabled = !state.isSaving && !state.isLoading && settings.emailEnabled,
+                    leadingIcon = Icons.Default.NotificationsActive,
+                    accent = VerevColors.Forest,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_marketing_emails),
+                    subtitle = stringResource(R.string.merchant_settings_notify_marketing_emails_subtitle),
+                    checked = settings.marketingEmails,
+                    onCheckedChange = viewModel::setMarketingEmails,
+                    enabled = !state.isSaving && !state.isLoading && settings.emailEnabled,
+                    leadingIcon = Icons.Default.AlternateEmail,
+                    accent = VerevColors.Gold.copy(alpha = 0.86f),
+                )
+            }
+        }
+        item {
+            SettingsDetailSection(title = stringResource(R.string.merchant_settings_push_notifications_title)) {
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_new_customer),
+                    subtitle = stringResource(R.string.merchant_settings_notify_new_customer_subtitle),
+                    checked = settings.newCustomerPush,
+                    onCheckedChange = viewModel::setNewCustomerPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.Person,
+                    accent = VerevColors.Moss,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_transactions),
+                    subtitle = stringResource(R.string.merchant_settings_notify_transactions_subtitle),
+                    checked = settings.transactionPush,
+                    onCheckedChange = viewModel::setTransactionPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.NotificationsActive,
+                    accent = VerevColors.Gold,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_reward_redeemed),
+                    subtitle = stringResource(R.string.merchant_settings_notify_reward_redeemed_subtitle),
+                    checked = settings.rewardRedeemedPush,
+                    onCheckedChange = viewModel::setRewardRedeemedPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.Badge,
+                    accent = VerevColors.Gold.copy(alpha = 0.86f),
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_program_updates),
+                    subtitle = stringResource(R.string.merchant_settings_notify_program_updates_subtitle),
+                    checked = settings.programUpdatesPush,
+                    onCheckedChange = viewModel::setProgramUpdatesPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.AlternateEmail,
+                    accent = VerevColors.Forest,
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.merchant_settings_notify_staff_activity),
+                    subtitle = stringResource(R.string.merchant_settings_notify_staff_activity_subtitle),
+                    checked = settings.staffActivityPush,
+                    onCheckedChange = viewModel::setStaffActivityPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.Badge,
+                    accent = VerevColors.Moss,
                 )
                 SettingsToggleRow(
                     title = stringResource(R.string.merchant_settings_notify_security_alerts),
                     subtitle = stringResource(R.string.merchant_settings_notify_security_alerts_subtitle),
-                    checked = state.securityAlerts,
-                    onCheckedChange = viewModel::setSecurityAlerts,
-                    enabled = !state.isSaving,
+                    checked = settings.systemAlertsPush,
+                    onCheckedChange = viewModel::setSystemAlertsPush,
+                    enabled = !state.isSaving && !state.isLoading && settings.pushEnabled,
+                    leadingIcon = Icons.Default.Shield,
+                    accent = Color(0xFFDC2626),
+                )
+            }
+        }
+        item {
+            Button(
+                onClick = viewModel::save,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.hasChanges && !state.isSaving && !state.isLoading,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Gold,
+                    contentColor = Color.White,
+                    disabledContainerColor = VerevColors.Gold.copy(alpha = 0.32f),
+                    disabledContentColor = Color.White.copy(alpha = 0.72f),
+                ),
+            ) {
+                Text(
+                    text = if (state.isSaving) {
+                        stringResource(R.string.auth_loading)
+                    } else {
+                        stringResource(R.string.merchant_settings_save_preferences)
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        if (state.hasChanges) {
+            item {
+                Text(
+                    text = stringResource(R.string.merchant_settings_unsaved_changes_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.64f),
+                )
+            }
+        }
+        if (state.isLoading) {
+            item {
+                Text(
+                    text = stringResource(R.string.auth_loading),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.64f),
                 )
             }
         }
@@ -321,6 +464,8 @@ private fun SettingsToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    accent: Color = VerevColors.Forest,
 ) {
     MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
         androidx.compose.foundation.layout.Row(
@@ -328,21 +473,44 @@ private fun SettingsToggleRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            androidx.compose.foundation.layout.Column(
+            androidx.compose.foundation.layout.Row(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.64f),
-                )
+                if (leadingIcon != null) {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                color = accent.copy(alpha = 0.12f),
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                            ),
+                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = leadingIcon,
+                            contentDescription = null,
+                            tint = accent,
+                        )
+                    }
+                }
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.64f),
+                    )
+                }
             }
             Switch(
                 checked = checked,

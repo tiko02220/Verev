@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.vector.verevcodex.data.preferences.scanPreferenceStore
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.domain.model.scan.ScanPreferences
 import com.vector.verevcodex.domain.repository.scan.ScanPreferencesRepository
@@ -17,14 +17,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-private val Context.scanDataStore by preferencesDataStore(name = "scan_prefs")
-
 @Singleton
 class ScanPreferencesRepositoryImpl @Inject constructor(
     @ApplicationContext context: Context,
     private val authRepository: AuthRepository,
 ) : ScanPreferencesRepository {
-    private val dataStore = context.scanDataStore
+    private val dataStore = context.scanPreferenceStore
 
     override fun observePreferences(): Flow<ScanPreferences> = combine(
         authRepository.observeSession().map { it?.user?.id ?: "anonymous" },

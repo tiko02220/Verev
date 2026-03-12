@@ -57,6 +57,16 @@ class PromotionsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedPromotionId = null)
     }
 
+    fun openNetworkPromotionPayment(promotionId: String) {
+        val promotion = _uiState.value.promotions.firstOrNull { it.id == promotionId } ?: return
+        if (!promotion.paymentFlowEnabled) return
+        _uiState.value = _uiState.value.copy(paymentPromotionId = promotionId, errorRes = null, messageRes = null)
+    }
+
+    fun dismissNetworkPromotionPayment() {
+        _uiState.value = _uiState.value.copy(paymentPromotionId = null)
+    }
+
     fun openCreatePromotion(type: PromotionType = PromotionType.POINTS_MULTIPLIER) {
         _uiState.value = _uiState.value.copy(
             editorState = defaultPromotionEditorState().copy(promotionType = type),
@@ -148,6 +158,14 @@ class PromotionsViewModel @Inject constructor(
 
     fun dismissDeleteDialog() {
         _uiState.value = _uiState.value.copy(deleteCandidate = null)
+    }
+
+    fun publishNetworkPaymentConfirmed() {
+        _uiState.value = _uiState.value.copy(
+            paymentPromotionId = null,
+            messageRes = R.string.merchant_network_promotion_payment_success,
+            errorRes = null,
+        )
     }
 
     fun confirmDeletePromotion() {

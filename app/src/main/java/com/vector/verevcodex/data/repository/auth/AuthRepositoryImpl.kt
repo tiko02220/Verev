@@ -5,10 +5,10 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.db.DatabaseSeeder
 import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
+import com.vector.verevcodex.data.preferences.authPreferenceStore
 import com.vector.verevcodex.data.db.entity.business.OwnerEntity
 import com.vector.verevcodex.data.db.entity.business.StoreEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
@@ -34,8 +34,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 
-private val Context.authDataStore by preferencesDataStore(name = "auth_prefs")
-
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -44,7 +42,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val businessSettingsRepository: BusinessSettingsRepositoryImpl,
     seeder: DatabaseSeeder,
 ) : AuthRepository {
-    private val dataStore = context.authDataStore
+    private val dataStore = context.authPreferenceStore
     private val currentAccountKey = stringPreferencesKey("current_account_id")
     private val resetEmailKey = stringPreferencesKey("pending_reset_email")
     private val resetCodeKey = stringPreferencesKey("pending_reset_code")
@@ -75,10 +73,27 @@ class AuthRepositoryImpl @Inject constructor(
     override fun observeEmailNotificationSettings(): Flow<EmailNotificationSettings?> = dataStore.data.map { preferences ->
         val accountId = preferences[currentAccountKey] ?: return@map null
         EmailNotificationSettings(
-            promotionsAndCampaigns = preferences[booleanPreferencesKey("${accountId}_notify_promotions")] ?: true,
-            loyaltyActivity = preferences[booleanPreferencesKey("${accountId}_notify_loyalty")] ?: true,
-            weeklyBusinessSummary = preferences[booleanPreferencesKey("${accountId}_notify_summary")] ?: true,
-            securityAlerts = preferences[booleanPreferencesKey("${accountId}_notify_security")] ?: true,
+            emailEnabled = preferences[booleanPreferencesKey("${accountId}_notify_email_enabled")] ?: true,
+            pushEnabled = preferences[booleanPreferencesKey("${accountId}_notify_push_enabled")] ?: true,
+            soundEnabled = preferences[booleanPreferencesKey("${accountId}_notify_sound_enabled")] ?: true,
+            transactionEmails = preferences[booleanPreferencesKey("${accountId}_notify_email_transactions")] ?: true,
+            dailyBusinessSummary = preferences[booleanPreferencesKey("${accountId}_notify_email_daily_summary")] ?: true,
+            weeklyBusinessSummary = preferences[booleanPreferencesKey("${accountId}_notify_email_weekly_summary")]
+                ?: preferences[booleanPreferencesKey("${accountId}_notify_summary")]
+                ?: true,
+            marketingEmails = preferences[booleanPreferencesKey("${accountId}_notify_email_marketing")]
+                ?: preferences[booleanPreferencesKey("${accountId}_notify_promotions")]
+                ?: false,
+            newCustomerPush = preferences[booleanPreferencesKey("${accountId}_notify_push_new_customer")] ?: true,
+            transactionPush = preferences[booleanPreferencesKey("${accountId}_notify_push_transactions")] ?: true,
+            rewardRedeemedPush = preferences[booleanPreferencesKey("${accountId}_notify_push_reward_redeemed")]
+                ?: preferences[booleanPreferencesKey("${accountId}_notify_loyalty")]
+                ?: true,
+            programUpdatesPush = preferences[booleanPreferencesKey("${accountId}_notify_push_program_updates")] ?: true,
+            staffActivityPush = preferences[booleanPreferencesKey("${accountId}_notify_push_staff_activity")] ?: false,
+            systemAlertsPush = preferences[booleanPreferencesKey("${accountId}_notify_push_system_alerts")]
+                ?: preferences[booleanPreferencesKey("${accountId}_notify_security")]
+                ?: true,
         )
     }
 
@@ -215,10 +230,25 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun updateEmailNotificationSettings(settings: EmailNotificationSettings): Result<Unit> {
         val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
         dataStore.edit { preferences ->
-            preferences[booleanPreferencesKey("${account.id}_notify_promotions")] = settings.promotionsAndCampaigns
-            preferences[booleanPreferencesKey("${account.id}_notify_loyalty")] = settings.loyaltyActivity
+            preferences[booleanPreferencesKey("${account.id}_notify_email_enabled")] = settings.emailEnabled
+            preferences[booleanPreferencesKey("${account.id}_notify_push_enabled")] = settings.pushEnabled
+            preferences[booleanPreferencesKey("${account.id}_notify_sound_enabled")] = settings.soundEnabled
+            preferences[booleanPreferencesKey("${account.id}_notify_email_transactions")] = settings.transactionEmails
+            preferences[booleanPreferencesKey("${account.id}_notify_email_daily_summary")] = settings.dailyBusinessSummary
+            preferences[booleanPreferencesKey("${account.id}_notify_email_weekly_summary")] = settings.weeklyBusinessSummary
+            preferences[booleanPreferencesKey("${account.id}_notify_email_marketing")] = settings.marketingEmails
+            preferences[booleanPreferencesKey("${account.id}_notify_push_new_customer")] = settings.newCustomerPush
+            preferences[booleanPreferencesKey("${account.id}_notify_push_transactions")] = settings.transactionPush
+            preferences[booleanPreferencesKey("${account.id}_notify_push_reward_redeemed")] = settings.rewardRedeemedPush
+            preferences[booleanPreferencesKey("${account.id}_notify_push_program_updates")] = settings.programUpdatesPush
+            preferences[booleanPreferencesKey("${account.id}_notify_push_staff_activity")] = settings.staffActivityPush
+            preferences[booleanPreferencesKey("${account.id}_notify_push_system_alerts")] = settings.systemAlertsPush
+
+            // Keep legacy keys in sync while the local app still reads older preferences in some flows.
+            preferences[booleanPreferencesKey("${account.id}_notify_promotions")] = settings.marketingEmails
+            preferences[booleanPreferencesKey("${account.id}_notify_loyalty")] = settings.rewardRedeemedPush
             preferences[booleanPreferencesKey("${account.id}_notify_summary")] = settings.weeklyBusinessSummary
-            preferences[booleanPreferencesKey("${account.id}_notify_security")] = settings.securityAlerts
+            preferences[booleanPreferencesKey("${account.id}_notify_security")] = settings.systemAlertsPush
         }
         return Result.success(Unit)
     }

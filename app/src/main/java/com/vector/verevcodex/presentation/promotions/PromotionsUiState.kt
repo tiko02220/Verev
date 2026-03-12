@@ -9,6 +9,7 @@ data class PromotionsUiState(
     val promotions: List<Campaign> = emptyList(),
     val selectedFilter: PromotionFilter = PromotionFilter.ALL,
     val selectedPromotionId: String? = null,
+    val paymentPromotionId: String? = null,
     val editorState: PromotionEditorState? = null,
     val editorFieldErrors: Map<String, Int> = emptyMap(),
     val deleteCandidate: Campaign? = null,

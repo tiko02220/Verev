@@ -77,7 +77,7 @@ private fun RewardProgram.priorityFor(action: RewardProgramScanAction): Int = wh
         else -> 9
     }
     RewardProgramScanAction.APPLY_CASHBACK -> when (type) {
-        LoyaltyProgramType.CASHBACK -> 0
+        LoyaltyProgramType.HYBRID -> 0
         else -> 9
     }
     RewardProgramScanAction.TRACK_TIER_PROGRESS -> when (type) {

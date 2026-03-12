@@ -68,10 +68,10 @@ fun MerchantTopBar(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 12.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                ambientColor = VerevColors.Forest.copy(alpha = 0.18f),
-                spotColor = VerevColors.Forest.copy(alpha = 0.18f),
+                ambientColor = VerevColors.Forest.copy(alpha = 0.08f),
+                spotColor = VerevColors.Forest.copy(alpha = 0.08f),
             )
             .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
             .background(

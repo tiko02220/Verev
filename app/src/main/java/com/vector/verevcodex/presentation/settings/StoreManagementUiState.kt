@@ -9,6 +9,7 @@ data class StoreManagementUiState(
     val isEditorVisible: Boolean = false,
     val isSaving: Boolean = false,
     val editor: StoreEditorState = StoreEditorState(),
+    val editorFieldErrors: Map<String, Int> = emptyMap(),
     @StringRes val errorRes: Int? = null,
     @StringRes val messageRes: Int? = null,
 )
