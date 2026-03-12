@@ -57,8 +57,8 @@ class LoginViewModel @Inject constructor(
 }
 
 data class LoginUiState(
-    val email: String = "owner@verevcrm.local",
-    val password: String = "12345678",
+    val email: String = "",
+    val password: String = "",
     val emailError: String? = null,
     val passwordError: String? = null,
     val authError: String? = null,

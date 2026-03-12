@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill

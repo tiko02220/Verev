@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.platform.android.findActivity
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.theme.VerevColors
 
@@ -105,6 +106,10 @@ fun CustomerCredentialManagementScreen(
                 activationLink = state.activationLink,
                 option = selectedOption,
             )
+            fun launchWalletSave() {
+                val activity = context.findActivity() ?: return
+                viewModel.launchWalletSave(activity)
+            }
 
             Column(
                 modifier = Modifier
@@ -121,38 +126,35 @@ fun CustomerCredentialManagementScreen(
                         onBack()
                     },
                     onSelectProvisioningOption = { selectedOption = it },
-                    body = {
-                        ProvisioningOptionBody(
-                            state = provisioningState,
-                            copied = copied,
-                            selectedOption = selectedOption,
-                            onCopyLink = {
-                                clipboardManager.setText(AnnotatedString(sharePayload.copyValue))
-                                copied = true
-                            },
-                            onOpenEmail = { emailProvisioningPayload(context, sharePayload) },
-                            onOpenSms = { smsProvisioningPayload(context, sharePayload) },
-                            onShareLink = { shareProvisioningPayload(context, sharePayload) },
-                            onLaunchGoogleWallet = { shareProvisioningPayload(context, sharePayload) },
-                            onStartNfcWrite = viewModel::startNfcWrite,
-                            onRetryNfcWrite = viewModel::retryNfcWrite,
-                            onClearNfcState = viewModel::clearTransientState,
-                            onRefreshWalletStatus = viewModel::refreshWalletAvailability,
-                        )
-                    },
-                    footer = {
-                        ProvisioningInfoCard(
-                            title = stringResource(R.string.merchant_add_customer_code_label),
-                            subtitle = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
-                            icon = when (selectedOption) {
-                                CustomerCardProvisioningOption.GOOGLE_WALLET -> Icons.Default.PhoneAndroid
-                                CustomerCardProvisioningOption.NFC_CARD -> Icons.Default.CreditCard
-                                CustomerCardProvisioningOption.BARCODE_IMAGE -> Icons.Default.QrCode2
-                            },
-                            accentColor = VerevColors.Tan,
-                        )
-                    },
-                )
+                ) {
+                    ProvisioningOptionBody(
+                        state = provisioningState,
+                        copied = copied,
+                        selectedOption = selectedOption,
+                        onCopyLink = {
+                            clipboardManager.setText(AnnotatedString(sharePayload.copyValue))
+                            copied = true
+                        },
+                        onOpenEmail = { emailProvisioningPayload(context, sharePayload) },
+                        onOpenSms = { smsProvisioningPayload(context, sharePayload) },
+                        onShareLink = { shareProvisioningPayload(context, sharePayload) },
+                        onLaunchGoogleWallet = ::launchWalletSave,
+                        onStartNfcWrite = viewModel::startNfcWrite,
+                        onRetryNfcWrite = viewModel::retryNfcWrite,
+                        onClearNfcState = viewModel::clearTransientState,
+                        onRefreshWalletStatus = viewModel::refreshWalletAvailability,
+                    )
+                    ProvisioningInfoCard(
+                        title = stringResource(R.string.merchant_add_customer_code_label),
+                        subtitle = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
+                        icon = when (selectedOption) {
+                            CustomerCardProvisioningOption.GOOGLE_WALLET -> Icons.Default.PhoneAndroid
+                            CustomerCardProvisioningOption.NFC_CARD -> Icons.Default.CreditCard
+                            CustomerCardProvisioningOption.BARCODE_IMAGE -> Icons.Default.QrCode2
+                        },
+                        accentColor = VerevColors.Tan,
+                    )
+                }
             }
         }
     }

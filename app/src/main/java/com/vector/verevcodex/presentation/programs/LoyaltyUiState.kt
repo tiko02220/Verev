@@ -1,8 +1,8 @@
 package com.vector.verevcodex.presentation.programs
 
-import com.vector.verevcodex.domain.model.Campaign
-import com.vector.verevcodex.domain.model.Reward
-import com.vector.verevcodex.domain.model.RewardProgram
+import com.vector.verevcodex.domain.model.promotions.Campaign
+import com.vector.verevcodex.domain.model.loyalty.Reward
+import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 
 data class LoyaltyUiState(
     val selectedStoreId: String? = null,
@@ -11,6 +11,7 @@ data class LoyaltyUiState(
     val rewards: List<Reward> = emptyList(),
     val campaigns: List<Campaign> = emptyList(),
     val editorState: ProgramEditorState? = null,
+    val editorFieldErrors: Map<String, Int> = emptyMap(),
     val deleteCandidate: RewardProgram? = null,
     val busyProgramId: String? = null,
     val isSubmitting: Boolean = false,

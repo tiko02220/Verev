@@ -1,10 +1,10 @@
 package com.vector.verevcodex.presentation.customers
 
-import com.vector.verevcodex.core.wallet.GoogleWalletAvailability
-import com.vector.verevcodex.core.wallet.GoogleWalletPassRequest
-import com.vector.verevcodex.core.wallet.GoogleWalletSaveResult
-import com.vector.verevcodex.domain.model.Customer
-import com.vector.verevcodex.domain.model.CustomerCredential
+import com.vector.verevcodex.platform.wallet.GoogleWalletAvailability
+import com.vector.verevcodex.platform.wallet.GoogleWalletPassRequest
+import com.vector.verevcodex.platform.wallet.GoogleWalletSaveResult
+import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerCredential
 
 data class CustomerCredentialManagementUiState(
     val customer: Customer? = null,

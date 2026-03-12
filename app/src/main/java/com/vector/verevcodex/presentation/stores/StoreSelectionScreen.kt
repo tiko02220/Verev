@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vector.verevcodex.presentation.components.StateContent
+import com.vector.verevcodex.presentation.common.StateContent
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable

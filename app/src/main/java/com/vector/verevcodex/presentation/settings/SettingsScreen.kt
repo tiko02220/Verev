@@ -4,14 +4,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,16 +30,21 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.business.Store
+import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
+import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 fun StoreManagementScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit = {},
-    shellViewModel: ShellViewModel = hiltViewModel(),
+    onOpenBranchStaffConfig: (String) -> Unit = {},
+    onOpenBranchProgramsConfig: (String) -> Unit = {},
+    viewModel: StoreManagementViewModel = hiltViewModel(),
 ) {
-    val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -52,27 +64,179 @@ fun StoreManagementScreen(
                 title = stringResource(R.string.merchant_store_management_title),
                 subtitle = stringResource(R.string.merchant_store_management_subtitle),
                 icon = Icons.Default.Storefront,
-                colors = listOf(com.vector.verevcodex.presentation.theme.VerevColors.Forest, com.vector.verevcodex.presentation.theme.VerevColors.Moss),
+                colors = listOf(VerevColors.Forest, VerevColors.Moss),
             )
         }
-        item { SettingsBusinessCard(store = shellState.selectedStore, currentUser = shellState.currentUser) }
-        shellState.stores.forEach { store ->
-            item {
-                SettingsMenuRow(
-                    title = store.name,
-                    subtitle = "${store.address} • ${store.workingHours}",
-                    icon = Icons.Default.Storefront,
-                    trailingLabel = if (store.active) stringResource(R.string.merchant_store_active) else stringResource(R.string.merchant_store_disabled),
-                    onClick = { shellViewModel.selectStore(store.id) },
-                )
+        state.errorRes?.let { errorRes ->
+            item { SettingsDetailSection(title = stringResource(errorRes)) {} }
+        }
+        state.messageRes?.let { messageRes ->
+            item { SettingsDetailSection(title = stringResource(messageRes)) {} }
+        }
+        item {
+            Button(onClick = viewModel::startCreate, modifier = Modifier.fillParentMaxWidth()) {
+                androidx.compose.material3.Text(stringResource(R.string.merchant_add_branch))
             }
         }
+        items(state.stores, key = { it.id }) { store ->
+            BranchStoreCard(
+                store = store,
+                selected = store.id == state.selectedStoreId,
+                onSelect = { viewModel.selectStore(store.id) },
+                onEdit = { viewModel.startEdit(store) },
+                onToggleActive = { viewModel.toggleStoreActive(store) },
+                onConfigureStaff = { onOpenBranchStaffConfig(store.id) },
+                onConfigurePrograms = { onOpenBranchProgramsConfig(store.id) },
+            )
+        }
+    }
+
+    if (state.isEditorVisible) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissEditor,
+            confirmButton = {
+                Button(onClick = viewModel::submitEditor, enabled = !state.isSaving) {
+                    androidx.compose.material3.Text(stringResource(R.string.merchant_save_changes))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = viewModel::dismissEditor) {
+                    androidx.compose.material3.Text(stringResource(R.string.auth_cancel))
+                }
+            },
+            title = {
+                androidx.compose.material3.Text(
+                    stringResource(
+                        if (state.editor.editingStoreId == null) R.string.merchant_add_branch else R.string.merchant_edit_branch
+                    )
+                )
+            },
+            text = {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        MerchantFormField(
+                            value = state.editor.name,
+                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(name = it) } },
+                            label = stringResource(R.string.merchant_business_details_name_label),
+                            leadingIcon = Icons.Default.Storefront,
+                        )
+                    }
+                    item {
+                        MerchantFormField(
+                            value = state.editor.address,
+                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(address = it) } },
+                            label = stringResource(R.string.merchant_business_details_address_label),
+                            leadingIcon = Icons.Default.LocationOn,
+                        )
+                    }
+                    item {
+                        MerchantFormField(
+                            value = state.editor.contactInfo,
+                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(contactInfo = it) } },
+                            label = stringResource(R.string.merchant_business_details_contact_label),
+                            leadingIcon = Icons.Default.Email,
+                        )
+                    }
+                    item {
+                        MerchantFormField(
+                            value = state.editor.category,
+                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(category = it) } },
+                            label = stringResource(R.string.merchant_business_details_category_label),
+                            leadingIcon = Icons.Default.Storefront,
+                        )
+                    }
+                    item {
+                        MerchantFormField(
+                            value = state.editor.workingHours,
+                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(workingHours = it) } },
+                            label = stringResource(R.string.merchant_business_details_hours_label),
+                            leadingIcon = Icons.Default.Description,
+                        )
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun BranchStoreCard(
+    store: Store,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onToggleActive: () -> Unit,
+    onConfigureStaff: () -> Unit,
+    onConfigurePrograms: () -> Unit,
+) {
+    SettingsDetailSection(title = store.name) {
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_business_details_address_label),
+            value = store.address,
+            trailing = {
+                SettingsSectionBadge(
+                    text = if (selected) {
+                        stringResource(R.string.merchant_current_location)
+                    } else if (store.active) {
+                        stringResource(R.string.merchant_store_active)
+                    } else {
+                        stringResource(R.string.merchant_store_disabled)
+                    },
+                )
+            },
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_business_details_contact_label),
+            value = store.contactInfo,
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_business_details_hours_label),
+            value = store.workingHours,
+        )
+        SettingsMenuRow(
+            title = stringResource(R.string.merchant_select_store),
+            subtitle = stringResource(R.string.merchant_store_make_current),
+            icon = Icons.Default.Storefront,
+            trailingLabel = "",
+            onClick = onSelect,
+        )
+        SettingsMenuRow(
+            title = stringResource(R.string.merchant_edit_branch),
+            subtitle = stringResource(R.string.merchant_store_edit_branch_subtitle),
+            icon = Icons.Default.Description,
+            trailingLabel = "",
+            onClick = onEdit,
+        )
+        SettingsMenuRow(
+            title = stringResource(R.string.merchant_branch_staff_config_title),
+            subtitle = stringResource(R.string.merchant_branch_staff_config_subtitle),
+            icon = Icons.Default.Groups,
+            trailingLabel = "",
+            onClick = onConfigureStaff,
+        )
+        SettingsMenuRow(
+            title = stringResource(R.string.merchant_branch_programs_title),
+            subtitle = stringResource(R.string.merchant_branch_programs_subtitle),
+            icon = Icons.Default.Campaign,
+            trailingLabel = "",
+            onClick = onConfigurePrograms,
+        )
+        SettingsMenuRow(
+            title = if (store.active) stringResource(R.string.merchant_disable_branch) else stringResource(R.string.merchant_enable_branch),
+            subtitle = stringResource(R.string.merchant_store_toggle_active_subtitle),
+            icon = Icons.Default.Shield,
+            trailingLabel = "",
+            onClick = onToggleActive,
+        )
     }
 }
 
 @Composable
 fun BusinessSettingsScreen(
     contentPadding: PaddingValues = PaddingValues(),
+    onOpenPersonalInformation: () -> Unit = {},
+    onOpenPasswordSecurity: () -> Unit = {},
+    onOpenEmailNotifications: () -> Unit = {},
     onOpenBusinessDetails: () -> Unit = {},
     onOpenPrograms: () -> Unit = {},
     onOpenStaff: () -> Unit = {},
@@ -94,6 +258,28 @@ fun BusinessSettingsScreen(
     }
 
     val groups = buildList {
+        add(
+            stringResource(R.string.merchant_settings_group_account) to listOf(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_personal_information),
+                    subtitle = stringResource(R.string.merchant_settings_personal_information_subtitle),
+                    icon = Icons.Default.Person,
+                    onClick = onOpenPersonalInformation,
+                ),
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_password_security),
+                    subtitle = stringResource(R.string.merchant_settings_password_security_subtitle),
+                    icon = Icons.Default.Shield,
+                    onClick = onOpenPasswordSecurity,
+                ),
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_email_notifications),
+                    subtitle = stringResource(R.string.merchant_settings_email_notifications_subtitle),
+                    icon = Icons.Default.Email,
+                    onClick = onOpenEmailNotifications,
+                ),
+            )
+        )
         if (shellState.currentUser?.role == StaffRole.OWNER || shellState.currentUser?.role == StaffRole.STORE_MANAGER) {
             add(
                 stringResource(R.string.merchant_settings_group_business) to listOf(

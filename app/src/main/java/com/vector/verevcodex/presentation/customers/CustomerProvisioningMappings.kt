@@ -2,10 +2,10 @@ package com.vector.verevcodex.presentation.customers
 
 import androidx.annotation.StringRes
 import com.vector.verevcodex.R
-import com.vector.verevcodex.core.wallet.GoogleWalletAvailability
-import com.vector.verevcodex.core.wallet.GoogleWalletSaveResult
-import com.vector.verevcodex.domain.model.CustomerCredentialMethod
-import com.vector.verevcodex.domain.model.CustomerCredentialStatus
+import com.vector.verevcodex.platform.wallet.GoogleWalletAvailability
+import com.vector.verevcodex.platform.wallet.GoogleWalletSaveResult
+import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
+import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
 
 @StringRes
 internal fun GoogleWalletAvailability.toStatusRes(): Int = when (this) {

@@ -3,4 +3,7 @@
     <cache-path
         name="shared_barcodes"
         path="shared_barcodes/" />
+    <files-path
+        name="shared_reports"
+        path="reports/" />
 </paths>

@@ -3,32 +3,38 @@ package com.vector.verevcodex.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.vector.verevcodex.data.db.dao.auth.AuthDao
-import com.vector.verevcodex.data.db.dao.CustomerBusinessRelationDao
-import com.vector.verevcodex.data.db.dao.CustomerCredentialDao
-import com.vector.verevcodex.data.db.dao.CustomerDao
-import com.vector.verevcodex.data.db.dao.LoyaltyDao
-import com.vector.verevcodex.data.db.dao.NotificationDao
-import com.vector.verevcodex.data.db.dao.OwnerDao
-import com.vector.verevcodex.data.db.dao.PointsLedgerDao
-import com.vector.verevcodex.data.db.dao.StaffDao
-import com.vector.verevcodex.data.db.dao.StoreDao
-import com.vector.verevcodex.data.db.dao.TransactionDao
-import com.vector.verevcodex.data.db.dao.TransactionItemDao
-import com.vector.verevcodex.data.db.entity.BusinessLocationEntity
-import com.vector.verevcodex.data.db.entity.CampaignEntity
-import com.vector.verevcodex.data.db.entity.CampaignTargetEntity
-import com.vector.verevcodex.data.db.entity.CustomerBusinessRelationEntity
-import com.vector.verevcodex.data.db.entity.CustomerCredentialEntity
-import com.vector.verevcodex.data.db.entity.CustomerEntity
-import com.vector.verevcodex.data.db.entity.NotificationEntity
-import com.vector.verevcodex.data.db.entity.OwnerEntity
-import com.vector.verevcodex.data.db.entity.PointsLedgerEntity
-import com.vector.verevcodex.data.db.entity.RewardEntity
-import com.vector.verevcodex.data.db.entity.RewardProgramEntity
-import com.vector.verevcodex.data.db.entity.StaffMemberEntity
-import com.vector.verevcodex.data.db.entity.StoreEntity
-import com.vector.verevcodex.data.db.entity.TransactionEntity
-import com.vector.verevcodex.data.db.entity.TransactionItemEntity
+import com.vector.verevcodex.data.db.dao.customer.CustomerBusinessRelationDao
+import com.vector.verevcodex.data.db.dao.customer.CustomerCredentialDao
+import com.vector.verevcodex.data.db.dao.customer.CustomerDao
+import com.vector.verevcodex.data.db.dao.loyalty.LoyaltyDao
+import com.vector.verevcodex.data.db.dao.notifications.NotificationDao
+import com.vector.verevcodex.data.db.dao.business.OwnerDao
+import com.vector.verevcodex.data.db.dao.loyalty.PointsLedgerDao
+import com.vector.verevcodex.data.db.dao.business.StaffDao
+import com.vector.verevcodex.data.db.dao.business.StoreDao
+import com.vector.verevcodex.data.db.dao.settings.BusinessSettingsDao
+import com.vector.verevcodex.data.db.dao.transactions.TransactionDao
+import com.vector.verevcodex.data.db.dao.transactions.TransactionItemDao
+import com.vector.verevcodex.data.db.entity.settings.BillingInvoiceEntity
+import com.vector.verevcodex.data.db.entity.business.BusinessLocationEntity
+import com.vector.verevcodex.data.db.entity.loyalty.CampaignEntity
+import com.vector.verevcodex.data.db.entity.loyalty.CampaignTargetEntity
+import com.vector.verevcodex.data.db.entity.settings.BranchConfigurationEntity
+import com.vector.verevcodex.data.db.entity.settings.BrandingSettingsEntity
+import com.vector.verevcodex.data.db.entity.customer.CustomerBusinessRelationEntity
+import com.vector.verevcodex.data.db.entity.customer.CustomerCredentialEntity
+import com.vector.verevcodex.data.db.entity.customer.CustomerEntity
+import com.vector.verevcodex.data.db.entity.loyalty.NotificationEntity
+import com.vector.verevcodex.data.db.entity.business.OwnerEntity
+import com.vector.verevcodex.data.db.entity.loyalty.PointsLedgerEntity
+import com.vector.verevcodex.data.db.entity.loyalty.RewardEntity
+import com.vector.verevcodex.data.db.entity.loyalty.RewardProgramEntity
+import com.vector.verevcodex.data.db.entity.settings.SavedPaymentMethodEntity
+import com.vector.verevcodex.data.db.entity.business.StaffMemberEntity
+import com.vector.verevcodex.data.db.entity.business.StoreEntity
+import com.vector.verevcodex.data.db.entity.settings.SubscriptionPlanEntity
+import com.vector.verevcodex.data.db.entity.loyalty.TransactionEntity
+import com.vector.verevcodex.data.db.entity.loyalty.TransactionItemEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
 
 @Database(
@@ -49,9 +55,14 @@ import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
         CampaignTargetEntity::class,
         NotificationEntity::class,
         AuthAccountEntity::class,
+        BrandingSettingsEntity::class,
+        SubscriptionPlanEntity::class,
+        SavedPaymentMethodEntity::class,
+        BillingInvoiceEntity::class,
+        BranchConfigurationEntity::class,
     ],
-    version = 3,
-    exportSchema = false,
+    version = 7,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun authDao(): AuthDao
@@ -66,4 +77,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun loyaltyDao(): LoyaltyDao
     abstract fun pointsLedgerDao(): PointsLedgerDao
     abstract fun notificationDao(): NotificationDao
+    abstract fun businessSettingsDao(): BusinessSettingsDao
 }

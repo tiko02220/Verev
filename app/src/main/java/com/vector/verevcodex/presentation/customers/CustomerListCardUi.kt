@@ -1,0 +1,9 @@
+package com.vector.verevcodex.presentation.customers
+
+import com.vector.verevcodex.domain.model.customer.Customer
+
+internal data class CustomerListCardUi(
+    val customer: Customer,
+    val notesPreview: String? = null,
+    val tagsPreview: List<String> = emptyList(),
+)

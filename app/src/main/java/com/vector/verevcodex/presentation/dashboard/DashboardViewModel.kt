@@ -2,9 +2,9 @@ package com.vector.verevcodex.presentation.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.core.UiState
-import com.vector.verevcodex.domain.model.DashboardSnapshot
-import com.vector.verevcodex.domain.usecase.ObserveDashboardUseCase
+import com.vector.verevcodex.presentation.common.state.UiState
+import com.vector.verevcodex.domain.model.analytics.DashboardSnapshot
+import com.vector.verevcodex.domain.usecase.analytics.ObserveDashboardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

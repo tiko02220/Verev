@@ -2,15 +2,17 @@ package com.vector.verevcodex.presentation.auth.signup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
 import com.vector.verevcodex.domain.model.auth.BusinessRegistration
 import com.vector.verevcodex.domain.model.auth.SecuritySetup
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
-import com.vector.verevcodex.domain.usecase.AddStaffMembersUseCase
+import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.auth.ActivateSessionUseCase
 import com.vector.verevcodex.domain.usecase.auth.RegisterBusinessUseCase
 import com.vector.verevcodex.domain.usecase.auth.SaveSecuritySetupUseCase
+import com.vector.verevcodex.domain.usecase.store.SelectStoreUseCase
 import com.vector.verevcodex.presentation.auth.common.SignupStep
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -25,6 +27,7 @@ class SignupViewModel @Inject constructor(
     private val saveSecuritySetupUseCase: SaveSecuritySetupUseCase,
     private val addStaffMembersUseCase: AddStaffMembersUseCase,
     private val activateSessionUseCase: ActivateSessionUseCase,
+    private val selectStoreUseCase: SelectStoreUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignupUiState())
     val uiState: StateFlow<SignupUiState> = _uiState.asStateFlow()
@@ -177,16 +180,11 @@ class SignupViewModel @Inject constructor(
 
     fun addStaffMember() {
         val state = uiState.value
-        if (state.staffName.isBlank() || state.staffEmail.isBlank() || state.staffPassword.length < 6) {
+        if (state.staffName.isBlank() || state.staffEmail.isBlank() || state.staffPassword.length < 8) {
             update { copy(staffError = "staff_incomplete") }
             return
         }
-        val permissionsSummary = when (state.staffRole) {
-            StaffRole.STORE_MANAGER -> "Full branch management access"
-            StaffRole.CASHIER -> "Scan cards and process transactions"
-            StaffRole.STAFF -> "Daily operations access"
-            StaffRole.OWNER -> "Owner access"
-        }
+        val permissionsSummary = state.staffRole.defaultPermissionsSummary()
         update {
             copy(
                 staffMembers = staffMembers + StaffOnboardingMember(
@@ -225,10 +223,16 @@ class SignupViewModel @Inject constructor(
 
     private fun completeOnboardingAndEnterApp() {
         val accountId = _uiState.value.accountId ?: return
+        val storeId = _uiState.value.storeId
         viewModelScope.launch {
             update { copy(isLoading = true) }
             activateSessionUseCase(accountId)
-                .onSuccess { update { copy(isLoading = false, shouldNavigateToApp = true) } }
+                .onSuccess {
+                    if (!storeId.isNullOrBlank()) {
+                        selectStoreUseCase(storeId)
+                    }
+                    update { copy(isLoading = false, shouldNavigateToApp = true) }
+                }
                 .onFailure { update { copy(isLoading = false, submissionError = it.message ?: "invalid_credentials") } }
         }
     }

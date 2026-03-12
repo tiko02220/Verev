@@ -3,18 +3,19 @@ package com.vector.verevcodex.presentation.programs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.LoyaltyProgramType
-import com.vector.verevcodex.domain.model.RewardProgramConfigurationFactory
-import com.vector.verevcodex.domain.usecase.CreateProgramUseCase
-import com.vector.verevcodex.domain.usecase.DeleteProgramUseCase
-import com.vector.verevcodex.domain.usecase.ObserveCampaignsUseCase
-import com.vector.verevcodex.domain.usecase.ObserveProgramsUseCase
-import com.vector.verevcodex.domain.usecase.ObserveRewardsUseCase
-import com.vector.verevcodex.domain.usecase.ObserveSelectedStoreUseCase
-import com.vector.verevcodex.domain.usecase.SetProgramEnabledUseCase
-import com.vector.verevcodex.domain.usecase.UpdateProgramUseCase
+import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.usecase.loyalty.CreateProgramUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.DeleteProgramUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveCampaignsUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveRewardsUseCase
+import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.SetProgramEnabledUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.UpdateProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
@@ -33,8 +34,8 @@ class LoyaltyViewModel @Inject constructor(
     private val setProgramEnabledUseCase: SetProgramEnabledUseCase,
     private val deleteProgramUseCase: DeleteProgramUseCase,
 ) : ViewModel() {
-    private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(LoyaltyUiState())
-    val uiState: kotlinx.coroutines.flow.StateFlow<LoyaltyUiState> = _uiState
+    private val _uiState = MutableStateFlow(LoyaltyUiState())
+    val uiState: StateFlow<LoyaltyUiState> = _uiState
 
     init {
         val selectedStoreFlow = observeSelectedStoreUseCase()
@@ -57,9 +58,10 @@ class LoyaltyViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    fun openCreateProgram() {
+    fun openCreateProgram(type: LoyaltyProgramType = LoyaltyProgramType.POINTS) {
         _uiState.value = _uiState.value.copy(
-            editorState = defaultProgramEditorState(),
+            editorState = defaultProgramEditorState(type),
+            editorFieldErrors = emptyMap(),
             deleteCandidate = null,
             formErrorRes = null,
             messageRes = null,
@@ -70,6 +72,7 @@ class LoyaltyViewModel @Inject constructor(
         val program = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
         _uiState.value = _uiState.value.copy(
             editorState = program.toEditorState(),
+            editorFieldErrors = emptyMap(),
             deleteCandidate = null,
             formErrorRes = null,
             messageRes = null,
@@ -77,7 +80,7 @@ class LoyaltyViewModel @Inject constructor(
     }
 
     fun dismissEditor() {
-        _uiState.value = _uiState.value.copy(editorState = null, formErrorRes = null)
+        _uiState.value = _uiState.value.copy(editorState = null, editorFieldErrors = emptyMap(), formErrorRes = null)
     }
 
     fun requestDelete(programId: String) {
@@ -94,27 +97,64 @@ class LoyaltyViewModel @Inject constructor(
 
     fun updateEditorName(value: String) = updateEditor { copy(name = value) }
     fun updateEditorDescription(value: String) = updateEditor { copy(description = value) }
-    fun updateEditorRulesSummary(value: String) = updateEditor { copy(rulesSummary = value) }
     fun updateEditorActive(value: Boolean) = updateEditor { copy(active = value) }
-    fun updateEarningEnabled(value: Boolean) = updateEditor { copy(earningEnabled = value) }
-    fun updateRewardRedemptionEnabled(value: Boolean) = updateEditor { copy(rewardRedemptionEnabled = value) }
-    fun updateVisitCheckInEnabled(value: Boolean) = updateEditor { copy(visitCheckInEnabled = value) }
-    fun updateCashbackEnabled(value: Boolean) = updateEditor { copy(cashbackEnabled = value) }
-    fun updateTierTrackingEnabled(value: Boolean) = updateEditor { copy(tierTrackingEnabled = value) }
-
     fun updateEditorType(type: LoyaltyProgramType) {
-        val defaultConfig = RewardProgramConfigurationFactory.defaultFor(type = type, active = true)
+        val defaults = defaultProgramEditorState(type)
         updateEditor {
             copy(
                 type = type,
-                earningEnabled = defaultConfig.earningEnabled,
-                rewardRedemptionEnabled = defaultConfig.rewardRedemptionEnabled,
-                visitCheckInEnabled = defaultConfig.visitCheckInEnabled,
-                cashbackEnabled = defaultConfig.cashbackEnabled,
-                tierTrackingEnabled = defaultConfig.tierTrackingEnabled,
+                pointsSpendStepAmount = defaults.pointsSpendStepAmount,
+                pointsAwardedPerStep = defaults.pointsAwardedPerStep,
+                pointsWelcomeBonus = defaults.pointsWelcomeBonus,
+                pointsMinimumRedeem = defaults.pointsMinimumRedeem,
+                cashbackPercent = defaults.cashbackPercent,
+                cashbackMinimumSpendAmount = defaults.cashbackMinimumSpendAmount,
+                tierSilverThreshold = defaults.tierSilverThreshold,
+                tierGoldThreshold = defaults.tierGoldThreshold,
+                tierVipThreshold = defaults.tierVipThreshold,
+                tierBonusPercent = defaults.tierBonusPercent,
+                couponName = defaults.couponName,
+                couponPointsCost = defaults.couponPointsCost,
+                couponDiscountAmount = defaults.couponDiscountAmount,
+                couponMinimumSpendAmount = defaults.couponMinimumSpendAmount,
+                checkInVisitsRequired = defaults.checkInVisitsRequired,
+                checkInRewardPoints = defaults.checkInRewardPoints,
+                checkInRewardName = defaults.checkInRewardName,
+                purchaseFrequencyCount = defaults.purchaseFrequencyCount,
+                purchaseFrequencyWindowDays = defaults.purchaseFrequencyWindowDays,
+                purchaseFrequencyRewardPoints = defaults.purchaseFrequencyRewardPoints,
+                purchaseFrequencyRewardName = defaults.purchaseFrequencyRewardName,
+                referralReferrerRewardPoints = defaults.referralReferrerRewardPoints,
+                referralRefereeRewardPoints = defaults.referralRefereeRewardPoints,
+                referralCodePrefix = defaults.referralCodePrefix,
             )
         }
     }
+
+    fun updatePointsSpendStepAmount(value: String) = updateEditor { copy(pointsSpendStepAmount = value) }
+    fun updatePointsAwardedPerStep(value: String) = updateEditor { copy(pointsAwardedPerStep = value) }
+    fun updatePointsWelcomeBonus(value: String) = updateEditor { copy(pointsWelcomeBonus = value) }
+    fun updatePointsMinimumRedeem(value: String) = updateEditor { copy(pointsMinimumRedeem = value) }
+    fun updateCashbackPercent(value: String) = updateEditor { copy(cashbackPercent = value) }
+    fun updateCashbackMinimumSpendAmount(value: String) = updateEditor { copy(cashbackMinimumSpendAmount = value) }
+    fun updateTierSilverThreshold(value: String) = updateEditor { copy(tierSilverThreshold = value) }
+    fun updateTierGoldThreshold(value: String) = updateEditor { copy(tierGoldThreshold = value) }
+    fun updateTierVipThreshold(value: String) = updateEditor { copy(tierVipThreshold = value) }
+    fun updateTierBonusPercent(value: String) = updateEditor { copy(tierBonusPercent = value) }
+    fun updateCouponName(value: String) = updateEditor { copy(couponName = value) }
+    fun updateCouponPointsCost(value: String) = updateEditor { copy(couponPointsCost = value) }
+    fun updateCouponDiscountAmount(value: String) = updateEditor { copy(couponDiscountAmount = value) }
+    fun updateCouponMinimumSpendAmount(value: String) = updateEditor { copy(couponMinimumSpendAmount = value) }
+    fun updateCheckInVisitsRequired(value: String) = updateEditor { copy(checkInVisitsRequired = value) }
+    fun updateCheckInRewardPoints(value: String) = updateEditor { copy(checkInRewardPoints = value) }
+    fun updateCheckInRewardName(value: String) = updateEditor { copy(checkInRewardName = value) }
+    fun updatePurchaseFrequencyCount(value: String) = updateEditor { copy(purchaseFrequencyCount = value) }
+    fun updatePurchaseFrequencyWindowDays(value: String) = updateEditor { copy(purchaseFrequencyWindowDays = value) }
+    fun updatePurchaseFrequencyRewardPoints(value: String) = updateEditor { copy(purchaseFrequencyRewardPoints = value) }
+    fun updatePurchaseFrequencyRewardName(value: String) = updateEditor { copy(purchaseFrequencyRewardName = value) }
+    fun updateReferralReferrerRewardPoints(value: String) = updateEditor { copy(referralReferrerRewardPoints = value) }
+    fun updateReferralRefereeRewardPoints(value: String) = updateEditor { copy(referralRefereeRewardPoints = value) }
+    fun updateReferralCodePrefix(value: String) = updateEditor { copy(referralCodePrefix = value) }
 
     fun saveProgram() {
         val state = _uiState.value
@@ -123,54 +163,27 @@ class LoyaltyViewModel @Inject constructor(
             _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_store_required)
             return
         }
-        when {
-            editor.name.isBlank() -> {
-                _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_name_required)
-                return
-            }
-            editor.description.isBlank() -> {
-                _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_description_required)
-                return
-            }
-            editor.rulesSummary.isBlank() -> {
-                _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_rules_required)
-                return
-            }
-            !editor.earningEnabled &&
-                !editor.rewardRedemptionEnabled &&
-                !editor.visitCheckInEnabled &&
-                !editor.cashbackEnabled &&
-                !editor.tierTrackingEnabled -> {
-                _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_actions_required)
-                return
-            }
+        val fieldErrors = editor.validate()
+        if (fieldErrors.isNotEmpty()) {
+            _uiState.value = state.copy(editorFieldErrors = fieldErrors, formErrorRes = null)
+            return
         }
 
         viewModelScope.launch {
-            _uiState.value = state.copy(isSubmitting = true, formErrorRes = null, messageRes = null)
+            _uiState.value = state.copy(isSubmitting = true, editorFieldErrors = emptyMap(), formErrorRes = null, messageRes = null)
             runCatching {
                 val draft = editor.toDraft(storeId)
-                if (editor.programId == null) {
-                    createProgramUseCase(draft)
-                } else {
-                    updateProgramUseCase(editor.programId, draft)
-                }
+                if (editor.programId == null) createProgramUseCase(draft) else updateProgramUseCase(editor.programId, draft)
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
                     editorState = null,
+                    editorFieldErrors = emptyMap(),
                     formErrorRes = null,
-                    messageRes = if (editor.programId == null) {
-                        R.string.merchant_program_created_message
-                    } else {
-                        R.string.merchant_program_updated_message
-                    },
+                    messageRes = if (editor.programId == null) R.string.merchant_program_created_message else R.string.merchant_program_updated_message,
                 )
             }.onFailure {
-                _uiState.value = _uiState.value.copy(
-                    isSubmitting = false,
-                    formErrorRes = R.string.merchant_program_error_save_failed,
-                )
+                _uiState.value = _uiState.value.copy(isSubmitting = false, formErrorRes = R.string.merchant_program_error_save_failed)
             }
         }
     }
@@ -186,10 +199,7 @@ class LoyaltyViewModel @Inject constructor(
                     )
                 }
                 .onFailure {
-                    _uiState.value = _uiState.value.copy(
-                        busyProgramId = null,
-                        formErrorRes = R.string.merchant_program_error_save_failed,
-                    )
+                    _uiState.value = _uiState.value.copy(busyProgramId = null, formErrorRes = R.string.merchant_program_error_save_failed)
                 }
         }
     }
@@ -222,6 +232,10 @@ class LoyaltyViewModel @Inject constructor(
 
     private fun updateEditor(transform: ProgramEditorState.() -> ProgramEditorState) {
         val current = _uiState.value.editorState ?: return
-        _uiState.value = _uiState.value.copy(editorState = current.transform(), formErrorRes = null)
+        _uiState.value = _uiState.value.copy(
+            editorState = current.transform(),
+            editorFieldErrors = emptyMap(),
+            formErrorRes = null,
+        )
     }
 }

@@ -7,7 +7,7 @@ import android.net.Uri
 import android.provider.Telephony
 import androidx.core.content.FileProvider
 import com.vector.verevcodex.R
-import com.vector.verevcodex.core.identifiers.LoyaltyIdCodec
+import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
 import java.io.File
 import java.io.FileOutputStream
 

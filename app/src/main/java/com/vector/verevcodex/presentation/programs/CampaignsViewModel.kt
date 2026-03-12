@@ -2,9 +2,9 @@ package com.vector.verevcodex.presentation.programs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.Campaign
-import com.vector.verevcodex.domain.usecase.ObserveCampaignsUseCase
-import com.vector.verevcodex.domain.usecase.ObserveDashboardUseCase
+import com.vector.verevcodex.domain.model.promotions.Campaign
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveCampaignsUseCase
+import com.vector.verevcodex.domain.usecase.analytics.ObserveDashboardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

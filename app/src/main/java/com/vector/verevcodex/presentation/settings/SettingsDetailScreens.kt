@@ -100,22 +100,22 @@ fun BusinessDetailsScreen(
                 HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
                 SettingsDetailRow(
                     label = stringResource(R.string.merchant_business_details_category_label),
-                    value = selectedStore?.category ?: "-",
+                    value = selectedStore?.category ?: stringResource(R.string.merchant_settings_value_unavailable),
                 )
                 HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
                 SettingsDetailRow(
                     label = stringResource(R.string.merchant_business_details_address_label),
-                    value = selectedStore?.address ?: "-",
+                    value = selectedStore?.address ?: stringResource(R.string.merchant_settings_value_unavailable),
                 )
                 HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
                 SettingsDetailRow(
                     label = stringResource(R.string.merchant_business_details_contact_label),
-                    value = selectedStore?.contactInfo ?: "-",
+                    value = selectedStore?.contactInfo ?: stringResource(R.string.merchant_settings_value_unavailable),
                 )
                 HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
                 SettingsDetailRow(
                     label = stringResource(R.string.merchant_business_details_hours_label),
-                    value = selectedStore?.workingHours ?: "-",
+                    value = selectedStore?.workingHours ?: stringResource(R.string.merchant_settings_value_unavailable),
                 )
             }
         }
@@ -128,11 +128,11 @@ fun BusinessDetailsScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SettingsColorSwatch(
-                            hex = selectedStore?.primaryColor ?: "#FFBA00",
+                            hex = selectedStore?.primaryColor ?: VerevColors.Gold.toHexString(),
                             color = parseHexColor(selectedStore?.primaryColor, VerevColors.Gold),
                         )
                         SettingsColorSwatch(
-                            hex = selectedStore?.secondaryColor ?: "#6B9773",
+                            hex = selectedStore?.secondaryColor ?: VerevColors.Moss.toHexString(),
                             color = parseHexColor(selectedStore?.secondaryColor, VerevColors.Moss),
                         )
                     }
@@ -176,9 +176,25 @@ fun BusinessDetailsScreen(
 fun PaymentMethodsScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit,
+    onOpenPlanSelection: () -> Unit = {},
+    onOpenInvoices: () -> Unit = {},
+    onOpenInvoiceDetail: (String) -> Unit = {},
     viewModel: PaymentMethodsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val planSpec = BillingPlanUiCatalog.specFor(state.planKey)
+    var showAddCardDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showAddCardDialog) {
+        AddPaymentMethodDialog(
+            isSaving = false,
+            onDismiss = { showAddCardDialog = false },
+            onSave = { brand, last4, month, year, isDefault ->
+                viewModel.addCard(brand, last4, month, year, isDefault)
+                showAddCardDialog = false
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -224,13 +240,13 @@ fun PaymentMethodsScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = stringResource(R.string.merchant_payment_methods_plan_name),
+                            text = stringResource(planSpec.nameRes),
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = stringResource(R.string.merchant_payment_methods_plan_price, state.planPrice),
+                            text = state.planPrice,
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.88f),
                         )
@@ -241,6 +257,12 @@ fun PaymentMethodsScreen(
                         )
                     }
                     SettingsSectionBadge(text = stringResource(R.string.merchant_store_active))
+                }
+                TextButton(
+                    onClick = onOpenPlanSelection,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.merchant_plan_selection_open))
                 }
             }
         }
@@ -257,14 +279,14 @@ fun PaymentMethodsScreen(
                     }
                 }
                 Button(
-                    onClick = viewModel::addCard,
+                    onClick = { showAddCardDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = VerevColors.Forest),
                 ) {
                     Icon(Icons.Default.CreditCard, contentDescription = null)
                     Text(
-                        text = stringResource(R.string.merchant_payment_methods_add_card),
+                        text = stringResource(R.string.merchant_payment_methods_add_card_cta),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
@@ -273,19 +295,23 @@ fun PaymentMethodsScreen(
         item {
             SettingsDetailSection(title = stringResource(R.string.merchant_payment_methods_invoices_title)) {
                 state.invoices.forEachIndexed { index, invoice ->
-                    SettingsDetailRow(
-                        label = invoice.title,
-                        value = invoice.amount,
-                        trailing = { SettingsSectionBadge(text = invoice.status) },
+                    SettingsMenuRow(
+                        title = invoice.title,
+                        subtitle = invoice.subtitle,
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                        trailingLabel = invoice.amount,
+                        onClick = { onOpenInvoiceDetail(invoice.id) },
                     )
-                    Text(
-                        text = invoice.subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.56f),
-                    )
+                    SettingsSectionBadge(text = stringResource(invoice.statusRes))
                     if (index < state.invoices.lastIndex) {
                         HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
                     }
+                }
+                TextButton(
+                    onClick = onOpenInvoices,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.merchant_all_invoices_open))
                 }
             }
         }

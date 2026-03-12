@@ -3,18 +3,22 @@ package com.vector.verevcodex.data.repository.auth
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vector.verevcodex.data.db.AppDatabase
-import com.vector.verevcodex.data.repository.DatabaseSeeder
-import com.vector.verevcodex.data.db.entity.OwnerEntity
-import com.vector.verevcodex.data.db.entity.StoreEntity
+import com.vector.verevcodex.data.db.DatabaseSeeder
+import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
+import com.vector.verevcodex.data.db.entity.business.OwnerEntity
+import com.vector.verevcodex.data.db.entity.business.StoreEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
 import com.vector.verevcodex.data.mapper.auth.toSession
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
 import com.vector.verevcodex.domain.model.auth.AuthSession
 import com.vector.verevcodex.domain.model.auth.BusinessRegistration
+import com.vector.verevcodex.domain.model.auth.EmailNotificationSettings
+import com.vector.verevcodex.domain.model.auth.PersonalInformationUpdate
 import com.vector.verevcodex.domain.model.auth.RegistrationResult
 import com.vector.verevcodex.domain.model.auth.SecurityConfig
 import com.vector.verevcodex.domain.model.auth.SecuritySetup
@@ -23,39 +27,59 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 
 private val Context.authDataStore by preferencesDataStore(name = "auth_prefs")
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     @ApplicationContext context: Context,
+    private val businessSettingsRepository: BusinessSettingsRepositoryImpl,
     seeder: DatabaseSeeder,
 ) : AuthRepository {
     private val dataStore = context.authDataStore
     private val currentAccountKey = stringPreferencesKey("current_account_id")
-    private var pendingResetEmail: String? = null
-    private var pendingResetCode: String? = null
+    private val resetEmailKey = stringPreferencesKey("pending_reset_email")
+    private val resetCodeKey = stringPreferencesKey("pending_reset_code")
+    private val resetIssuedAtKey = longPreferencesKey("pending_reset_issued_at")
+    private val resetVerifiedEmailKey = stringPreferencesKey("pending_reset_verified_email")
 
     init {
         runBlocking { seeder.seedIfNeeded() }
     }
 
-    override fun observeSession(): Flow<AuthSession?> = dataStore.data.map { preferences ->
-        val accountId = preferences[currentAccountKey] ?: return@map null
-        val account = database.authDao().findById(accountId) ?: return@map null
-        account.toSession()
-    }
+    override fun observeSession(): Flow<AuthSession?> = dataStore.data
+        .map { preferences -> preferences[currentAccountKey] }
+        .flatMapLatest { accountId ->
+            if (accountId == null) {
+                kotlinx.coroutines.flow.flowOf(null)
+            } else {
+                database.authDao().observeById(accountId).map { account -> account?.toSession() }
+            }
+        }
 
     override fun observeCurrentSecurityConfig(): Flow<SecurityConfig?> = dataStore.data.map { preferences ->
         val accountId = preferences[currentAccountKey] ?: return@map null
         val pin = preferences[stringPreferencesKey("${accountId}_quick_pin")] ?: return@map null
         val biometricEnabled = preferences[booleanPreferencesKey("${accountId}_biometric_enabled")] ?: false
         SecurityConfig(accountId = accountId, pin = pin, biometricEnabled = biometricEnabled)
+    }
+
+    override fun observeEmailNotificationSettings(): Flow<EmailNotificationSettings?> = dataStore.data.map { preferences ->
+        val accountId = preferences[currentAccountKey] ?: return@map null
+        EmailNotificationSettings(
+            promotionsAndCampaigns = preferences[booleanPreferencesKey("${accountId}_notify_promotions")] ?: true,
+            loyaltyActivity = preferences[booleanPreferencesKey("${accountId}_notify_loyalty")] ?: true,
+            weeklyBusinessSummary = preferences[booleanPreferencesKey("${accountId}_notify_summary")] ?: true,
+            securityAlerts = preferences[booleanPreferencesKey("${accountId}_notify_security")] ?: true,
+        )
     }
 
     override suspend fun login(email: String, password: String): Result<AuthSession> {
@@ -67,7 +91,6 @@ class AuthRepositoryImpl @Inject constructor(
         dataStore.edit { preferences ->
             preferences[currentAccountKey] = account.id
         }
-        ensureDemoSecurityIfNeeded(account)
         return Result.success(account.toSession())
     }
 
@@ -122,6 +145,12 @@ class AuthRepositoryImpl @Inject constructor(
             active = true,
         )
         database.authDao().insert(authAccount)
+        businessSettingsRepository.createDefaultStoreSettings(
+            storeId = storeId,
+            ownerId = ownerId,
+            primaryColor = "#0C3B2E",
+            secondaryColor = "#FFBA00",
+        )
         return Result.success(RegistrationResult(authAccount.toSession(), ownerId, storeId))
     }
 
@@ -129,6 +158,67 @@ class AuthRepositoryImpl @Inject constructor(
         dataStore.edit { preferences ->
             preferences[stringPreferencesKey("${setup.accountId}_quick_pin")] = setup.pin
             preferences[booleanPreferencesKey("${setup.accountId}_biometric_enabled")] = setup.biometricEnabled
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun updateCurrentProfile(update: PersonalInformationUpdate): Result<Unit> {
+        val accountId = currentAccountId() ?: return Result.failure(IllegalArgumentException("No active session"))
+        val currentAccount = database.authDao().findById(accountId)
+            ?: return Result.failure(IllegalArgumentException("No active account"))
+        val normalizedEmail = update.email.trim().lowercase()
+        val existing = database.authDao().findByEmail(normalizedEmail)
+        if (existing != null && existing.id != currentAccount.id) {
+            return Result.failure(IllegalArgumentException("Email already exists"))
+        }
+        database.authDao().update(
+            currentAccount.copy(
+                fullName = update.fullName.trim(),
+                email = normalizedEmail,
+                phoneNumber = update.phoneNumber.trim(),
+            )
+        )
+        return Result.success(Unit)
+    }
+
+    override suspend fun changeCurrentPassword(currentPassword: String, newPassword: String): Result<Unit> {
+        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
+        if (account.password != currentPassword) {
+            return Result.failure(IllegalArgumentException("Current password is incorrect"))
+        }
+        database.authDao().update(account.copy(password = newPassword))
+        return Result.success(Unit)
+    }
+
+    override suspend fun updateCurrentQuickPin(currentPin: String, newPin: String): Result<Unit> {
+        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
+        val preferences = dataStore.data.first()
+        val pinKey = stringPreferencesKey("${account.id}_quick_pin")
+        val storedPin = preferences[pinKey]
+        if (storedPin != null && storedPin != currentPin) {
+            return Result.failure(IllegalArgumentException("Current PIN is incorrect"))
+        }
+        dataStore.edit { mutablePreferences ->
+            mutablePreferences[pinKey] = newPin
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun updateCurrentBiometricEnabled(enabled: Boolean): Result<Unit> {
+        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
+        dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("${account.id}_biometric_enabled")] = enabled
+        }
+        return Result.success(Unit)
+    }
+
+    override suspend fun updateEmailNotificationSettings(settings: EmailNotificationSettings): Result<Unit> {
+        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
+        dataStore.edit { preferences ->
+            preferences[booleanPreferencesKey("${account.id}_notify_promotions")] = settings.promotionsAndCampaigns
+            preferences[booleanPreferencesKey("${account.id}_notify_loyalty")] = settings.loyaltyActivity
+            preferences[booleanPreferencesKey("${account.id}_notify_summary")] = settings.weeklyBusinessSummary
+            preferences[booleanPreferencesKey("${account.id}_notify_security")] = settings.securityAlerts
         }
         return Result.success(Unit)
     }
@@ -143,15 +233,33 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun sendPasswordResetCode(email: String): Result<Unit> {
         val account = database.authDao().findByEmail(email.trim().lowercase())
             ?: return Result.failure(IllegalArgumentException("Invalid email or password"))
-        pendingResetEmail = account.email
-        pendingResetCode = DEMO_RESET_CODE
+        val code = PasswordResetCodePolicy.generate()
+        val issuedAt = System.currentTimeMillis()
+        dataStore.edit { preferences ->
+            preferences[resetEmailKey] = account.email
+            preferences[resetCodeKey] = code
+            preferences[resetIssuedAtKey] = issuedAt
+            preferences.remove(resetVerifiedEmailKey)
+        }
         return Result.success(Unit)
     }
 
     override suspend fun verifyPasswordResetCode(email: String, code: String): Result<Unit> {
-        return if (pendingResetEmail == email.trim().lowercase() && pendingResetCode == code) {
+        val normalizedEmail = email.trim().lowercase()
+        val preferences = dataStore.data.first()
+        val storedEmail = preferences[resetEmailKey]
+        val storedCode = preferences[resetCodeKey]
+        val issuedAt = preferences[resetIssuedAtKey] ?: 0L
+        val isValid = storedEmail == normalizedEmail &&
+            storedCode == code &&
+            !PasswordResetCodePolicy.isExpired(issuedAt, System.currentTimeMillis())
+        return if (isValid) {
+            dataStore.edit { mutablePreferences ->
+                mutablePreferences[resetVerifiedEmailKey] = normalizedEmail
+            }
             Result.success(Unit)
         } else {
+            clearResetSession()
             Result.failure(IllegalArgumentException("Invalid or expired code. Please try again."))
         }
     }
@@ -160,12 +268,11 @@ class AuthRepositoryImpl @Inject constructor(
         val normalizedEmail = email.trim().lowercase()
         val account = database.authDao().findByEmail(normalizedEmail)
             ?: return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        if (pendingResetEmail != normalizedEmail || pendingResetCode != DEMO_RESET_CODE) {
+        if (!hasVerifiedResetSession(normalizedEmail)) {
             return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
         }
         database.authDao().update(account.copy(password = newPassword))
-        pendingResetEmail = null
-        pendingResetCode = null
+        clearResetSession()
         return Result.success(Unit)
     }
 
@@ -173,14 +280,13 @@ class AuthRepositoryImpl @Inject constructor(
         val normalizedEmail = email.trim().lowercase()
         val account = database.authDao().findByEmail(normalizedEmail)
             ?: return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        if (pendingResetEmail != normalizedEmail || pendingResetCode != DEMO_RESET_CODE) {
+        if (!hasVerifiedResetSession(normalizedEmail)) {
             return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
         }
         dataStore.edit { preferences ->
             preferences[stringPreferencesKey("${account.id}_quick_pin")] = newPin
         }
-        pendingResetEmail = null
-        pendingResetCode = null
+        clearResetSession()
         return Result.success(Unit)
     }
 
@@ -190,7 +296,6 @@ class AuthRepositoryImpl @Inject constructor(
         dataStore.edit { preferences ->
             preferences[currentAccountKey] = account.id
         }
-        ensureDemoSecurityIfNeeded(account)
         return Result.success(Unit)
     }
 
@@ -200,24 +305,26 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun ensureDemoSecurityIfNeeded(account: AuthAccountEntity) {
-        val defaultPin = when (account.email) {
-            "owner@verevcrm.local", "manager@gmail.com", "staff@gmail.com" -> "1234"
-            else -> null
-        } ?: return
-        dataStore.edit { preferences ->
-            val pinKey = stringPreferencesKey("${account.id}_quick_pin")
-            val bioKey = booleanPreferencesKey("${account.id}_biometric_enabled")
-            if (preferences[pinKey] == null) {
-                preferences[pinKey] = defaultPin
-            }
-            if (preferences[bioKey] != true) {
-                preferences[bioKey] = true
-            }
-        }
+    private suspend fun currentAccountId(): String? = dataStore.data.first()[currentAccountKey]
+
+    private suspend fun currentAccount(): AuthAccountEntity? {
+        val accountId = currentAccountId() ?: return null
+        return database.authDao().findById(accountId)
     }
 
-    private companion object {
-        const val DEMO_RESET_CODE = "123456"
+    private suspend fun hasVerifiedResetSession(email: String): Boolean {
+        val preferences = dataStore.data.first()
+        val verifiedEmail = preferences[resetVerifiedEmailKey]
+        val issuedAt = preferences[resetIssuedAtKey] ?: return false
+        return verifiedEmail == email && !PasswordResetCodePolicy.isExpired(issuedAt, System.currentTimeMillis())
+    }
+
+    private suspend fun clearResetSession() {
+        dataStore.edit { preferences ->
+            preferences.remove(resetEmailKey)
+            preferences.remove(resetCodeKey)
+            preferences.remove(resetIssuedAtKey)
+            preferences.remove(resetVerifiedEmailKey)
+        }
     }
 }

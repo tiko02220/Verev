@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.programs
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,8 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -23,6 +26,7 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantPageHeader
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.displayName
+import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -30,6 +34,12 @@ fun LoyaltyProgramManagementScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onOpenRewards: () -> Unit = {},
     onOpenCampaigns: () -> Unit = {},
+    onOpenPointsRewards: () -> Unit = {},
+    onOpenTieredLoyalty: () -> Unit = {},
+    onOpenCouponsManager: () -> Unit = {},
+    onOpenCheckinRewards: () -> Unit = {},
+    onOpenPurchaseFrequency: () -> Unit = {},
+    onOpenReferralRewards: () -> Unit = {},
     viewModel: LoyaltyViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
@@ -37,18 +47,37 @@ fun LoyaltyProgramManagementScreen(
     state.editorState?.let { editor ->
         ProgramEditorSheet(
             editorState = editor,
+            fieldErrors = state.editorFieldErrors,
             isSubmitting = state.isSubmitting,
             onDismiss = viewModel::dismissEditor,
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
             onTypeChange = viewModel::updateEditorType,
-            onRulesSummaryChange = viewModel::updateEditorRulesSummary,
             onActiveChanged = viewModel::updateEditorActive,
-            onEarningChanged = viewModel::updateEarningEnabled,
-            onRewardRedemptionChanged = viewModel::updateRewardRedemptionEnabled,
-            onVisitCheckInChanged = viewModel::updateVisitCheckInEnabled,
-            onCashbackChanged = viewModel::updateCashbackEnabled,
-            onTierTrackingChanged = viewModel::updateTierTrackingEnabled,
+            onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
+            onPointsAwardedPerStepChange = viewModel::updatePointsAwardedPerStep,
+            onPointsWelcomeBonusChange = viewModel::updatePointsWelcomeBonus,
+            onPointsMinimumRedeemChange = viewModel::updatePointsMinimumRedeem,
+            onCashbackPercentChange = viewModel::updateCashbackPercent,
+            onCashbackMinimumSpendAmountChange = viewModel::updateCashbackMinimumSpendAmount,
+            onTierSilverThresholdChange = viewModel::updateTierSilverThreshold,
+            onTierGoldThresholdChange = viewModel::updateTierGoldThreshold,
+            onTierVipThresholdChange = viewModel::updateTierVipThreshold,
+            onTierBonusPercentChange = viewModel::updateTierBonusPercent,
+            onCouponNameChange = viewModel::updateCouponName,
+            onCouponPointsCostChange = viewModel::updateCouponPointsCost,
+            onCouponDiscountAmountChange = viewModel::updateCouponDiscountAmount,
+            onCouponMinimumSpendAmountChange = viewModel::updateCouponMinimumSpendAmount,
+            onCheckInVisitsRequiredChange = viewModel::updateCheckInVisitsRequired,
+            onCheckInRewardPointsChange = viewModel::updateCheckInRewardPoints,
+            onCheckInRewardNameChange = viewModel::updateCheckInRewardName,
+            onPurchaseFrequencyCountChange = viewModel::updatePurchaseFrequencyCount,
+            onPurchaseFrequencyWindowDaysChange = viewModel::updatePurchaseFrequencyWindowDays,
+            onPurchaseFrequencyRewardPointsChange = viewModel::updatePurchaseFrequencyRewardPoints,
+            onPurchaseFrequencyRewardNameChange = viewModel::updatePurchaseFrequencyRewardName,
+            onReferralReferrerRewardPointsChange = viewModel::updateReferralReferrerRewardPoints,
+            onReferralRefereeRewardPointsChange = viewModel::updateReferralRefereeRewardPoints,
+            onReferralCodePrefixChange = viewModel::updateReferralCodePrefix,
             onSave = viewModel::saveProgram,
         )
     }
@@ -103,6 +132,17 @@ fun LoyaltyProgramManagementScreen(
             }
         }
         item { ProgramsOverviewCard(programs = state.programs, rewards = state.rewards, campaigns = state.campaigns) }
+        item { ProgramTemplateSection(onCreateProgram = viewModel::openCreateProgram) }
+        item {
+            ProgramModulesSection(
+                onOpenPointsRewards = onOpenPointsRewards,
+                onOpenTieredLoyalty = onOpenTieredLoyalty,
+                onOpenCouponsManager = onOpenCouponsManager,
+                onOpenCheckinRewards = onOpenCheckinRewards,
+                onOpenPurchaseFrequency = onOpenPurchaseFrequency,
+                onOpenReferralRewards = onOpenReferralRewards,
+            )
+        }
         item { ProgramActionRow(onOpenRewards = onOpenRewards, onOpenCampaigns = onOpenCampaigns) }
         item {
             ProgramListSection(
@@ -140,6 +180,37 @@ fun RewardManagementScreen(
                 subtitle = stringResource(R.string.merchant_rewards_subtitle, state.rewards.size),
             )
         }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                MerchantPrimaryCard(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp)) {
+                    androidx.compose.material3.Text(
+                        text = stringResource(R.string.merchant_rewards_active_label),
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.56f),
+                    )
+                    androidx.compose.material3.Text(
+                        text = formatCompactCount(state.rewards.count { it.activeStatus }),
+                        style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                        color = VerevColors.Forest,
+                    )
+                }
+                MerchantPrimaryCard(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp)) {
+                    androidx.compose.material3.Text(
+                        text = stringResource(R.string.merchant_rewards_expiring_label),
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.56f),
+                    )
+                    androidx.compose.material3.Text(
+                        text = formatCompactCount(state.rewards.count { it.expirationDate != null }),
+                        style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                        color = VerevColors.Forest,
+                    )
+                }
+            }
+        }
         if (state.rewards.isEmpty()) {
             item {
                 MerchantEmptyStateCard(
@@ -152,7 +223,7 @@ fun RewardManagementScreen(
         state.rewards.forEach { reward ->
             item {
                 MerchantPrimaryCard {
-                    androidx.compose.foundation.layout.Row(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -167,11 +238,44 @@ fun RewardManagementScreen(
                             contentColor = VerevColors.Gold,
                         )
                     }
-                    androidx.compose.material3.Text(
-                        text = reward.rewardType.displayName(),
-                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.5f),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        MerchantStatusPill(
+                            text = reward.rewardType.displayName(),
+                            backgroundColor = VerevColors.Forest.copy(alpha = 0.08f),
+                            contentColor = VerevColors.Forest,
+                        )
+                        MerchantStatusPill(
+                            text = if (reward.activeStatus) stringResource(R.string.merchant_program_active) else stringResource(R.string.merchant_program_disabled),
+                            backgroundColor = if (reward.activeStatus) VerevColors.Moss.copy(alpha = 0.16f) else VerevColors.AppBackground,
+                            contentColor = if (reward.activeStatus) VerevColors.Moss else VerevColors.Inactive,
+                        )
+                        reward.expirationDate?.let { expirationDate ->
+                            MerchantStatusPill(
+                                text = stringResource(R.string.merchant_rewards_expiry_format, expirationDate.toString()),
+                                backgroundColor = VerevColors.Tan.copy(alpha = 0.12f),
+                                contentColor = VerevColors.Tan,
+                            )
+                        }
+                    }
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = VerevColors.Forest.copy(alpha = 0.42f),
+                        )
+                        androidx.compose.material3.Text(
+                            text = stringResource(R.string.merchant_rewards_usage_limit_format, reward.usageLimit),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                            color = VerevColors.Forest.copy(alpha = 0.56f),
+                        )
+                    }
                 }
             }
         }
@@ -185,8 +289,8 @@ fun CampaignManagementScreen(
     viewModel: CampaignsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
-    var selectedFilter by rememberSaveable { androidx.compose.runtime.mutableStateOf(CampaignFilter.ALL) }
-    var selectedCampaignId by rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var selectedFilter by rememberSaveable { mutableStateOf(CampaignFilter.ALL) }
+    var selectedCampaignId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedCampaign = state.campaigns.firstOrNull { it.id == selectedCampaignId }
 
     if (selectedCampaign != null) {
@@ -230,9 +334,7 @@ fun CampaignManagementScreen(
         item { CampaignStatsGrid(state) }
         item { CampaignFilterRow(selectedFilter = selectedFilter, onFilterSelected = { selectedFilter = it }) }
         filteredCampaigns.forEach { campaign ->
-            item {
-                CampaignCard(campaign = campaign, onOpen = { selectedCampaignId = campaign.id })
-            }
+            item { CampaignCard(campaign = campaign, onOpen = { selectedCampaignId = campaign.id }) }
         }
         if (filteredCampaigns.isEmpty()) {
             item {

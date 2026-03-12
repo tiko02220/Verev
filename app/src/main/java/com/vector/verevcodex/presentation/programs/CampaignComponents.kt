@@ -30,7 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.Campaign
+import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantGradientMetricCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantPageHeader
@@ -40,6 +40,8 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency
 import com.vector.verevcodex.presentation.merchant.common.formatPercent
+import com.vector.verevcodex.presentation.promotions.displayLabelRes
+import com.vector.verevcodex.presentation.promotions.promotionValueText
 import com.vector.verevcodex.presentation.theme.VerevColors
 import java.time.LocalDate
 
@@ -217,13 +219,13 @@ internal fun CampaignCard(campaign: Campaign, onOpen: () -> Unit) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CampaignDetailChip(
                 modifier = Modifier.weight(1f),
-                label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_multiplier),
-                value = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_multiplier_format, campaign.rewardMultiplier),
+                label = androidx.compose.ui.res.stringResource(R.string.merchant_promotion_type_title),
+                value = androidx.compose.ui.res.stringResource(campaign.promotionType.displayLabelRes()),
             )
             CampaignDetailChip(
                 modifier = Modifier.weight(1f),
-                label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_target),
-                value = campaign.target.description,
+                label = androidx.compose.ui.res.stringResource(R.string.merchant_promotion_value_title),
+                value = campaign.promotionValueText(),
             )
         }
     }
@@ -267,9 +269,10 @@ internal fun CampaignDetailScreen(campaign: Campaign, onBack: () -> Unit) {
             CampaignDetailChip(label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_start_date), value = campaign.startDate.toString())
             CampaignDetailChip(label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_end_date), value = campaign.endDate.toString())
             CampaignDetailChip(
-                label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_multiplier),
-                value = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_multiplier_format, campaign.rewardMultiplier),
+                label = androidx.compose.ui.res.stringResource(R.string.merchant_promotion_type_title),
+                value = androidx.compose.ui.res.stringResource(campaign.promotionType.displayLabelRes()),
             )
+            CampaignDetailChip(label = androidx.compose.ui.res.stringResource(R.string.merchant_promotion_value_title), value = campaign.promotionValueText())
             CampaignDetailChip(label = androidx.compose.ui.res.stringResource(R.string.merchant_campaign_target), value = campaign.target.description)
         }
     }
