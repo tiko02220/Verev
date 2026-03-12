@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -117,81 +119,98 @@ fun AuthOtpBoxes(
 fun AuthPinBoxes(
     value: String,
     isError: Boolean,
+    autoFocus: Boolean = true,
+    focusResetKey: Any? = Unit,
     onValueChange: (String) -> Unit,
 ) {
-    val focusRequesters = remember { List(4) { FocusRequester() } }
-    val focusedIndex = remember { mutableStateListOf(*Array(4) { false }) }
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
+    key(focusResetKey) {
+        val focusRequesters = remember { List(4) { FocusRequester() } }
+        val focusedIndex = remember { mutableStateListOf(*Array(4) { false }) }
+        val focusManager = LocalFocusManager.current
+        val keyboardController = LocalSoftwareKeyboardController.current
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val boxWidth = if (maxWidth < 360.dp) 54.dp else 58.dp
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(4) { index ->
-                val digit = value.getOrNull(index)?.toString().orEmpty()
-                BasicTextField(
-                    value = digit,
-                    onValueChange = { typed ->
-                        val filtered = typed.filter(Char::isDigit)
-                        if (filtered.isBlank()) {
-                            if (digit.isNotBlank()) {
-                                val chars = value.toMutableList()
-                                chars.removeAt(index)
-                                onValueChange(chars.joinToString(""))
-                            } else if (index > 0) {
-                                focusRequesters[index - 1].requestFocus()
+        LaunchedEffect(autoFocus) {
+            if (autoFocus) {
+                focusRequesters.first().requestFocus()
+            } else {
+                focusManager.clearFocus(force = true)
+                keyboardController?.hide()
+            }
+        }
+
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val boxWidth = if (maxWidth < 360.dp) 54.dp else 58.dp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(4) { index ->
+                    val digit = value.getOrNull(index)?.toString().orEmpty()
+                    BasicTextField(
+                        value = digit,
+                        onValueChange = { typed ->
+                            val filtered = typed.filter(Char::isDigit)
+                            if (filtered.isBlank()) {
+                                if (digit.isNotBlank()) {
+                                    val chars = value.toMutableList()
+                                    chars.removeAt(index)
+                                    onValueChange(chars.joinToString(""))
+                                } else if (index > 0) {
+                                    focusRequesters[index - 1].requestFocus()
+                                }
+                            } else {
+                                val currentDigits = value.toMutableList()
+                                while (currentDigits.size < index) currentDigits.add(' ')
+                                if (index < currentDigits.size) {
+                                    currentDigits[index] = filtered.first()
+                                } else {
+                                    currentDigits.add(filtered.first())
+                                }
+                                val sanitized = currentDigits.joinToString("").replace(" ", "").take(4)
+                                onValueChange(sanitized)
+                                if (index < focusRequesters.lastIndex && sanitized.length > index) {
+                                    focusRequesters[index + 1].requestFocus()
+                                }
+                                if (sanitized.length == 4) {
+                                    focusManager.clearFocus(force = true)
+                                    keyboardController?.hide()
+                                }
                             }
-                        } else {
-                            val currentDigits = value.toMutableList()
-                            while (currentDigits.size < index) currentDigits.add(' ')
-                            if (index < currentDigits.size) currentDigits[index] = filtered.first() else currentDigits.add(filtered.first())
-                            val sanitized = currentDigits.joinToString("").replace(" ", "").take(4)
-                            onValueChange(sanitized)
-                            if (index < focusRequesters.lastIndex && sanitized.length > index) {
-                                focusRequesters[index + 1].requestFocus()
-                            }
-                            if (sanitized.length == 4) {
-                                focusManager.clearFocus(force = true)
-                                keyboardController?.hide()
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .requiredWidth(boxWidth)
-                        .requiredHeight(68.dp)
-                        .focusRequester(focusRequesters[index])
-                        .onFocusChanged { focusedIndex[index] = it.isFocused }
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) {
-                            focusRequesters[index].requestFocus()
                         },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.NumberPassword,
-                        imeAction = ImeAction.Next,
-                    ),
-                    textStyle = MaterialTheme.typography.headlineSmall.copy(
-                        color = colorResource(R.color.text_primary),
-                        textAlign = TextAlign.Center,
-                    ),
-                    cursorBrush = SolidColor(colorResource(R.color.brand_green)),
-                    decorationBox = { inner ->
-                        AuthCodeCell(
-                            isFocused = focusedIndex[index],
-                            isFilled = digit.isNotEmpty(),
-                            isError = isError,
-                            cornerRadius = 20.dp,
-                        ) { inner() }
-                    },
-                    interactionSource = remember { MutableInteractionSource() },
-                )
-                if (index < 3) Spacer(Modifier.width(8.dp))
+                        modifier = Modifier
+                            .requiredWidth(boxWidth)
+                            .requiredHeight(68.dp)
+                            .focusRequester(focusRequesters[index])
+                            .onFocusChanged { focusedIndex[index] = it.isFocused }
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                focusRequesters[index].requestFocus()
+                            },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Next,
+                        ),
+                        textStyle = MaterialTheme.typography.headlineSmall.copy(
+                            color = colorResource(R.color.text_primary),
+                            textAlign = TextAlign.Center,
+                        ),
+                        cursorBrush = SolidColor(colorResource(R.color.brand_green)),
+                        decorationBox = { inner ->
+                            AuthCodeCell(
+                                isFocused = focusedIndex[index],
+                                isFilled = digit.isNotEmpty(),
+                                isError = isError,
+                                cornerRadius = 20.dp,
+                            ) { inner() }
+                        },
+                        interactionSource = remember { MutableInteractionSource() },
+                    )
+                    if (index < 3) Spacer(Modifier.width(8.dp))
+                }
             }
         }
     }

@@ -1,31 +1,48 @@
 package com.vector.verevcodex.presentation.customers
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.core.platform.findActivity
-import com.vector.verevcodex.presentation.merchant.common.MerchantBackHeader
+import com.vector.verevcodex.platform.android.findActivity
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -82,48 +99,33 @@ fun AddCustomerScreen(
         shareProvisioningPayload(context, payload)
     }
 
+    fun launchWalletSave() {
+        val activity = context.findActivity() ?: return
+        viewModel.launchWalletSave(activity)
+    }
+
     if (state.createdCustomerId == null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(VerevColors.AppBackground)
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    top = contentPadding.calculateTopPadding() + 20.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
-                ),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+        AddCustomerEntryScaffold(
+            bottomInset = contentPadding.calculateBottomPadding(),
+            selectedStoreName = state.selectedStoreName,
+            onBack = onBack,
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                MerchantBackHeader(
-                    title = stringResource(R.string.merchant_add_customer_title),
-                    subtitle = stringResource(
-                        R.string.merchant_add_customer_subtitle,
-                        state.selectedStoreName.ifBlank { stringResource(R.string.merchant_select_store) },
-                    ),
-                    onBack = onBack,
-                )
-                AddCustomerFormSheet(
-                    state = state,
-                    onFirstNameChanged = viewModel::onFirstNameChanged,
-                    onLastNameChanged = viewModel::onLastNameChanged,
-                    onEmailChanged = viewModel::onEmailChanged,
-                    onPhoneChanged = viewModel::onPhoneChanged,
-                    onCreateCustomer = viewModel::createCustomer,
-                )
-            }
+            AddCustomerFormSheet(
+                state = state,
+                onFirstNameChanged = viewModel::onFirstNameChanged,
+                onLastNameChanged = viewModel::onLastNameChanged,
+                onEmailChanged = viewModel::onEmailChanged,
+                onPhoneChanged = viewModel::onPhoneChanged,
+                onCreateCustomer = viewModel::createCustomer,
+                onCancel = onBack,
+            )
         }
     } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(VerevColors.AppBackground)
-                .padding(
-                    bottom = contentPadding.calculateBottomPadding() + 16.dp,
-                ),
+                .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
         ) {
             AddCustomerSuccessSheet(
                 state = state,
@@ -139,12 +141,88 @@ fun AddCustomerScreen(
                     viewModel.resetForm()
                 },
                 onSelectProvisioningOption = viewModel::selectProvisioningOption,
-                onLaunchGoogleWallet = ::shareCurrentProvisioning,
+                onLaunchGoogleWallet = ::launchWalletSave,
                 onStartNfcWrite = viewModel::startNfcWrite,
                 onRetryNfcWrite = viewModel::retryNfcWrite,
                 onClearNfcState = viewModel::clearNfcState,
                 onRefreshWalletStatus = viewModel::refreshWalletAvailability,
             )
+        }
+    }
+}
+
+@Composable
+private fun AddCustomerEntryScaffold(
+    bottomInset: androidx.compose.ui.unit.Dp,
+    selectedStoreName: String,
+    onBack: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(VerevColors.AppBackground),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(listOf(VerevColors.Moss, VerevColors.ForestDeep)))
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.auth_back),
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.merchant_add_customer_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.merchant_add_customer_subtitle,
+                        selectedStoreName.ifBlank { stringResource(R.string.merchant_select_store) },
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.82f),
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+            color = VerevColors.AppBackground,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(
+                        start = 18.dp,
+                        end = 18.dp,
+                        top = 18.dp,
+                        bottom = bottomInset + 18.dp,
+                    )
+                    .navigationBarsPadding(),
+            ) {
+                content()
+            }
         }
     }
 }

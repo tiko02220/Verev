@@ -2,8 +2,8 @@ package com.vector.verevcodex.presentation.customers
 
 import androidx.annotation.StringRes
 import com.vector.verevcodex.R
-import com.vector.verevcodex.core.nfc.NfcCardWriteError
-import com.vector.verevcodex.core.nfc.NfcCardWriteState
+import com.vector.verevcodex.platform.nfc.NfcCardWriteError
+import com.vector.verevcodex.platform.nfc.NfcCardWriteState
 
 enum class NfcWritePhase {
     IDLE,

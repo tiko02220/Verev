@@ -1,7 +1,7 @@
 package com.vector.verevcodex.data.mapper.auth
 
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.auth.AuthSession
 import com.vector.verevcodex.domain.model.auth.AuthUser
 

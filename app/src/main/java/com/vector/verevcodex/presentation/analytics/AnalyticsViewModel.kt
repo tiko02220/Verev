@@ -2,35 +2,51 @@ package com.vector.verevcodex.presentation.analytics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.BusinessAnalytics
-import com.vector.verevcodex.domain.model.StaffAnalytics
-import com.vector.verevcodex.domain.usecase.ObserveStaffAnalyticsUseCase
-import com.vector.verevcodex.domain.repository.AnalyticsRepository
+import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
+import com.vector.verevcodex.domain.usecase.analytics.ObserveBusinessAnalyticsUseCase
+import com.vector.verevcodex.domain.usecase.staff.ObserveStaffAnalyticsUseCase
+import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.SharingStarted
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class AnalyticsViewModel @Inject constructor(
-    analyticsRepository: AnalyticsRepository,
+    observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
+    observeBusinessAnalyticsUseCase: ObserveBusinessAnalyticsUseCase,
     observeStaffAnalyticsUseCase: ObserveStaffAnalyticsUseCase,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(AnalyticsUiState())
-    val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
+    private val selectedRange = MutableStateFlow(AnalyticsTimeRange.WEEK)
 
-    init {
-        combine(analyticsRepository.observeBusinessAnalytics(null), observeStaffAnalyticsUseCase()) { business, staff ->
-            AnalyticsUiState(business, staff)
-        }.onEach { _uiState.value = it }.launchIn(viewModelScope)
+    val uiState: StateFlow<AnalyticsDashboardUiState> = combine(
+        observeSelectedStoreUseCase(),
+        selectedRange,
+    ) { store, range -> store?.id to range }
+        .flatMapLatest { (storeId, range) ->
+            combine(
+                observeBusinessAnalyticsUseCase(storeId, range),
+                observeStaffAnalyticsUseCase(storeId),
+                selectedRange,
+            ) { business, staff, currentRange ->
+                AnalyticsDashboardUiState(
+                    selectedRange = currentRange,
+                    businessAnalytics = business,
+                    staffAnalytics = staff,
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalyticsDashboardUiState())
+
+    fun updateRange(range: AnalyticsTimeRange) {
+        selectedRange.update { range }
     }
 }
-
-data class AnalyticsUiState(
-    val businessAnalytics: BusinessAnalytics? = null,
-    val staffAnalytics: List<StaffAnalytics> = emptyList(),
-)

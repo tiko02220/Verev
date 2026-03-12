@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +19,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
@@ -242,7 +253,7 @@ internal fun SettingsPaletteCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = palette.name,
+                    text = stringResource(palette.nameRes),
                     style = MaterialTheme.typography.titleMedium,
                     color = VerevColors.Forest,
                     fontWeight = FontWeight.SemiBold,
@@ -303,4 +314,89 @@ internal fun SettingsCheckBullet(text: String, modifier: Modifier = Modifier) {
             color = VerevColors.Forest.copy(alpha = 0.72f),
         )
     }
+}
+
+
+@Composable
+internal fun AddPaymentMethodDialog(
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (brand: String, last4: String, expiryMonth: Int, expiryYear: Int, isDefault: Boolean) -> Unit,
+) {
+    var brand by remember { mutableStateOf("") }
+    var last4 by remember { mutableStateOf("") }
+    var expiryMonth by remember { mutableStateOf("") }
+    var expiryYear by remember { mutableStateOf("") }
+    var isDefault by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.merchant_payment_methods_add_card_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = brand,
+                    onValueChange = { brand = it.replace("\n", "") },
+                    label = { Text(stringResource(R.string.merchant_payment_methods_brand_label)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = last4,
+                    onValueChange = { value -> last4 = value.filter(Char::isDigit).take(4) },
+                    label = { Text(stringResource(R.string.merchant_payment_methods_last4_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = expiryMonth,
+                        onValueChange = { value -> expiryMonth = value.filter(Char::isDigit).take(2) },
+                        label = { Text(stringResource(R.string.merchant_payment_methods_expiry_month_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = expiryYear,
+                        onValueChange = { value -> expiryYear = value.filter(Char::isDigit).take(4) },
+                        label = { Text(stringResource(R.string.merchant_payment_methods_expiry_year_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.merchant_payment_methods_set_as_default),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest,
+                    )
+                    Switch(checked = isDefault, onCheckedChange = { isDefault = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        brand.trim(),
+                        last4,
+                        expiryMonth.toIntOrNull() ?: -1,
+                        expiryYear.toIntOrNull() ?: -1,
+                        isDefault,
+                    )
+                },
+                enabled = !isSaving,
+            ) { Text(stringResource(R.string.merchant_payment_methods_add_card_confirm)) }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss, enabled = !isSaving, colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = VerevColors.Forest)) {
+                Text(stringResource(R.string.auth_cancel))
+            }
+        },
+    )
 }

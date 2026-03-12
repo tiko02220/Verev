@@ -21,6 +21,7 @@ fun authErrorRes(errorKey: String?): Int? = when (errorKey) {
     "code_incomplete" -> R.string.auth_error_code_incomplete
     "code_invalid" -> R.string.auth_error_code_invalid
     "reset_failed" -> R.string.auth_error_reset_failed
+    "auth_pin_invalid" -> R.string.auth_pin_invalid
     "biometric_failed" -> R.string.auth_biometric_failed
     "pin_length" -> R.string.auth_pin_error_length
     "pin_mismatch" -> R.string.auth_pin_error_mismatch

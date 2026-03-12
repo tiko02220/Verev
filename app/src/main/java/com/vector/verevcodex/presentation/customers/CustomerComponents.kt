@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,17 +29,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.Customer
-import com.vector.verevcodex.domain.model.LoyaltyTier
+import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.common.LoyaltyTier
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantSearchField
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
-import com.vector.verevcodex.presentation.merchant.common.MerchantTextAction
 import com.vector.verevcodex.presentation.merchant.common.displayName
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatRelativeDateTime
@@ -47,6 +47,7 @@ import com.vector.verevcodex.presentation.theme.VerevColors
 @Composable
 internal fun CustomersHeaderPanel(
     totalCount: Int,
+    storeName: String,
     query: String,
     selectedTier: LoyaltyTier?,
     onQueryChange: (String) -> Unit,
@@ -60,8 +61,13 @@ internal fun CustomersHeaderPanel(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             CustomerHeaderStat(
-                title = stringResource(R.string.merchant_customers_title),
+                title = stringResource(R.string.merchant_customers_header_total),
                 value = formatCompactCount(totalCount),
+                modifier = Modifier.weight(1f),
+            )
+            CustomerHeaderStat(
+                title = stringResource(R.string.merchant_customers_header_scope),
+                value = if (storeName.isBlank()) stringResource(R.string.merchant_customers_scope_all) else storeName,
                 modifier = Modifier.weight(1f),
             )
             CustomerHeaderStat(
@@ -96,12 +102,13 @@ internal fun CustomersHeaderPanel(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun CustomerCard(
-    customer: Customer,
-    onRewardBoost: () -> Unit,
+    customer: CustomerListCardUi,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val model = customer.customer
     CustomerBodySection(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -115,29 +122,29 @@ internal fun CustomerCard(
                     .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+                Icon(Icons.Default.Person, contentDescription = null, tint = VerevColors.White, modifier = Modifier.size(30.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = listOf(customer.firstName, customer.lastName).filter { it.isNotBlank() }.joinToString(" "),
+                    text = listOf(model.firstName, model.lastName).filter { it.isNotBlank() }.joinToString(" "),
                     style = MaterialTheme.typography.titleLarge,
                     color = VerevColors.Forest,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = customer.email,
+                    text = model.email.ifBlank { model.phoneNumber },
                     style = MaterialTheme.typography.bodyMedium,
                     color = VerevColors.Forest.copy(alpha = 0.64f),
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
+                    text = stringResource(R.string.merchant_scan_loyalty_id, model.loyaltyId),
                     style = MaterialTheme.typography.bodySmall,
                     color = VerevColors.Forest.copy(alpha = 0.52f),
                 )
             }
-            CustomerTierPill(customer.loyaltyTier)
+            CustomerTierPill(model.loyaltyTier)
         }
 
         Row(
@@ -146,46 +153,54 @@ internal fun CustomerCard(
         ) {
             CustomerMiniStat(
                 label = stringResource(R.string.merchant_metric_points),
-                value = formatCompactCount(customer.currentPoints),
+                value = formatCompactCount(model.currentPoints),
                 modifier = Modifier.weight(1f),
             )
             CustomerMiniStat(
                 label = stringResource(R.string.merchant_metric_visits),
-                value = formatCompactCount(customer.totalVisits),
+                value = formatCompactCount(model.totalVisits),
                 modifier = Modifier.weight(1f),
             )
             CustomerMiniStat(
                 label = stringResource(R.string.merchant_metric_spent),
-                value = formatWholeCurrency(customer.totalSpent),
+                value = formatWholeCurrency(model.totalSpent),
                 modifier = Modifier.weight(1f),
             )
         }
 
+        if (customer.tagsPreview.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                customer.tagsPreview.take(3).forEach { tag ->
+                    CustomerTagChip(tag)
+                }
+            }
+        }
+
+        customer.notesPreview?.let { note ->
+            Text(
+                text = note,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.72f),
+                maxLines = 2,
+            )
+        }
+
         Text(
-            text = stringResource(R.string.merchant_customer_last_visit, formatRelativeDateTime(customer.lastVisit)),
+            text = stringResource(R.string.merchant_customer_last_visit, formatRelativeDateTime(model.lastVisit)),
             style = MaterialTheme.typography.bodySmall,
             color = VerevColors.Forest.copy(alpha = 0.52f),
         )
 
-        Row(
+        Button(
+            onClick = onOpenProfile,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = VerevColors.Gold,
+                contentColor = VerevColors.White,
+            ),
         ) {
-            Button(
-                onClick = onRewardBoost,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = VerevColors.Gold,
-                    contentColor = Color.White,
-                ),
-            ) {
-                Text(text = stringResource(R.string.merchant_customer_goodwill_points), fontWeight = FontWeight.Medium)
-            }
-            MerchantTextAction(
-                text = stringResource(R.string.merchant_customer_view_profile),
-                onClick = onOpenProfile,
-            )
+            Text(text = stringResource(R.string.merchant_customer_view_profile), fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -238,11 +253,26 @@ private fun CustomerMiniStat(
 
 @Composable
 private fun CustomerTierPill(tier: LoyaltyTier) {
-    val (backgroundColor, contentColor) = when (tier) {
-        LoyaltyTier.BRONZE -> VerevColors.Tan.copy(alpha = 0.18f) to VerevColors.Tan
-        LoyaltyTier.SILVER -> Color(0xFFE2E8F0) to Color(0xFF475569)
-        LoyaltyTier.GOLD -> Color(0xFFFef3C7) to VerevColors.Gold
-        LoyaltyTier.VIP -> Color(0xFFE9D5FF) to Color(0xFF7C3AED)
+    val colors = tier.toUiColors()
+    MerchantStatusPill(
+        text = tier.displayName(),
+        backgroundColor = colors.background,
+        contentColor = colors.content,
+    )
+}
+
+@Composable
+private fun CustomerTagChip(tag: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(VerevColors.Forest.copy(alpha = 0.08f))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = tag,
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest,
+        )
     }
-    MerchantStatusPill(text = tier.displayName(), backgroundColor = backgroundColor, contentColor = contentColor)
 }

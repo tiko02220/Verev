@@ -12,6 +12,8 @@ import com.vector.verevcodex.R
 object VerevColors {
     val Forest = Color(0xFF0C3B2E)
     val ForestDeep = Color(0xFF0A2F24)
+    val ForestSoft = Color(0xFF5B8B67)
+    val ForestBright = Color(0xFF6E9B77)
     val Moss = Color(0xFF6B9773)
     val Gold = Color(0xFFFFBA00)
     val Tan = Color(0xFFBB8A52)
@@ -19,6 +21,20 @@ object VerevColors {
     val MutedText = Color(0x99103B2E)
     val Inactive = Color(0xFF9CA3AF)
     val White = Color.White
+    val Black = Color.Black
+    val ErrorContainer = Color(0xFFFEE2E2)
+    val ErrorText = Color(0xFF7F1D1D)
+    val Danger = Color(0xFFDC2626)
+    val DangerStrong = Color(0xFFEF4444)
+    val DangerContainer = Color(0xFFFFF0F0)
+    val Scrim = Color(0x73000000)
+    val SurfaceMuted = Color(0xFFF4F4F4)
+    val SurfaceSoft = Color(0xFFF7F7F7)
+    val TierSilverContainer = Color(0xFFE2E8F0)
+    val TierSilverContent = Color(0xFF475569)
+    val TierGoldContainer = Color(0xFFFEF3C7)
+    val TierVipContainer = Color(0xFFE9D5FF)
+    val TierVipContent = Color(0xFF7C3AED)
 }
 
 @Composable

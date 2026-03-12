@@ -2,9 +2,9 @@ package com.vector.verevcodex.presentation.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.domain.model.Store
+import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.auth.AuthUser
-import com.vector.verevcodex.domain.repository.StoreRepository
+import com.vector.verevcodex.domain.repository.store.StoreRepository
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

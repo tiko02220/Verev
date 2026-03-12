@@ -4,16 +4,15 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vector.verevcodex.core.nfc.NfcCardPayloadParser
-import com.vector.verevcodex.core.nfc.NfcCardWriteCoordinator
-import com.vector.verevcodex.core.wallet.GoogleWalletProvisioningManager
+import com.vector.verevcodex.platform.nfc.NfcCardPayloadParser
+import com.vector.verevcodex.platform.nfc.NfcCardWriteCoordinator
+import com.vector.verevcodex.platform.wallet.GoogleWalletProvisioningManager
 import com.vector.verevcodex.presentation.app.AppEntryScreen
 import com.vector.verevcodex.presentation.auth.security.AppSecurityViewModel
 import com.vector.verevcodex.presentation.scan.ScanViewModel
@@ -25,6 +24,8 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     private val scanViewModel: ScanViewModel by viewModels()
     private val appSecurityViewModel: AppSecurityViewModel by viewModels()
+    private var shouldRelockOnPause = false
+    private var didEnterBackground = false
 
     @Inject lateinit var nfcCardWriteCoordinator: NfcCardWriteCoordinator
     @Inject lateinit var googleWalletProvisioningManager: GoogleWalletProvisioningManager
@@ -75,24 +76,39 @@ class MainActivity : FragmentActivity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
-    override fun onStart() {
-        super.onStart()
-        appSecurityViewModel.onAppForegrounded(SystemClock.elapsedRealtime())
-    }
-
     override fun onResume() {
         super.onResume()
         nfcAdapter?.enableForegroundDispatch(this, nfcPendingIntent, null, null)
     }
 
     override fun onPause() {
+        if ((shouldRelockOnPause || isFinishing) && !isChangingConfigurations) {
+            appSecurityViewModel.onAppBackgrounded()
+        }
         nfcAdapter?.disableForegroundDispatch(this)
         super.onPause()
     }
 
     override fun onStop() {
+        if (!isChangingConfigurations && !isFinishing && shouldRelockOnPause) {
+            appSecurityViewModel.onAppBackgrounded()
+            didEnterBackground = true
+        }
         super.onStop()
-        appSecurityViewModel.onAppBackgrounded(SystemClock.elapsedRealtime())
+    }
+
+    override fun onUserLeaveHint() {
+        shouldRelockOnPause = true
+        super.onUserLeaveHint()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && didEnterBackground) {
+            appSecurityViewModel.onAppForegrounded()
+            shouldRelockOnPause = false
+            didEnterBackground = false
+        }
     }
 
     private fun handleNfcIntent(intent: Intent?) {

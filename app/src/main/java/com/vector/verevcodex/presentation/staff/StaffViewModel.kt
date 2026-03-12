@@ -4,12 +4,13 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.StaffMember
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.business.StaffMember
+import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
-import com.vector.verevcodex.domain.repository.StoreRepository
-import com.vector.verevcodex.domain.usecase.AddStaffMembersUseCase
-import com.vector.verevcodex.domain.usecase.ObserveStaffUseCase
+import com.vector.verevcodex.domain.repository.store.StoreRepository
+import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
+import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -74,7 +75,7 @@ class StaffViewModel @Inject constructor(
                         email = email.trim().lowercase(),
                         password = password,
                         role = role,
-                        permissionsSummary = role.permissionsSummary(),
+                        permissionsSummary = role.defaultPermissionsSummary(),
                     )
                 ),
             ).fold(
@@ -111,10 +112,3 @@ data class StaffUiState(
     @StringRes val errorRes: Int? = null,
     @StringRes val messageRes: Int? = null,
 )
-
-private fun StaffRole.permissionsSummary(): String = when (this) {
-    StaffRole.OWNER -> "Full access across stores, analytics, campaigns, and loyalty settings"
-    StaffRole.STORE_MANAGER -> "Manage customers, rewards, staff coordination, and store analytics"
-    StaffRole.CASHIER -> "Process scans, transactions, and reward redemptions"
-    StaffRole.STAFF -> "Limited operational access for assisted checkout and customer handling"
-}

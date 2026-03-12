@@ -111,6 +111,7 @@ internal fun SecurityUnlockCard(
             AuthPinBoxes(
                 value = pinValue,
                 isError = state.pinError != null && state.pinError != "biometric_failed",
+                autoFocus = state.securityConfig?.biometricEnabled != true,
                 onValueChange = onPinChanged,
             )
             if (state.pinError != null) {

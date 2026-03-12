@@ -5,23 +5,46 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.ScheduleSend
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
+import com.vector.verevcodex.domain.model.reports.ReportExport
+import com.vector.verevcodex.domain.model.reports.ReportFormat
 import com.vector.verevcodex.presentation.merchant.common.MerchantActionCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.settings.SettingsBackRow
+import com.vector.verevcodex.presentation.settings.SettingsDetailRow
 import com.vector.verevcodex.presentation.settings.SettingsHeroCard
 import com.vector.verevcodex.presentation.theme.VerevColors
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ReportExportScreen(
@@ -29,7 +52,8 @@ fun ReportExportScreen(
     onBack: () -> Unit = {},
     viewModel: ReportsViewModel = hiltViewModel(),
 ) {
-    val report by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -37,7 +61,7 @@ fun ReportExportScreen(
             start = 16.dp,
             end = 16.dp,
             top = contentPadding.calculateTopPadding() + 24.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            bottom = contentPadding.calculateBottomPadding() + 104.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -53,6 +77,12 @@ fun ReportExportScreen(
             )
         }
         item {
+            ExportTargetCard(
+                selectedStoreName = uiState.selectedStoreName,
+                includeAllStores = uiState.autoSettings.includeAllStores,
+            )
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -63,7 +93,7 @@ fun ReportExportScreen(
                     icon = Icons.Default.Description,
                     colors = listOf(VerevColors.Gold, VerevColors.Tan),
                     modifier = Modifier.weight(1f),
-                    onClick = { viewModel.export("DOCX") },
+                    onClick = { viewModel.export(ReportFormat.DOCX) },
                 )
                 MerchantActionCard(
                     title = stringResource(R.string.merchant_reports_excel_title),
@@ -71,29 +101,256 @@ fun ReportExportScreen(
                     icon = Icons.Default.Payments,
                     colors = listOf(VerevColors.Moss, VerevColors.Forest),
                     modifier = Modifier.weight(1f),
-                    onClick = { viewModel.export("XLSX") },
+                    onClick = { viewModel.export(ReportFormat.XLSX) },
                 )
             }
         }
-        report?.let { prepared ->
+        item {
+            AutoReportSettingsCard(
+                enabled = uiState.autoSettings.enabled,
+                frequency = uiState.autoSettings.frequency,
+                format = uiState.autoSettings.format,
+                includeAllStores = uiState.autoSettings.includeAllStores,
+                onEnabledChanged = viewModel::setAutoReportsEnabled,
+                onFrequencyChanged = viewModel::setAutoReportFrequency,
+                onFormatChanged = viewModel::setPreferredFormat,
+                onIncludeAllStoresChanged = viewModel::setIncludeAllStores,
+            )
+        }
+        if (uiState.isExporting) {
+            item {
+                ExportingCard()
+            }
+        }
+        uiState.error?.let { errorMessage ->
             item {
                 MerchantPrimaryCard {
-                    androidx.compose.material3.Text(
-                        text = stringResource(R.string.merchant_reports_prepared_title),
-                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-                        color = VerevColors.Forest,
+                    Text(
+                        text = stringResource(R.string.merchant_reports_error_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colorResource(R.color.error_red),
+                        fontWeight = FontWeight.SemiBold,
                     )
-                    androidx.compose.material3.Text(
-                        text = prepared.fileName,
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
-                        color = VerevColors.Moss,
-                    )
-                    androidx.compose.material3.Text(
-                        text = prepared.summary,
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.64f),
+                    Text(
+                        text = errorMessage.ifBlank { stringResource(R.string.merchant_reports_error_generic) },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.72f),
                     )
                 }
+            }
+        }
+        uiState.latestExport?.let { report ->
+            item {
+                LatestExportCard(
+                    report = report,
+                    onOpen = { openReport(context, report) },
+                    onShare = { shareReport(context, report) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExportTargetCard(
+    selectedStoreName: String,
+    includeAllStores: Boolean,
+) {
+    MerchantPrimaryCard {
+        Text(
+            text = stringResource(R.string.merchant_reports_scope_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_reports_scope_label),
+            value = if (includeAllStores) {
+                stringResource(R.string.merchant_reports_scope_all_stores)
+            } else {
+                selectedStoreName.ifBlank { stringResource(R.string.merchant_reports_scope_current_store_fallback) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AutoReportSettingsCard(
+    enabled: Boolean,
+    frequency: ReportAutoFrequency,
+    format: ReportFormat,
+    includeAllStores: Boolean,
+    onEnabledChanged: (Boolean) -> Unit,
+    onFrequencyChanged: (ReportAutoFrequency) -> Unit,
+    onFormatChanged: (ReportFormat) -> Unit,
+    onIncludeAllStoresChanged: (Boolean) -> Unit,
+) {
+    MerchantPrimaryCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.ScheduleSend,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                text = stringResource(R.string.merchant_reports_auto_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChanged,
+            )
+        }
+        Text(
+            text = stringResource(R.string.merchant_reports_auto_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = VerevColors.Forest.copy(alpha = 0.68f),
+        )
+        Text(
+            text = stringResource(R.string.merchant_reports_frequency_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ReportAutoFrequency.entries.forEach { option ->
+                MerchantFilterChip(
+                    text = stringResource(option.labelRes()),
+                    selected = option == frequency,
+                    onClick = { onFrequencyChanged(option) },
+                )
+            }
+        }
+        Text(
+            text = stringResource(R.string.merchant_reports_preferred_format_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ReportFormat.entries.forEach { option ->
+                MerchantFilterChip(
+                    text = stringResource(option.titleRes()),
+                    selected = option == format,
+                    onClick = { onFormatChanged(option) },
+                )
+            }
+        }
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_reports_include_all_stores_title),
+            value = if (includeAllStores) {
+                stringResource(R.string.merchant_reports_include_all_stores_enabled)
+            } else {
+                stringResource(R.string.merchant_reports_include_all_stores_disabled)
+            },
+            trailing = {
+                Switch(
+                    checked = includeAllStores,
+                    onCheckedChange = onIncludeAllStoresChanged,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ExportingCard() {
+    MerchantPrimaryCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                color = VerevColors.Gold,
+                strokeWidth = 2.5.dp,
+            )
+            Text(
+                text = stringResource(R.string.merchant_reports_exporting),
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LatestExportCard(
+    report: ReportExport,
+    onOpen: () -> Unit,
+    onShare: () -> Unit,
+) {
+    MerchantPrimaryCard {
+        Text(
+            text = stringResource(R.string.merchant_reports_prepared_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_reports_file_name_label),
+            value = report.fileName,
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_reports_format_label),
+            value = stringResource(report.format.titleRes()),
+        )
+        SettingsDetailRow(
+            label = stringResource(R.string.merchant_reports_generated_label),
+            value = report.generatedAt.format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")),
+        )
+        Text(
+            text = report.summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VerevColors.Forest.copy(alpha = 0.68f),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Button(
+                onClick = onOpen,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Forest,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    text = stringResource(R.string.merchant_reports_open),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            Button(
+                onClick = onShare,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Gold,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    text = stringResource(R.string.merchant_reports_share),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
         }
     }

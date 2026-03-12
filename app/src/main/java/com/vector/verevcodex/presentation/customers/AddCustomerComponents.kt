@@ -1,8 +1,6 @@
 package com.vector.verevcodex.presentation.customers
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,8 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +39,7 @@ internal fun AddCustomerFormSheet(
     onEmailChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onCreateCustomer: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val firstNameError = state.errorRes == R.string.merchant_add_customer_error_first_name
     val lastNameError = state.errorRes == R.string.merchant_add_customer_error_last_name
@@ -51,47 +48,26 @@ internal fun AddCustomerFormSheet(
 
     Surface(
         shape = RoundedCornerShape(28.dp),
-        color = Color.White,
+        color = VerevColors.White,
         tonalElevation = 0.dp,
-        shadowElevation = 8.dp,
+        shadowElevation = 0.dp,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.linearGradient(listOf(VerevColors.Moss.copy(alpha = 0.14f), VerevColors.Forest.copy(alpha = 0.1f))))
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.merchant_add_customer_form_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = VerevColors.Forest,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = stringResource(R.string.merchant_add_customer_form_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = VerevColors.Forest.copy(alpha = 0.66f),
-                        )
-                    }
-                }
+                Text(
+                    text = stringResource(R.string.merchant_add_customer_form_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(R.string.merchant_add_customer_form_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.66f),
+                )
                 MerchantFormField(
                     value = state.firstName,
                     onValueChange = onFirstNameChanged,
@@ -154,16 +130,26 @@ internal fun AddCustomerFormSheet(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.auth_cancel),
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                     Button(
                         onClick = onCreateCustomer,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                         enabled = !state.isSaving,
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = VerevColors.Gold,
-                            contentColor = Color.White,
+                            contentColor = VerevColors.White,
                         ),
                     ) {
                         Text(
@@ -209,7 +195,7 @@ internal fun AddCustomerInfoCard(
 internal fun AddCustomerErrorCard(text: String) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFFFEE2E2),
+        color = VerevColors.ErrorContainer,
     ) {
         Text(
             text = text,
@@ -217,7 +203,7 @@ internal fun AddCustomerErrorCard(text: String) {
                 .fillMaxWidth()
                 .padding(14.dp),
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF7F1D1D),
+            color = VerevColors.ErrorText,
         )
     }
 }

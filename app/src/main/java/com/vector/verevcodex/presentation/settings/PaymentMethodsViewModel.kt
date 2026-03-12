@@ -1,77 +1,117 @@
 package com.vector.verevcodex.presentation.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.billing.PaymentMethodDraft
+import com.vector.verevcodex.domain.usecase.settings.AddPaymentMethodUseCase
+import com.vector.verevcodex.domain.usecase.settings.ObserveInvoicesUseCase
+import com.vector.verevcodex.domain.usecase.settings.ObservePaymentMethodsUseCase
+import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
+import com.vector.verevcodex.domain.usecase.settings.ObserveSubscriptionPlanUseCase
+import com.vector.verevcodex.domain.usecase.settings.RemovePaymentMethodUseCase
+import com.vector.verevcodex.domain.usecase.settings.SetDefaultPaymentMethodUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class PaymentMethodsViewModel @Inject constructor() : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        PaymentMethodsUiState(
-            methods = listOf(
-                PaymentMethodUi(id = "pm_visa_4242", brand = "Visa", last4 = "4242", expiry = "12/27", isDefault = true),
-                PaymentMethodUi(id = "pm_mc_1234", brand = "Mastercard", last4 = "1234", expiry = "09/28", isDefault = false),
-            ),
-            invoices = listOf(
-                BillingEntryUi(id = "inv_2026_02", title = "Premium plan", subtitle = "February 2026", amount = "$99.00", status = "Paid"),
-                BillingEntryUi(id = "inv_2026_01", title = "Premium plan", subtitle = "January 2026", amount = "$99.00", status = "Paid"),
-                BillingEntryUi(id = "inv_2025_12", title = "Premium plan", subtitle = "December 2025", amount = "$99.00", status = "Paid"),
-            ),
-        ),
-    )
+class PaymentMethodsViewModel @Inject constructor(
+    observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
+    observeSubscriptionPlanUseCase: ObserveSubscriptionPlanUseCase,
+    observePaymentMethodsUseCase: ObservePaymentMethodsUseCase,
+    observeInvoicesUseCase: ObserveInvoicesUseCase,
+    private val addPaymentMethodUseCase: AddPaymentMethodUseCase,
+    private val setDefaultPaymentMethodUseCase: SetDefaultPaymentMethodUseCase,
+    private val removePaymentMethodUseCase: RemovePaymentMethodUseCase,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(PaymentMethodsUiState())
     val uiState: StateFlow<PaymentMethodsUiState> = _uiState.asStateFlow()
 
-    fun addCard() {
-        _uiState.update { state ->
-            val index = state.methods.size + 1
-            state.copy(
-                methods = state.methods + PaymentMethodUi(
-                    id = "pm_auto_$index",
-                    brand = if (index % 2 == 0) "Visa" else "Mastercard",
-                    last4 = (4000 + index).toString(),
-                    expiry = "11/29",
-                    isDefault = state.methods.isEmpty(),
-                ),
-                messageRes = R.string.merchant_payment_methods_message_card_added,
-            )
+    private var currentOwnerId: String? = null
+
+    init {
+        observeSelectedStoreUseCase()
+            .flatMapLatest { store ->
+                currentOwnerId = store?.ownerId
+                if (store == null) {
+                    emptyFlow<PaymentMethodsUiState>()
+                } else {
+                    combine(
+                        observeSubscriptionPlanUseCase(store.ownerId),
+                        observePaymentMethodsUseCase(store.ownerId),
+                        observeInvoicesUseCase(store.ownerId),
+                    ) { plan, methods, invoices ->
+                        PaymentMethodsUiState(
+                            planKey = plan.nameLabel(),
+                            planPrice = plan.priceLabel(),
+                            renewalLabel = plan.renewalLabel(),
+                            methods = methods.map { it.toUi() },
+                            invoices = invoices.map { it.toUi() },
+                            messageRes = _uiState.value.messageRes,
+                        )
+                    }
+                }
+            }
+            .onEach { _uiState.value = it }
+            .launchIn(viewModelScope)
+    }
+
+    fun addCard(
+        brand: String,
+        last4: String,
+        expiryMonth: Int,
+        expiryYear: Int,
+        isDefault: Boolean,
+    ) {
+        val ownerId = currentOwnerId ?: return
+        viewModelScope.launch {
+            runCatching {
+                addPaymentMethodUseCase(
+                    ownerId,
+                    PaymentMethodDraft(
+                        brand = brand,
+                        last4 = last4,
+                        expiryMonth = expiryMonth,
+                        expiryYear = expiryYear,
+                        isDefault = isDefault,
+                    )
+                ).getOrThrow()
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_card_added)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_invalid_card)
+            }
         }
     }
 
     fun makeDefault(methodId: String) {
-        _uiState.update { state ->
-            state.copy(
-                methods = state.methods.map { method -> method.copy(isDefault = method.id == methodId) },
-                messageRes = R.string.merchant_payment_methods_message_default_updated,
-            )
+        val ownerId = currentOwnerId ?: return
+        viewModelScope.launch {
+            setDefaultPaymentMethodUseCase(ownerId, methodId)
+            _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_default_updated)
         }
     }
 
     fun removeMethod(methodId: String) {
-        _uiState.update { state ->
-            val remaining = state.methods.filterNot { it.id == methodId }
-            val adjusted = if (remaining.none { it.isDefault } && remaining.isNotEmpty()) {
-                remaining.mapIndexed { index, method -> method.copy(isDefault = index == 0) }
-            } else {
-                remaining
-            }
-            state.copy(methods = adjusted, messageRes = R.string.merchant_payment_methods_message_removed)
+        val ownerId = currentOwnerId ?: return
+        viewModelScope.launch {
+            removePaymentMethodUseCase(ownerId, methodId)
+            _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_removed)
         }
     }
 
     fun dismissMessage() {
-        _uiState.update { it.copy(messageRes = null) }
+        _uiState.value = _uiState.value.copy(messageRes = null)
     }
 }
-
-data class PaymentMethodsUiState(
-    val planPrice: String = "$99/mo",
-    val renewalLabel: String = "Apr 1, 2026",
-    val methods: List<PaymentMethodUi> = emptyList(),
-    val invoices: List<BillingEntryUi> = emptyList(),
-    val messageRes: Int? = null,
-)

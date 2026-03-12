@@ -25,8 +25,8 @@ class AppSecurityViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppSecurityUiState())
     val uiState: StateFlow<AppSecurityUiState> = _uiState.asStateFlow()
-    private var firstObservationHandled = false
-    private var lastBackgroundedAtMillis: Long? = null
+    private var hasHandledInitialSnapshot = false
+    private var lockSessionId = 0
 
     init {
         combine(
@@ -41,63 +41,64 @@ class AppSecurityViewModel @Inject constructor(
                 current.authEntryDestination != null -> current.authEntryDestination
                 else -> AuthEntryDestination.LOGIN
             }
-            if (!firstObservationHandled) {
-                firstObservationHandled = true
-                _uiState.value = current.copy(
-                    isInitialized = true,
-                    session = session,
-                    securityConfig = security,
-                    authEntryDestination = authEntryDestination,
-                    requiresUnlock = session != null && security != null,
-                    pinDigits = List(4) { "" },
-                    pinError = null,
-                    pinErrorCount = 0,
-                    promptBiometric = session != null && security?.biometricEnabled == true,
-                )
-            } else {
-                _uiState.value = current.copy(
-                    isInitialized = true,
-                    session = session,
-                    securityConfig = security,
-                    authEntryDestination = authEntryDestination,
-                    requiresUnlock = when {
-                        session == null || security == null -> false
-                        else -> current.requiresUnlock
-                    },
-                    promptBiometric = if (!current.requiresUnlock) false else current.promptBiometric,
-                )
+            val shouldRequireUnlock = when {
+                session == null || security == null -> false
+                !hasHandledInitialSnapshot -> true
+                else -> current.requiresUnlock
             }
+            val shouldPromptBiometric = when {
+                !shouldRequireUnlock -> false
+                authEntryDestination != null -> false
+                current.promptBiometric -> true
+                !hasHandledInitialSnapshot && security?.biometricEnabled == true -> true
+                else -> false
+            }
+            hasHandledInitialSnapshot = true
+            _uiState.value = current.copy(
+                isInitialized = true,
+                session = session,
+                securityConfig = security,
+                authEntryDestination = authEntryDestination,
+                requiresUnlock = shouldRequireUnlock,
+                pinDigits = if (shouldRequireUnlock) current.pinDigits else List(4) { "" },
+                pinError = if (shouldRequireUnlock) current.pinError else null,
+                pinErrorCount = if (shouldRequireUnlock) current.pinErrorCount else 0,
+                promptBiometric = shouldPromptBiometric,
+            )
         }.launchIn(viewModelScope)
     }
 
-    fun onAppBackgrounded(backgroundedAtMillis: Long) {
+    fun onAppBackgrounded() {
         val state = _uiState.value
-        if (state.session != null && state.securityConfig != null) {
-            lastBackgroundedAtMillis = backgroundedAtMillis
-        }
+        if (state.session == null || state.securityConfig == null || state.authEntryDestination != null) return
+        lockSessionId += 1
+        _uiState.value = state.copy(
+            requiresUnlock = true,
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
+            promptBiometric = false,
+        )
     }
 
-    fun onAppForegrounded(foregroundedAtMillis: Long) {
+    fun onAppForegrounded() {
         val state = _uiState.value
-        val backgroundedAtMillis = lastBackgroundedAtMillis
-        if (state.session == null || state.securityConfig == null || state.requiresUnlock || backgroundedAtMillis == null) {
-            return
-        }
-        if (foregroundedAtMillis - backgroundedAtMillis >= APP_LOCK_TIMEOUT_MS) {
-            _uiState.value = state.copy(
-                requiresUnlock = true,
-                pinDigits = List(4) { "" },
-                pinError = null,
-                pinErrorCount = 0,
-                promptBiometric = state.securityConfig.biometricEnabled,
-            )
-        }
-        lastBackgroundedAtMillis = null
+        if (state.session == null || state.securityConfig == null || !state.requiresUnlock || state.authEntryDestination != null) return
+        _uiState.value = state.copy(
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
+            promptBiometric = state.securityConfig.biometricEnabled,
+        )
     }
 
     fun requestBiometric() {
-        if (_uiState.value.securityConfig?.biometricEnabled == true) {
-            _uiState.value = _uiState.value.copy(promptBiometric = true, pinError = null)
+        if (_uiState.value.securityConfig?.biometricEnabled == true && _uiState.value.requiresUnlock) {
+            _uiState.value = _uiState.value.copy(
+                promptBiometric = true,
+                pinError = null,
+                pinErrorCount = 0,
+            )
         }
     }
 
@@ -118,7 +119,7 @@ class AppSecurityViewModel @Inject constructor(
             pinError = null,
         )
         if (sanitized.length == 4) {
-            verifyPin(sanitized)
+            verifyPin(sanitized, lockSessionId)
         }
     }
 
@@ -128,10 +129,12 @@ class AppSecurityViewModel @Inject constructor(
             authEntryNonce = _uiState.value.authEntryNonce + 1,
             requiresUnlock = false,
             promptBiometric = false,
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
         )
         viewModelScope.launch {
             logoutUseCase()
-            lastBackgroundedAtMillis = null
         }
     }
 
@@ -141,16 +144,22 @@ class AppSecurityViewModel @Inject constructor(
             authEntryNonce = _uiState.value.authEntryNonce + 1,
             requiresUnlock = false,
             promptBiometric = false,
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
         )
         viewModelScope.launch {
             logoutUseCase()
-            lastBackgroundedAtMillis = null
         }
     }
 
-    private fun verifyPin(pin: String = _uiState.value.pinDigits.joinToString("")) {
+    private fun verifyPin(
+        pin: String = _uiState.value.pinDigits.joinToString(""),
+        expectedLockSessionId: Int = lockSessionId,
+    ) {
         viewModelScope.launch {
             val isValid = verifyQuickPinUseCase(pin)
+            if (expectedLockSessionId != lockSessionId) return@launch
             _uiState.value = if (isValid) {
                 _uiState.value.copy(
                     requiresUnlock = false,
@@ -168,9 +177,5 @@ class AppSecurityViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    private companion object {
-        const val APP_LOCK_TIMEOUT_MS = 30_000L
     }
 }

@@ -68,7 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
 import com.vector.verevcodex.presentation.auth.common.AuthHeroIcon
 import com.vector.verevcodex.presentation.auth.common.AuthInfoPanel
@@ -396,6 +396,7 @@ internal fun PinSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
             AuthPinBoxes(
                 value = if (state.pinSetupStep == PinSetupStep.CREATE) state.pin else state.confirmPin,
                 isError = state.pinError != null,
+                focusResetKey = state.pinSetupStep,
                 onValueChange = if (state.pinSetupStep == PinSetupStep.CREATE) viewModel::updatePin else viewModel::updateConfirmPin,
             )
             if (state.pinConfirmed) {

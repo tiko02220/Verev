@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.theme.VerevColors
 

@@ -1,5 +1,6 @@
 package com.vector.verevcodex.presentation.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 
 enum class ThemeModeUi {
@@ -26,12 +27,12 @@ data class BillingEntryUi(
     val title: String,
     val subtitle: String,
     val amount: String,
-    val status: String,
+    @StringRes val statusRes: Int,
 )
 
 data class BrandingPaletteUi(
     val id: String,
-    val name: String,
+    @StringRes val nameRes: Int,
     val primary: Color,
     val secondary: Color,
     val accent: Color,

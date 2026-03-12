@@ -1,9 +1,9 @@
 package com.vector.verevcodex.presentation.merchant.common
 
-import com.vector.verevcodex.domain.model.LoyaltyProgramType
-import com.vector.verevcodex.domain.model.LoyaltyTier
-import com.vector.verevcodex.domain.model.RewardType
-import com.vector.verevcodex.domain.model.StaffRole
+import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.LoyaltyTier
+import com.vector.verevcodex.domain.model.common.RewardType
+import com.vector.verevcodex.domain.model.common.StaffRole
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.time.LocalDateTime
@@ -70,10 +70,13 @@ fun LoyaltyTier.displayName(): String = when (this) {
 }
 
 fun LoyaltyProgramType.displayName(): String = when (this) {
-    LoyaltyProgramType.POINTS -> "Points"
+    LoyaltyProgramType.POINTS -> "Points Rewards"
     LoyaltyProgramType.CASHBACK -> "Cashback"
-    LoyaltyProgramType.DIGITAL_STAMP -> "Stamps"
-    LoyaltyProgramType.TIER -> "Tiered"
+    LoyaltyProgramType.DIGITAL_STAMP -> "Check-in Rewards"
+    LoyaltyProgramType.TIER -> "Tiered Loyalty"
+    LoyaltyProgramType.COUPON -> "Coupons"
+    LoyaltyProgramType.PURCHASE_FREQUENCY -> "Purchase Frequency"
+    LoyaltyProgramType.REFERRAL -> "Referrals"
     LoyaltyProgramType.HYBRID -> "Hybrid"
 }
 

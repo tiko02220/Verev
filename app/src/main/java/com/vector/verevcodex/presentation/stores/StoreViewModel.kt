@@ -2,10 +2,10 @@ package com.vector.verevcodex.presentation.stores
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vector.verevcodex.core.UiState
-import com.vector.verevcodex.domain.model.Store
-import com.vector.verevcodex.domain.usecase.ObserveStoresUseCase
-import com.vector.verevcodex.domain.usecase.SelectStoreUseCase
+import com.vector.verevcodex.presentation.common.state.UiState
+import com.vector.verevcodex.domain.model.business.Store
+import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
+import com.vector.verevcodex.domain.usecase.store.SelectStoreUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow

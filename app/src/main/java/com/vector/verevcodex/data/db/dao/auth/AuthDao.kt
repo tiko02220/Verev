@@ -6,9 +6,13 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AuthDao {
+    @Query("SELECT * FROM auth_accounts WHERE id = :accountId LIMIT 1")
+    fun observeById(accountId: String): Flow<AuthAccountEntity?>
+
     @Query("SELECT * FROM auth_accounts WHERE id = :accountId LIMIT 1")
     suspend fun findById(accountId: String): AuthAccountEntity?
 

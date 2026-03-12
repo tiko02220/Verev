@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.Store
+import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.auth.AuthUser
 import com.vector.verevcodex.presentation.merchant.common.MerchantMenuRow
 import com.vector.verevcodex.presentation.merchant.common.MerchantPageHeader
@@ -72,16 +72,16 @@ internal fun SettingsBusinessCard(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f)),
+                    .background(VerevColors.White.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Storefront, contentDescription = null, tint = VerevColors.White, modifier = Modifier.size(28.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = store?.name ?: stringResource(R.string.merchant_select_store),
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color.White,
+                    color = VerevColors.White,
                     fontWeight = FontWeight.Medium,
                 )
                 Spacer(Modifier.size(2.dp))
@@ -98,18 +98,18 @@ internal fun SettingsBusinessCard(
                         )
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = VerevColors.White.copy(alpha = 0.8f),
                 )
                 currentUser?.email?.takeIf { it.isNotBlank() }?.let { email ->
                     Spacer(Modifier.size(2.dp))
                     Text(
                         text = email,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.68f),
+                        color = VerevColors.White.copy(alpha = 0.68f),
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.8f))
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = VerevColors.White.copy(alpha = 0.8f))
         }
     }
 }
@@ -172,7 +172,7 @@ internal fun SettingsLogoutButton(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Red),
+        colors = ButtonDefaults.buttonColors(containerColor = VerevColors.White, contentColor = VerevColors.Danger),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -193,7 +193,7 @@ internal fun SettingsLogoutDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f)),
+            .background(VerevColors.Scrim),
         contentAlignment = Alignment.Center,
     ) {
         Card(
@@ -211,10 +211,10 @@ internal fun SettingsLogoutDialog(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFFFF0F0)),
+                        .background(VerevColors.DangerContainer),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Color.Red)
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = VerevColors.Danger)
                 }
                 Text(
                     text = stringResource(R.string.merchant_logout_confirm_title),
@@ -233,7 +233,10 @@ internal fun SettingsLogoutDialog(
                     onClick = onConfirm,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = VerevColors.DangerStrong,
+                        contentColor = VerevColors.White,
+                    ),
                 ) {
                     Text(stringResource(R.string.merchant_logout))
                 }
@@ -241,7 +244,7 @@ internal fun SettingsLogoutDialog(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = VerevColors.Moss),
+                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.White, contentColor = VerevColors.Moss),
                 ) {
                     Text(stringResource(R.string.auth_cancel))
                 }

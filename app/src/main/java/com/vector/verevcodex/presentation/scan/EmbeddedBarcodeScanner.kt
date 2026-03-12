@@ -14,11 +14,8 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,17 +47,17 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import com.vector.verevcodex.core.identifiers.LoyaltyIdCodec
+import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.theme.VerevColors
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @Composable
 internal fun EmbeddedBarcodeScanner(
     modifier: Modifier = Modifier,
+    retryToken: Int,
     onScanned: (String) -> Unit,
-    onFailed: () -> Unit,
+    onFailed: (BarcodeScanFailureReason) -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -74,13 +71,7 @@ internal fun EmbeddedBarcodeScanner(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         hasCameraPermission = granted
-        if (!granted) onFailed()
-    }
-
-    LaunchedEffect(hasCameraPermission) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(cameraPermission)
-        }
+        if (!granted) onFailed(BarcodeScanFailureReason.PERMISSION_DENIED)
     }
 
     if (!hasCameraPermission) {
@@ -104,6 +95,9 @@ internal fun EmbeddedBarcodeScanner(
             BarcodeScannerOptions.Builder()
                 .setBarcodeFormats(
                     Barcode.FORMAT_CODE_128,
+                    Barcode.FORMAT_QR_CODE,
+                    Barcode.FORMAT_AZTEC,
+                    Barcode.FORMAT_DATA_MATRIX,
                     Barcode.FORMAT_CODE_39,
                     Barcode.FORMAT_CODE_93,
                     Barcode.FORMAT_CODABAR,
@@ -117,40 +111,51 @@ internal fun EmbeddedBarcodeScanner(
         )
     }
 
-    DisposableEffect(lifecycleOwner, previewView) {
-        val mainExecutor = ContextCompat.getMainExecutor(context)
-        val analyzer = LoyaltyBarcodeAnalyzer(
+    val analyzer = remember(barcodeScanner, onScanned, onFailed) {
+        LoyaltyBarcodeAnalyzer(
             barcodeScanner = barcodeScanner,
             onScanned = onScanned,
             onFailed = onFailed,
         )
+    }
+
+    LaunchedEffect(retryToken) {
+        analyzer.reset()
+    }
+
+    DisposableEffect(lifecycleOwner, previewView, analyzer) {
+        val mainExecutor = ContextCompat.getMainExecutor(context)
         val listener = Runnable {
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.surfaceProvider = previewView.surfaceProvider
-            }
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setResolutionSelector(
-                    ResolutionSelector.Builder()
-                        .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-                        .setResolutionStrategy(
-                            ResolutionStrategy(
-                                Size(1920, 1080),
-                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
-                            ),
-                        )
-                        .build()
+            runCatching {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().also {
+                    it.surfaceProvider = previewView.surfaceProvider
+                }
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setResolutionSelector(
+                        ResolutionSelector.Builder()
+                            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+                            .setResolutionStrategy(
+                                ResolutionStrategy(
+                                    Size(1280, 720),
+                                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                                ),
+                            )
+                            .build()
+                    )
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also { it.setAnalyzer(analyzerExecutor, analyzer) }
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    imageAnalysis,
                 )
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also { it.setAnalyzer(analyzerExecutor, analyzer) }
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                preview,
-                imageAnalysis,
-            )
+            }.onFailure {
+                onFailed(BarcodeScanFailureReason.CAMERA_UNAVAILABLE)
+            }
         }
         cameraProviderFuture.addListener(listener, mainExecutor)
         onDispose {
@@ -207,66 +212,25 @@ private fun BarcodePermissionPlaceholder(
     }
 }
 
-@Composable
-internal fun BarcodePreviewOverlay(modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(154.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .border(
-                    width = 3.dp,
-                    color = Color.White.copy(alpha = 0.92f),
-                    shape = RoundedCornerShape(28.dp),
-                ),
-        )
-        listOf(
-            Alignment.TopStart,
-            Alignment.TopEnd,
-            Alignment.BottomStart,
-            Alignment.BottomEnd,
-        ).forEach { alignment ->
-            Box(
-                modifier = Modifier
-                    .align(alignment)
-                    .padding(32.dp)
-                    .size(26.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(VerevColors.Gold, RoundedCornerShape(999.dp)),
-                )
-                Box(
-                    modifier = Modifier
-                        .height(26.dp)
-                        .fillMaxWidth()
-                        .padding(end = 22.dp)
-                        .background(Color.Transparent),
-                )
-                Box(
-                    modifier = Modifier
-                        .height(26.dp)
-                        .size(width = 4.dp, height = 26.dp)
-                        .background(VerevColors.Gold, RoundedCornerShape(999.dp)),
-                )
-            }
-        }
-    }
-}
-
 private class LoyaltyBarcodeAnalyzer(
     private val barcodeScanner: com.google.mlkit.vision.barcode.BarcodeScanner,
     private val onScanned: (String) -> Unit,
-    private val onFailed: () -> Unit,
+    private val onFailed: (BarcodeScanFailureReason) -> Unit,
 ) : ImageAnalysis.Analyzer {
     @Volatile
     private var handlingFrame = false
 
     @Volatile
     private var resultDelivered = false
+
+    @Volatile
+    private var unsupportedReported = false
+
+    fun reset() {
+        handlingFrame = false
+        resultDelivered = false
+        unsupportedReported = false
+    }
 
     override fun analyze(imageProxy: androidx.camera.core.ImageProxy) {
         if (resultDelivered || handlingFrame) {
@@ -295,9 +259,12 @@ private class LoyaltyBarcodeAnalyzer(
                 if (rawValue.isNotBlank()) {
                     resultDelivered = true
                     onScanned(rawValue)
+                } else if (barcodes.isNotEmpty() && !unsupportedReported) {
+                    unsupportedReported = true
+                    onFailed(BarcodeScanFailureReason.UNSUPPORTED_CODE)
                 }
             }
-            .addOnFailureListener { onFailed() }
+            .addOnFailureListener { onFailed(BarcodeScanFailureReason.GENERIC) }
             .addOnCompleteListener {
                 handlingFrame = false
                 imageProxy.close()

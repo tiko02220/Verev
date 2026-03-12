@@ -5,9 +5,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.vector.verevcodex.domain.model.ScanMethod
-import com.vector.verevcodex.domain.model.ScanPreferences
-import com.vector.verevcodex.domain.repository.ScanPreferencesRepository
+import com.vector.verevcodex.domain.model.scan.ScanMethod
+import com.vector.verevcodex.domain.model.scan.ScanPreferences
+import com.vector.verevcodex.domain.repository.scan.ScanPreferencesRepository
 import com.vector.verevcodex.domain.repository.auth.AuthRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
