@@ -1,5 +1,7 @@
 package com.vector.verevcodex.presentation.reports
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.ScheduleSend
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -23,6 +27,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +63,35 @@ fun ReportExportScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var pendingSaveReport by remember { mutableStateOf<ReportExport?>(null) }
+    var saveFeedbackRes by rememberSaveable { mutableStateOf<Int?>(null) }
+    var promptedExportPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val saveReportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val report = pendingSaveReport
+        if (report != null && result.resultCode == android.app.Activity.RESULT_OK) {
+            val destinationUri = result.data?.data
+            saveFeedbackRes = if (destinationUri != null) {
+                saveReportToUri(context, report, destinationUri)
+                    .fold(
+                        onSuccess = { R.string.merchant_reports_saved_success },
+                        onFailure = { R.string.merchant_reports_saved_failed },
+                    )
+            } else {
+                R.string.merchant_reports_saved_cancelled
+            }
+        } else if (report != null) {
+            saveFeedbackRes = R.string.merchant_reports_saved_cancelled
+        }
+        pendingSaveReport = null
+    }
+
+    LaunchedEffect(uiState.latestExport?.absolutePath) {
+        val report = uiState.latestExport ?: return@LaunchedEffect
+        if (promptedExportPath == report.absolutePath) return@LaunchedEffect
+        promptedExportPath = report.absolutePath
+        pendingSaveReport = report
+        saveReportLauncher.launch(createSaveReportIntent(report))
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -139,12 +177,31 @@ fun ReportExportScreen(
                 }
             }
         }
+        saveFeedbackRes?.let { feedbackRes ->
+            item {
+                MerchantPrimaryCard {
+                    Text(
+                        text = stringResource(feedbackRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (feedbackRes == R.string.merchant_reports_saved_success) {
+                            VerevColors.Forest
+                        } else {
+                            VerevColors.ErrorText
+                        },
+                    )
+                }
+            }
+        }
         uiState.latestExport?.let { report ->
             item {
                 LatestExportCard(
                     report = report,
                     onOpen = { openReport(context, report) },
                     onShare = { shareReport(context, report) },
+                    onSave = {
+                        pendingSaveReport = report
+                        saveReportLauncher.launch(createSaveReportIntent(report))
+                    },
                 )
             }
         }
@@ -220,11 +277,12 @@ private fun AutoReportSettingsCard(
             color = VerevColors.Forest,
             fontWeight = FontWeight.Medium,
         )
-        Row(
+        LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ReportAutoFrequency.entries.forEach { option ->
+            items(ReportAutoFrequency.entries.size) { index ->
+                val option = ReportAutoFrequency.entries[index]
                 MerchantFilterChip(
                     text = stringResource(option.labelRes()),
                     selected = option == frequency,
@@ -238,11 +296,12 @@ private fun AutoReportSettingsCard(
             color = VerevColors.Forest,
             fontWeight = FontWeight.Medium,
         )
-        Row(
+        LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ReportFormat.entries.forEach { option ->
+            items(ReportFormat.entries.size) { index ->
+                val option = ReportFormat.entries[index]
                 MerchantFilterChip(
                     text = stringResource(option.titleRes()),
                     selected = option == format,
@@ -295,6 +354,7 @@ private fun LatestExportCard(
     report: ReportExport,
     onOpen: () -> Unit,
     onShare: () -> Unit,
+    onSave: () -> Unit,
 ) {
     MerchantPrimaryCard {
         Text(
@@ -320,6 +380,11 @@ private fun LatestExportCard(
             style = MaterialTheme.typography.bodyMedium,
             color = VerevColors.Forest.copy(alpha = 0.68f),
         )
+        Text(
+            text = stringResource(R.string.merchant_reports_storage_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest.copy(alpha = 0.6f),
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -338,6 +403,25 @@ private fun LatestExportCard(
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Moss,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Icon(Icons.Default.SaveAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(
+                    text = stringResource(R.string.merchant_reports_save_as),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Button(
                 onClick = onShare,
                 modifier = Modifier.weight(1f),

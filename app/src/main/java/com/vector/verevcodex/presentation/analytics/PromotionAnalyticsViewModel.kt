@@ -30,7 +30,11 @@ class PromotionAnalyticsViewModel @Inject constructor(
     ) { store, range -> store?.id to range }
         .flatMapLatest { (storeId, range) ->
             observePromotionAnalyticsUseCase(storeId, range).combine(selectedRange) { analytics, currentRange ->
-                PromotionAnalyticsUiState(selectedRange = currentRange, analytics = analytics)
+                PromotionAnalyticsUiState(
+                    selectedRange = currentRange,
+                    isLoading = false,
+                    analytics = analytics,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PromotionAnalyticsUiState())

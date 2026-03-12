@@ -26,6 +26,7 @@ class MainActivity : FragmentActivity() {
     private val appSecurityViewModel: AppSecurityViewModel by viewModels()
     private var shouldRelockOnPause = false
     private var didEnterBackground = false
+    private var suppressRelockUntilResume = false
 
     @Inject lateinit var nfcCardWriteCoordinator: NfcCardWriteCoordinator
     @Inject lateinit var googleWalletProvisioningManager: GoogleWalletProvisioningManager
@@ -78,11 +79,12 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        suppressRelockUntilResume = false
         nfcAdapter?.enableForegroundDispatch(this, nfcPendingIntent, null, null)
     }
 
     override fun onPause() {
-        if ((shouldRelockOnPause || isFinishing) && !isChangingConfigurations) {
+        if ((shouldRelockOnPause || isFinishing) && !isChangingConfigurations && !suppressRelockUntilResume) {
             appSecurityViewModel.onAppBackgrounded()
         }
         nfcAdapter?.disableForegroundDispatch(this)
@@ -90,7 +92,7 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onStop() {
-        if (!isChangingConfigurations && !isFinishing && shouldRelockOnPause) {
+        if (!isChangingConfigurations && !isFinishing && shouldRelockOnPause && !suppressRelockUntilResume) {
             appSecurityViewModel.onAppBackgrounded()
             didEnterBackground = true
         }
@@ -109,6 +111,10 @@ class MainActivity : FragmentActivity() {
             shouldRelockOnPause = false
             didEnterBackground = false
         }
+    }
+
+    fun suppressRelockForTransientSystemUi() {
+        suppressRelockUntilResume = true
     }
 
     private fun handleNfcIntent(intent: Intent?) {

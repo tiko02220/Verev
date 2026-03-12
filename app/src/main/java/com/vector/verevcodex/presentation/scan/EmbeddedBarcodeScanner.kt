@@ -47,8 +47,10 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.vector.verevcodex.MainActivity
 import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
 import com.vector.verevcodex.R
+import com.vector.verevcodex.platform.android.findActivity
 import com.vector.verevcodex.presentation.theme.VerevColors
 import java.util.concurrent.Executors
 
@@ -61,6 +63,7 @@ internal fun EmbeddedBarcodeScanner(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val hostActivity = context.findActivity() as? MainActivity
     val cameraPermission = Manifest.permission.CAMERA
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -77,7 +80,10 @@ internal fun EmbeddedBarcodeScanner(
     if (!hasCameraPermission) {
         BarcodePermissionPlaceholder(
             modifier = modifier,
-            onRequestPermission = { permissionLauncher.launch(cameraPermission) },
+            onRequestPermission = {
+                hostActivity?.suppressRelockForTransientSystemUi()
+                permissionLauncher.launch(cameraPermission)
+            },
         )
         return
     }

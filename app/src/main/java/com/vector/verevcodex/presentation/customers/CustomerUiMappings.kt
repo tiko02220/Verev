@@ -61,6 +61,8 @@ internal fun CustomerActivity.icon(): ImageVector = when (type) {
     CustomerActivityType.JOINED -> Icons.Default.Stars
     CustomerActivityType.TRANSACTION -> Icons.Default.History
     CustomerActivityType.POINTS_ADJUSTMENT -> if ((pointsDelta ?: 0) >= 0) Icons.Default.Stars else Icons.Default.RemoveCircle
+    CustomerActivityType.DISCOUNT_APPLIED -> Icons.Default.LocalOffer
+    CustomerActivityType.TIER_BENEFIT_RECORDED -> Icons.Default.Stars
     CustomerActivityType.NOTE_UPDATED -> Icons.Default.NoteAlt
     CustomerActivityType.TAGS_UPDATED -> Icons.Default.LocalOffer
 }

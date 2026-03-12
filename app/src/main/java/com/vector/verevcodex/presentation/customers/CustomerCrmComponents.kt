@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
@@ -45,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +57,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerActivity
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
-import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
+import com.vector.verevcodex.domain.model.loyalty.Reward
+import com.vector.verevcodex.domain.model.loyalty.RewardProgram
+import com.vector.verevcodex.domain.model.promotions.Campaign
+import com.vector.verevcodex.domain.model.promotions.PromotionType
 import com.vector.verevcodex.domain.model.transactions.Transaction
+import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.displayName
@@ -156,13 +164,144 @@ internal fun CustomerManualPointsSection(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun CustomerBonusManagementSection(
     customer: Customer,
     relation: CustomerBusinessRelation?,
     ledgerEntries: List<PointsLedger>,
-    rewards: List<CustomerCredential>,
+    bonusActions: List<CustomerBonusAction>,
+    rewards: List<Reward>,
+    programs: List<RewardProgram>,
+    campaigns: List<Campaign>,
+    isSaving: Boolean,
     onAdjustPoints: () -> Unit,
+    onRedeemReward: (String) -> Unit,
+    onRedeemCoupon: (String) -> Unit,
+    onMarkDiscountApplied: (String) -> Unit,
+    onRecordTierBenefit: () -> Unit,
 ) {
+    var selectedSection by rememberSaveable { mutableStateOf(CustomerBonusSection.POINTS) }
+    var rewardToRedeemId by rememberSaveable { mutableStateOf<String?>(null) }
+    var couponProgramToRedeemId by rememberSaveable { mutableStateOf<String?>(null) }
+    var discountCampaignToApplyId by rememberSaveable { mutableStateOf<String?>(null) }
+    val pointsProgram = programs.firstOrNull { it.active && it.configuration.earningEnabled }
+    val tierProgram = programs.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
+    val couponProgram = programs.firstOrNull { it.active && it.configuration.couponEnabled }
+    val discountCampaigns = campaigns.filter {
+        it.active && (it.promotionType == PromotionType.PERCENT_DISCOUNT || it.promotionType == PromotionType.FIXED_DISCOUNT)
+    }
+    val promoCodeCampaigns = campaigns.filter { it.active && !it.promoCode.isNullOrBlank() }
+    val redeemableRewards = rewards.filter { customer.currentPoints >= it.pointsRequired }
+    val rewardToRedeem = rewards.firstOrNull { it.id == rewardToRedeemId }
+    val couponProgramToRedeem = programs.firstOrNull { it.id == couponProgramToRedeemId && it.configuration.couponEnabled }
+    val discountCampaignToApply = campaigns.firstOrNull { it.id == discountCampaignToApplyId }
+    val discountActions = bonusActions.filter { it.type == CustomerBonusActionType.DISCOUNT_APPLIED }.take(3)
+    val tierActions = bonusActions.filter { it.type == CustomerBonusActionType.TIER_BENEFIT_RECORDED }.take(3)
+    val nextTierRequirement = when (customer.loyaltyTier) {
+        com.vector.verevcodex.domain.model.common.LoyaltyTier.BRONZE -> tierProgram?.configuration?.tierRule?.silverThreshold
+        com.vector.verevcodex.domain.model.common.LoyaltyTier.SILVER -> tierProgram?.configuration?.tierRule?.goldThreshold
+        com.vector.verevcodex.domain.model.common.LoyaltyTier.GOLD -> tierProgram?.configuration?.tierRule?.vipThreshold
+        com.vector.verevcodex.domain.model.common.LoyaltyTier.VIP -> null
+    }
+
+    if (rewardToRedeem != null) {
+        AlertDialog(
+            onDismissRequest = { rewardToRedeemId = null },
+            title = { Text(text = stringResource(R.string.merchant_customer_bonus_reward_redeem_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.merchant_customer_bonus_reward_redeem_message,
+                        rewardToRedeem.name,
+                        rewardToRedeem.pointsRequired,
+                        customer.currentPoints,
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRedeemReward(rewardToRedeem.id)
+                        rewardToRedeemId = null
+                    },
+                    enabled = !isSaving,
+                ) {
+                    Text(text = stringResource(R.string.merchant_customer_bonus_reward_redeem_confirm))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { rewardToRedeemId = null }, enabled = !isSaving) {
+                    Text(text = stringResource(R.string.auth_cancel))
+                }
+            },
+        )
+    }
+
+    if (couponProgramToRedeem != null) {
+        val couponRule = couponProgramToRedeem.configuration.couponRule
+        AlertDialog(
+            onDismissRequest = { couponProgramToRedeemId = null },
+            title = { Text(text = stringResource(R.string.merchant_customer_bonus_coupon_redeem_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.merchant_customer_bonus_coupon_redeem_message,
+                        couponRule.couponName,
+                        couponRule.pointsCost,
+                        customer.currentPoints,
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRedeemCoupon(couponProgramToRedeem.id)
+                        couponProgramToRedeemId = null
+                    },
+                    enabled = !isSaving,
+                ) {
+                    Text(text = stringResource(R.string.merchant_customer_bonus_coupon_redeem_confirm))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { couponProgramToRedeemId = null }, enabled = !isSaving) {
+                    Text(text = stringResource(R.string.auth_cancel))
+                }
+            },
+        )
+    }
+
+    if (discountCampaignToApply != null) {
+        AlertDialog(
+            onDismissRequest = { discountCampaignToApplyId = null },
+            title = { Text(text = stringResource(R.string.merchant_customer_bonus_discount_apply_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.merchant_customer_bonus_discount_apply_message,
+                        discountCampaignToApply.name,
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onMarkDiscountApplied(discountCampaignToApply.id)
+                        discountCampaignToApplyId = null
+                    },
+                    enabled = !isSaving,
+                ) {
+                    Text(text = stringResource(R.string.merchant_customer_bonus_discount_apply_confirm))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { discountCampaignToApplyId = null }, enabled = !isSaving) {
+                    Text(text = stringResource(R.string.auth_cancel))
+                }
+            },
+        )
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         MerchantSectionTitle(text = stringResource(R.string.merchant_customer_bonus_management_title))
         CustomerBodySection {
@@ -178,43 +317,243 @@ internal fun CustomerBonusManagementSection(
                     modifier = Modifier.weight(1f),
                 )
             }
-            BonusManagementActionCard(
-                icon = Icons.Default.Stars,
-                title = stringResource(R.string.merchant_customer_adjust_points),
-                subtitle = stringResource(R.string.merchant_customer_bonus_adjust_subtitle),
-                actionLabel = stringResource(R.string.merchant_customer_bonus_open_editor),
-                onAction = onAdjustPoints,
-            )
-            BonusManagementActionCard(
-                icon = Icons.Default.Redeem,
-                title = stringResource(R.string.merchant_customer_bonus_rewards_title),
-                subtitle = stringResource(R.string.merchant_customer_bonus_rewards_subtitle, rewards.size),
-            )
-            BonusManagementActionCard(
-                icon = Icons.Default.EmojiEvents,
-                title = stringResource(R.string.merchant_customer_bonus_tier_title),
-                subtitle = relation?.notes?.takeIf { it.isNotBlank() } ?: stringResource(R.string.merchant_customer_bonus_tier_subtitle),
-            )
-            Text(
-                text = stringResource(R.string.merchant_customer_bonus_recent_activity),
-                style = MaterialTheme.typography.titleSmall,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.SemiBold,
-            )
-            ledgerEntries.take(5).forEach { entry ->
-                CustomerCrmRow(
-                    icon = if (entry.delta >= 0) Icons.Default.Stars else Icons.Default.RemoveCircle,
-                    title = entry.reason,
-                    value = buildString {
-                        append(if (entry.delta >= 0) "+" else "")
-                        append(entry.delta)
-                        append(" pts")
-                    },
-                    subtitle = formatRelativeDateTime(entry.createdAt),
-                )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CustomerBonusSection.entries.forEach { section ->
+                    MerchantFilterChip(
+                        text = stringResource(section.labelRes),
+                        selected = selectedSection == section,
+                        onClick = { selectedSection = section },
+                    )
+                }
+            }
+            when (selectedSection) {
+                CustomerBonusSection.POINTS -> {
+                    BonusManagementActionCard(
+                        icon = Icons.Default.Stars,
+                        title = stringResource(R.string.merchant_customer_adjust_points),
+                        subtitle = stringResource(R.string.merchant_customer_bonus_adjust_subtitle),
+                        actionLabel = stringResource(R.string.merchant_customer_bonus_open_editor),
+                        onAction = onAdjustPoints,
+                    )
+                    pointsProgram?.let { program ->
+                        BonusManagementActionCard(
+                            icon = Icons.AutoMirrored.Filled.TrendingUp,
+                            title = program.name,
+                            subtitle = stringResource(
+                                R.string.merchant_customer_bonus_points_rule_summary,
+                                program.configuration.pointsRule.pointsAwardedPerStep,
+                                program.configuration.pointsRule.spendStepAmount,
+                                program.configuration.pointsRule.minimumRedeemPoints,
+                            ),
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.merchant_customer_bonus_recent_activity),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    ledgerEntries.take(5).forEach { entry ->
+                        CustomerCrmRow(
+                            icon = if (entry.delta >= 0) Icons.Default.Stars else Icons.Default.RemoveCircle,
+                            title = entry.reason,
+                            value = buildString {
+                                append(if (entry.delta >= 0) "+" else "")
+                                append(entry.delta)
+                                append(" pts")
+                            },
+                            subtitle = formatRelativeDateTime(entry.createdAt),
+                        )
+                    }
+                }
+                CustomerBonusSection.REWARDS -> {
+                    if (rewards.isEmpty()) {
+                        CustomerCrmRow(
+                            icon = Icons.Default.Redeem,
+                            title = stringResource(R.string.merchant_customer_bonus_rewards_empty_title),
+                            value = stringResource(R.string.merchant_customer_bonus_rewards_empty_subtitle),
+                        )
+                    } else {
+                        rewards.sortedBy { it.pointsRequired }.forEach { reward ->
+                            if (customer.currentPoints >= reward.pointsRequired) {
+                                BonusManagementActionCard(
+                                    icon = Icons.Default.Redeem,
+                                    title = reward.name,
+                                    subtitle = stringResource(
+                                        R.string.merchant_customer_bonus_reward_ready_summary,
+                                        reward.pointsRequired,
+                                        reward.rewardType.displayName(),
+                                    ),
+                                    actionLabel = stringResource(R.string.merchant_customer_bonus_reward_redeem_confirm),
+                                    onAction = { rewardToRedeemId = reward.id },
+                                )
+                            } else {
+                                CustomerCrmRow(
+                                    icon = Icons.Default.Redeem,
+                                    title = reward.name,
+                                    value = stringResource(
+                                        R.string.merchant_customer_bonus_reward_gap,
+                                        reward.pointsRequired - customer.currentPoints,
+                                    ),
+                                    subtitle = "${stringResource(R.string.merchant_points_required_format, reward.pointsRequired)} • ${reward.rewardType.displayName()}",
+                                )
+                            }
+                        }
+                        BonusManagementActionCard(
+                            icon = Icons.Default.Redeem,
+                            title = stringResource(R.string.merchant_customer_bonus_rewards_title),
+                            subtitle = stringResource(
+                                R.string.merchant_customer_bonus_rewards_ready_subtitle,
+                                redeemableRewards.size,
+                                rewards.size,
+                            ),
+                        )
+                    }
+                }
+                CustomerBonusSection.DISCOUNTS -> {
+                    if (discountCampaigns.isEmpty()) {
+                        CustomerCrmRow(
+                            icon = Icons.Default.LocalOffer,
+                            title = stringResource(R.string.merchant_customer_bonus_discounts_empty_title),
+                            value = stringResource(R.string.merchant_customer_bonus_discounts_empty_subtitle),
+                        )
+                    } else {
+                        discountCampaigns.forEach { campaign ->
+                            BonusManagementActionCard(
+                                icon = Icons.Default.LocalOffer,
+                                title = campaign.name,
+                                subtitle = when (campaign.promotionType) {
+                                    PromotionType.PERCENT_DISCOUNT -> stringResource(
+                                        R.string.merchant_promotion_value_percent_discount,
+                                        campaign.promotionValue.toInt(),
+                                    )
+                                    PromotionType.FIXED_DISCOUNT -> stringResource(
+                                        R.string.merchant_promotion_value_fixed_discount,
+                                        campaign.promotionValue.toInt(),
+                                    )
+                                    else -> campaign.description
+                                } + " • " + campaign.target.description,
+                                actionLabel = stringResource(R.string.merchant_customer_bonus_discount_apply_confirm),
+                                onAction = { discountCampaignToApplyId = campaign.id },
+                            )
+                        }
+                        discountActions.forEach { action ->
+                            CustomerCrmRow(
+                                icon = Icons.Default.History,
+                                title = action.title,
+                                value = action.details,
+                                subtitle = formatRelativeDateTime(action.createdAt),
+                            )
+                        }
+                    }
+                }
+                CustomerBonusSection.COUPONS -> {
+                    couponProgram?.let { program ->
+                        val couponRule = program.configuration.couponRule
+                        val canRedeemCoupon = customer.currentPoints >= couponRule.pointsCost
+                        BonusManagementActionCard(
+                            icon = Icons.Default.LocalOffer,
+                            title = couponRule.couponName,
+                            subtitle = if (canRedeemCoupon) {
+                                stringResource(
+                                    R.string.merchant_customer_bonus_coupon_ready_summary,
+                                    couponRule.pointsCost,
+                                    couponRule.discountAmount.toInt(),
+                                    couponRule.minimumSpendAmount.toInt(),
+                                )
+                            } else {
+                                stringResource(
+                                    R.string.merchant_customer_bonus_coupon_program_summary,
+                                    couponRule.pointsCost,
+                                    couponRule.discountAmount.toInt(),
+                                    couponRule.minimumSpendAmount.toInt(),
+                                )
+                            },
+                            actionLabel = if (canRedeemCoupon) {
+                                stringResource(R.string.merchant_customer_bonus_coupon_redeem_confirm)
+                            } else {
+                                null
+                            },
+                            onAction = if (canRedeemCoupon) {
+                                { couponProgramToRedeemId = program.id }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                    if (promoCodeCampaigns.isEmpty()) {
+                        CustomerCrmRow(
+                            icon = Icons.Default.LocalOffer,
+                            title = stringResource(R.string.merchant_customer_bonus_coupons_empty_title),
+                            value = stringResource(R.string.merchant_customer_bonus_coupons_empty_subtitle),
+                        )
+                    } else {
+                        promoCodeCampaigns.forEach { campaign ->
+                            CustomerCrmRow(
+                                icon = Icons.Default.LocalOffer,
+                                title = campaign.name,
+                                value = campaign.promoCode.orEmpty(),
+                                subtitle = campaign.description,
+                            )
+                        }
+                    }
+                }
+                CustomerBonusSection.TIER -> {
+                    BonusManagementActionCard(
+                        icon = Icons.Default.EmojiEvents,
+                        title = stringResource(R.string.merchant_customer_bonus_tier_title),
+                        subtitle = relation?.notes?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.merchant_customer_bonus_tier_subtitle),
+                        actionLabel = stringResource(R.string.merchant_customer_bonus_tier_record_confirm),
+                        onAction = onRecordTierBenefit,
+                    )
+                    if (tierProgram != null) {
+                        CustomerCrmRow(
+                            icon = Icons.Default.EmojiEvents,
+                            title = stringResource(R.string.merchant_customer_bonus_tier_current, customer.loyaltyTier.displayName()),
+                            value = nextTierRequirement?.let { threshold ->
+                                stringResource(
+                                    R.string.merchant_customer_bonus_tier_next_requirement,
+                                    threshold,
+                                    (threshold - customer.currentPoints).coerceAtLeast(0),
+                                )
+                            } ?: stringResource(R.string.merchant_customer_bonus_tier_top_level),
+                            subtitle = stringResource(
+                                R.string.merchant_customer_bonus_tier_bonus_summary,
+                                tierProgram.configuration.tierRule.tierBonusPercent,
+                            ),
+                        )
+                        CustomerCrmRow(
+                            icon = Icons.Default.EmojiEvents,
+                            title = stringResource(R.string.merchant_customer_bonus_tier_thresholds_title),
+                            value = stringResource(
+                                R.string.merchant_customer_bonus_tier_thresholds_value,
+                                tierProgram.configuration.tierRule.silverThreshold,
+                                tierProgram.configuration.tierRule.goldThreshold,
+                                tierProgram.configuration.tierRule.vipThreshold,
+                            ),
+                        )
+                    }
+                    tierActions.forEach { action ->
+                        CustomerCrmRow(
+                            icon = Icons.Default.History,
+                            title = action.title,
+                            value = action.details,
+                            subtitle = formatRelativeDateTime(action.createdAt),
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private enum class CustomerBonusSection(val labelRes: Int) {
+    POINTS(R.string.merchant_customer_bonus_section_points),
+    REWARDS(R.string.merchant_customer_bonus_section_rewards),
+    DISCOUNTS(R.string.merchant_customer_bonus_section_discounts),
+    COUPONS(R.string.merchant_customer_bonus_section_coupons),
+    TIER(R.string.merchant_customer_bonus_section_tier),
 }
 
 @Composable

@@ -2,11 +2,13 @@ package com.vector.verevcodex.data.repository.reports
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
+import com.vector.verevcodex.data.preferences.merchantPreferenceStore
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
 import com.vector.verevcodex.domain.model.reports.ReportExport
 import com.vector.verevcodex.domain.model.reports.ReportFormat
+import com.vector.verevcodex.domain.model.reports.ReportSection
+import com.vector.verevcodex.domain.model.reports.ReportWeekday
 import com.vector.verevcodex.domain.repository.analytics.AnalyticsRepository
 import com.vector.verevcodex.domain.repository.loyalty.LoyaltyRepository
 import com.vector.verevcodex.domain.repository.reports.ReportRepository
@@ -21,8 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 
-private val Context.reportDataStore by preferencesDataStore(name = "merchant_prefs")
-
 @Singleton
 class ReportRepositoryImpl @Inject constructor(
     private val analyticsRepository: AnalyticsRepository,
@@ -32,7 +32,7 @@ class ReportRepositoryImpl @Inject constructor(
     private val transactionRepository: TransactionRepository,
     @ApplicationContext context: Context,
 ) : ReportRepository {
-    private val dataStore = context.reportDataStore
+    private val dataStore = context.merchantPreferenceStore
     private val reportsDir = context.filesDir.resolve("reports")
 
     override fun observeAutoReportSettings(): Flow<ReportAutoSettings> = dataStore.data.map { preferences ->
@@ -41,6 +41,15 @@ class ReportRepositoryImpl @Inject constructor(
             frequency = preferences[ReportPreferenceKeys.frequency]?.let(ReportAutoFrequency::valueOf) ?: ReportAutoFrequency.WEEKLY,
             format = preferences[ReportPreferenceKeys.format]?.let(ReportFormat::valueOf) ?: ReportFormat.DOCX,
             includeAllStores = preferences[ReportPreferenceKeys.includeAllStores] ?: false,
+            scheduledTime = preferences[ReportPreferenceKeys.scheduledTime] ?: "09:00",
+            scheduledWeekday = preferences[ReportPreferenceKeys.scheduledWeekday]?.let(ReportWeekday::valueOf) ?: ReportWeekday.MONDAY,
+            scheduledMonthDay = preferences[ReportPreferenceKeys.scheduledMonthDay] ?: 1,
+            recipientEmails = preferences[ReportPreferenceKeys.recipientEmails] ?: emptySet(),
+            includedSections = preferences[ReportPreferenceKeys.includedSections]
+                ?.mapNotNull { value -> ReportSection.entries.firstOrNull { it.name == value } }
+                ?.toSet()
+                ?.ifEmpty { ReportSection.entries.toSet() }
+                ?: ReportSection.entries.toSet(),
         )
     }
 
@@ -50,6 +59,11 @@ class ReportRepositoryImpl @Inject constructor(
             preferences[ReportPreferenceKeys.frequency] = settings.frequency.name
             preferences[ReportPreferenceKeys.format] = settings.format.name
             preferences[ReportPreferenceKeys.includeAllStores] = settings.includeAllStores
+            preferences[ReportPreferenceKeys.scheduledTime] = settings.scheduledTime
+            preferences[ReportPreferenceKeys.scheduledWeekday] = settings.scheduledWeekday.name
+            preferences[ReportPreferenceKeys.scheduledMonthDay] = settings.scheduledMonthDay
+            preferences[ReportPreferenceKeys.recipientEmails] = settings.recipientEmails
+            preferences[ReportPreferenceKeys.includedSections] = settings.includedSections.map { it.name }.toSet()
         }
     }
 

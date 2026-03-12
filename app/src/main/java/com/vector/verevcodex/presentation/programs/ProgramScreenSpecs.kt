@@ -48,12 +48,10 @@ internal fun LoyaltyProgramType.screenSpec(): ProgramScreenSpec = when (this) {
         emptyTitleRes = R.string.merchant_referral_rewards_empty_title,
         emptySubtitleRes = R.string.merchant_referral_rewards_empty_subtitle,
     )
-    LoyaltyProgramType.CASHBACK,
-    LoyaltyProgramType.HYBRID,
-    -> ProgramScreenSpec(
-        titleRes = R.string.merchant_programs_title,
-        subtitleRes = R.string.merchant_programs_no_store_selected,
-        emptyTitleRes = R.string.merchant_programs_empty_title,
-        emptySubtitleRes = R.string.merchant_programs_empty_subtitle,
+    LoyaltyProgramType.HYBRID -> ProgramScreenSpec(
+        titleRes = R.string.merchant_hybrid_programs_title,
+        subtitleRes = R.string.merchant_hybrid_programs_subtitle,
+        emptyTitleRes = R.string.merchant_hybrid_programs_empty_title,
+        emptySubtitleRes = R.string.merchant_hybrid_programs_empty_subtitle,
     )
 }

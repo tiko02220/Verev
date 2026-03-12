@@ -249,8 +249,16 @@ fun CustomerProfileScreen(
                                         customer = customer,
                                         relation = state.relation,
                                         ledgerEntries = state.ledgerEntries,
-                                        rewards = state.credentials,
+                                        bonusActions = state.bonusActions,
+                                        rewards = state.storeRewards,
+                                        programs = state.storePrograms,
+                                        campaigns = state.storeCampaigns,
+                                        isSaving = state.isSaving,
                                         onAdjustPoints = { showAdjustPoints = true },
+                                        onRedeemReward = viewModel::redeemReward,
+                                        onRedeemCoupon = viewModel::redeemCoupon,
+                                        onMarkDiscountApplied = viewModel::markDiscountApplied,
+                                        onRecordTierBenefit = viewModel::recordTierBenefit,
                                     )
                                 }
                             }

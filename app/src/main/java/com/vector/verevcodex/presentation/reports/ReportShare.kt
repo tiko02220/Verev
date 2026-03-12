@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.reports
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import com.vector.verevcodex.domain.model.reports.ReportExport
 import java.io.File
@@ -26,6 +27,21 @@ internal fun shareReport(context: Context, report: ReportExport) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, report.fileName))
+}
+
+internal fun createSaveReportIntent(report: ReportExport): Intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+    addCategory(Intent.CATEGORY_OPENABLE)
+    type = report.mimeType
+    putExtra(Intent.EXTRA_TITLE, report.fileName)
+}
+
+internal fun saveReportToUri(context: Context, report: ReportExport, destinationUri: Uri): Result<Unit> = runCatching {
+    val sourceFile = File(report.absolutePath)
+    context.contentResolver.openOutputStream(destinationUri)?.use { outputStream ->
+        sourceFile.inputStream().use { inputStream ->
+            inputStream.copyTo(outputStream)
+        }
+    } ?: error("Unable to open destination for report export")
 }
 
 private fun reportUri(context: Context, report: ReportExport) =

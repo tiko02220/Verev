@@ -160,14 +160,9 @@ fun AuthPinBoxes(
                                     focusRequesters[index - 1].requestFocus()
                                 }
                             } else {
-                                val currentDigits = value.toMutableList()
-                                while (currentDigits.size < index) currentDigits.add(' ')
-                                if (index < currentDigits.size) {
-                                    currentDigits[index] = filtered.first()
-                                } else {
-                                    currentDigits.add(filtered.first())
-                                }
-                                val sanitized = currentDigits.joinToString("").replace(" ", "").take(4)
+                                val currentDigits = value.padEnd(4, ' ').toMutableList()
+                                currentDigits[index] = filtered.first()
+                                val sanitized = currentDigits.joinToString("").trimEnd().take(4)
                                 onValueChange(sanitized)
                                 if (index < focusRequesters.lastIndex && sanitized.length > index) {
                                     focusRequesters[index + 1].requestFocus()
@@ -192,7 +187,7 @@ fun AuthPinBoxes(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.NumberPassword,
-                            imeAction = ImeAction.Next,
+                            imeAction = if (index == 3) ImeAction.Done else ImeAction.Next,
                         ),
                         textStyle = MaterialTheme.typography.headlineSmall.copy(
                             color = colorResource(R.color.text_primary),

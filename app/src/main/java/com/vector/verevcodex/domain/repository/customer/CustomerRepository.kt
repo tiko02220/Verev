@@ -1,6 +1,8 @@
 package com.vector.verevcodex.domain.repository.customer
 
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
@@ -16,6 +18,7 @@ interface CustomerRepository {
     fun observeCustomerRelations(customerId: String): Flow<List<CustomerBusinessRelation>>
     fun observeCustomerCredentials(customerId: String): Flow<List<CustomerCredential>>
     fun observeCustomerPointsLedger(customerId: String): Flow<List<PointsLedger>>
+    fun observeCustomerBonusActions(customerId: String): Flow<List<CustomerBonusAction>>
     suspend fun findByLoyaltyId(loyaltyId: String): Customer?
     suspend fun createCustomer(draft: CustomerDraft, storeId: String): Customer
     suspend fun registerQuickCustomer(firstName: String, phoneNumber: String, loyaltyId: String, storeId: String): Customer
@@ -41,4 +44,11 @@ interface CustomerRepository {
         referenceValue: String? = null,
     )
     suspend fun adjustPoints(customerId: String, delta: Int, reason: String)
+    suspend fun recordBonusAction(
+        customerId: String,
+        storeId: String?,
+        type: CustomerBonusActionType,
+        title: String,
+        details: String,
+    )
 }

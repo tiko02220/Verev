@@ -5,14 +5,10 @@ import android.content.pm.PackageManager
 import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -61,10 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,16 +70,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import com.vector.verevcodex.MainActivity
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.common.LoyaltyTier
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
+import com.vector.verevcodex.platform.android.findActivity
+import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
@@ -94,8 +88,6 @@ import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatRelativeDateTime
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun ActiveScanSurface(
@@ -655,83 +647,26 @@ internal fun ScanMethodSheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    var visible by remember { mutableStateOf(false) }
-    val scrimInteraction = remember { MutableInteractionSource() }
-    val scope = rememberCoroutineScope()
-    val scrimAlpha by animateFloatAsState(
-        targetValue = if (visible) 0.18f else 0f,
-        animationSpec = tween(durationMillis = 220),
-        label = "scan_method_scrim",
-    )
-
-    LaunchedEffect(Unit) {
-        visible = true
-    }
-
-    fun dismissWithAnimation(action: () -> Unit) {
-        scope.launch {
-            visible = false
-            delay(220)
-            action()
-        }
-    }
+    val hostActivity = context.findActivity() as? MainActivity
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            dismissWithAnimation { onSelectMethod(ScanMethod.BARCODE) }
+            onSelectMethod(ScanMethod.BARCODE)
         }
     }
 
-    Dialog(
-        onDismissRequest = { dismissWithAnimation(onDismiss) },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Box(
+    AppBottomSheetDialog(
+        onDismissRequest = onDismiss,
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp),
+    ) { dismiss, dismissAfter ->
+        Column(
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = scrimAlpha)),
+                .fillMaxWidth()
+                .statusBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(
-                        interactionSource = scrimInteraction,
-                        indication = null,
-                        onClick = { dismissWithAnimation(onDismiss) },
-                    ),
-            )
-            AnimatedVisibility(
-                visible = visible,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-                enter = slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 260),
-                ) + fadeIn(animationSpec = tween(durationMillis = 180)),
-                exit = slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight },
-                    animationSpec = tween(durationMillis = 220),
-                ) + fadeOut(animationSpec = tween(durationMillis = 160)),
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    color = Color.White,
-                    shadowElevation = 14.dp,
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .imePadding()
-                            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 96.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
                         Text(
                             text = stringResource(R.string.merchant_scan_choose_title),
                             style = MaterialTheme.typography.headlineSmall,
@@ -753,7 +688,7 @@ internal fun ScanMethodSheet(
                                 icon = Icons.Default.Nfc,
                                 colors = listOf(Color.White, Color(0xFFF7F7F7)),
                                 modifier = Modifier.weight(1f),
-                                onClick = { dismissWithAnimation { onSelectMethod(ScanMethod.NFC) } },
+                                onClick = { dismissAfter { onSelectMethod(ScanMethod.NFC) } },
                             )
                             ScanMethodChoiceCard(
                                 title = stringResource(R.string.merchant_scan_sheet_barcode_title),
@@ -763,12 +698,13 @@ internal fun ScanMethodSheet(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     val permissionState = ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.CAMERA,
-                                    )
-                                    if (permissionState == PackageManager.PERMISSION_GRANTED) {
-                                        dismissWithAnimation { onSelectMethod(ScanMethod.BARCODE) }
+                                    context,
+                                    Manifest.permission.CAMERA,
+                                )
+                                if (permissionState == PackageManager.PERMISSION_GRANTED) {
+                                        dismissAfter { onSelectMethod(ScanMethod.BARCODE) }
                                     } else {
+                                        hostActivity?.suppressRelockForTransientSystemUi()
                                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                     }
                                 },
@@ -789,7 +725,7 @@ internal fun ScanMethodSheet(
                             )
                         }
                         OutlinedButton(
-                            onClick = { dismissWithAnimation(onDismiss) },
+                            onClick = dismiss,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(22.dp),
                             contentPadding = PaddingValues(vertical = 16.dp),
@@ -800,9 +736,6 @@ internal fun ScanMethodSheet(
                                 color = VerevColors.Forest.copy(alpha = 0.84f),
                             )
                         }
-                    }
-                }
-            }
         }
     }
 }

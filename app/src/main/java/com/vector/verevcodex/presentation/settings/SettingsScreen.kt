@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,7 +31,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.common.StaffRole
-import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
 import com.vector.verevcodex.presentation.theme.VerevColors
 
@@ -40,6 +38,8 @@ import com.vector.verevcodex.presentation.theme.VerevColors
 fun StoreManagementScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit = {},
+    onOpenAddBranch: () -> Unit = {},
+    onOpenEditBranch: (String) -> Unit = {},
     onOpenBranchStaffConfig: (String) -> Unit = {},
     onOpenBranchProgramsConfig: (String) -> Unit = {},
     viewModel: StoreManagementViewModel = hiltViewModel(),
@@ -74,7 +74,7 @@ fun StoreManagementScreen(
             item { SettingsDetailSection(title = stringResource(messageRes)) {} }
         }
         item {
-            Button(onClick = viewModel::startCreate, modifier = Modifier.fillParentMaxWidth()) {
+            Button(onClick = onOpenAddBranch, modifier = Modifier.fillParentMaxWidth()) {
                 androidx.compose.material3.Text(stringResource(R.string.merchant_add_branch))
             }
         }
@@ -83,79 +83,12 @@ fun StoreManagementScreen(
                 store = store,
                 selected = store.id == state.selectedStoreId,
                 onSelect = { viewModel.selectStore(store.id) },
-                onEdit = { viewModel.startEdit(store) },
+                onEdit = { onOpenEditBranch(store.id) },
                 onToggleActive = { viewModel.toggleStoreActive(store) },
                 onConfigureStaff = { onOpenBranchStaffConfig(store.id) },
                 onConfigurePrograms = { onOpenBranchProgramsConfig(store.id) },
             )
         }
-    }
-
-    if (state.isEditorVisible) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissEditor,
-            confirmButton = {
-                Button(onClick = viewModel::submitEditor, enabled = !state.isSaving) {
-                    androidx.compose.material3.Text(stringResource(R.string.merchant_save_changes))
-                }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = viewModel::dismissEditor) {
-                    androidx.compose.material3.Text(stringResource(R.string.auth_cancel))
-                }
-            },
-            title = {
-                androidx.compose.material3.Text(
-                    stringResource(
-                        if (state.editor.editingStoreId == null) R.string.merchant_add_branch else R.string.merchant_edit_branch
-                    )
-                )
-            },
-            text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    item {
-                        MerchantFormField(
-                            value = state.editor.name,
-                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(name = it) } },
-                            label = stringResource(R.string.merchant_business_details_name_label),
-                            leadingIcon = Icons.Default.Storefront,
-                        )
-                    }
-                    item {
-                        MerchantFormField(
-                            value = state.editor.address,
-                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(address = it) } },
-                            label = stringResource(R.string.merchant_business_details_address_label),
-                            leadingIcon = Icons.Default.LocationOn,
-                        )
-                    }
-                    item {
-                        MerchantFormField(
-                            value = state.editor.contactInfo,
-                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(contactInfo = it) } },
-                            label = stringResource(R.string.merchant_business_details_contact_label),
-                            leadingIcon = Icons.Default.Email,
-                        )
-                    }
-                    item {
-                        MerchantFormField(
-                            value = state.editor.category,
-                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(category = it) } },
-                            label = stringResource(R.string.merchant_business_details_category_label),
-                            leadingIcon = Icons.Default.Storefront,
-                        )
-                    }
-                    item {
-                        MerchantFormField(
-                            value = state.editor.workingHours,
-                            onValueChange = { viewModel.updateEditor { editor -> editor.copy(workingHours = it) } },
-                            label = stringResource(R.string.merchant_business_details_hours_label),
-                            leadingIcon = Icons.Default.Description,
-                        )
-                    }
-                }
-            },
-        )
     }
 }
 

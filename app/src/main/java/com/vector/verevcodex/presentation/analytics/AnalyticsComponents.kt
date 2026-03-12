@@ -45,6 +45,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -66,8 +68,6 @@ import com.vector.verevcodex.domain.model.analytics.StaffAnalytics
 import com.vector.verevcodex.domain.model.customer.CustomerAnalyticsDrillDown
 import com.vector.verevcodex.domain.model.loyalty.ProgramAnalyticsDrillDown
 import com.vector.verevcodex.domain.model.promotions.PromotionAnalyticsDrillDown
-import com.vector.verevcodex.presentation.merchant.common.MerchantBackHeader
-import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantInteractiveCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
@@ -82,7 +82,7 @@ import kotlin.math.max
 @Composable
 internal fun AnalyticsOverviewHeader(
     onOpenReports: () -> Unit,
-    onOpenStaffAnalytics: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -113,7 +113,7 @@ internal fun AnalyticsOverviewHeader(
             AnalyticsHeaderActionButton(
                 icon = Icons.Default.Settings,
                 tint = VerevColors.Forest,
-                onClick = onOpenStaffAnalytics,
+                onClick = onOpenSettings,
             )
         }
     }
@@ -387,27 +387,147 @@ internal fun AnalyticsTopPerformanceCard(
     staffAnalytics: List<StaffAnalytics>,
     onOpenStaffAnalytics: () -> Unit,
 ) {
-    MerchantPrimaryCard {
-        MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_insights_section))
+    MerchantPrimaryCard(contentPadding = PaddingValues(20.dp)) {
+        AnalyticsCardHeader(
+            title = stringResource(R.string.merchant_analytics_insights_section),
+            subtitle = stringResource(R.string.merchant_analytics_top_performance_subtitle),
+            actionText = stringResource(R.string.merchant_analytics_view_details),
+            onClick = onOpenStaffAnalytics,
+        )
         AnalyticsHeadlineRow(
             primaryTitle = stringResource(R.string.merchant_insight_top_customer),
             primaryValue = analytics.topCustomerName.ifBlank { stringResource(R.string.merchant_analytics_no_top_customer) },
             secondaryTitle = stringResource(R.string.merchant_analytics_top_promotion),
             secondaryValue = analytics.topPromotionName.ifBlank { stringResource(R.string.merchant_analytics_none_label) },
         )
-        staffAnalytics.take(3).forEachIndexed { index, staff ->
-            AnalyticsRankCard(
-                rank = index + 1,
-                title = stringResource(R.string.merchant_staff_rank_title, index + 1),
-                subtitle = stringResource(
-                    R.string.merchant_staff_performance_subtitle,
-                    formatCompactCount(staff.transactionsProcessed),
-                    formatCompactCurrency(staff.revenueHandled),
-                ),
-                value = formatCompactCurrency(staff.averageTransactionValue),
+        Spacer(modifier = Modifier.height(16.dp))
+        if (staffAnalytics.isEmpty()) {
+            AnalyticsEmptyStateCard(
+                title = stringResource(R.string.merchant_staff_analytics_empty_title),
+                subtitle = stringResource(R.string.merchant_staff_analytics_empty_subtitle),
                 icon = Icons.Default.Person,
-                onClick = onOpenStaffAnalytics,
             )
+        } else {
+            staffAnalytics.take(3).forEachIndexed { index, staff ->
+                AnalyticsRankCard(
+                    rank = index + 1,
+                    title = stringResource(R.string.merchant_staff_rank_title, index + 1),
+                    subtitle = stringResource(
+                        R.string.merchant_staff_performance_subtitle,
+                        formatCompactCount(staff.transactionsProcessed),
+                        formatCompactCurrency(staff.revenueHandled),
+                    ),
+                    value = formatCompactCurrency(staff.averageTransactionValue),
+                    icon = Icons.Default.Person,
+                    onClick = onOpenStaffAnalytics,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AnalyticsEmptyStateCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+) {
+    MerchantPrimaryCard(contentPadding = PaddingValues(24.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                VerevColors.Forest.copy(alpha = 0.12f),
+                                VerevColors.Moss.copy(alpha = 0.08f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = VerevColors.Forest,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+            Text(
+                text = title,
+                color = VerevColors.Forest,
+                fontSize = 18.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = subtitle,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun AnalyticsLoadingStateCard() {
+    MerchantPrimaryCard(contentPadding = PaddingValues(24.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                VerevColors.Gold.copy(alpha = 0.18f),
+                                VerevColors.Moss.copy(alpha = 0.12f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.QueryStats,
+                    contentDescription = null,
+                    tint = VerevColors.Forest,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+            Text(
+                text = stringResource(R.string.merchant_analytics_loading_title),
+                color = VerevColors.Forest,
+                fontSize = 18.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.merchant_analytics_loading_subtitle),
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) { index ->
+                    Box(
+                        modifier = Modifier
+                            .size(if (index == 1) 12.dp else 10.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (index == 1) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.18f),
+                            ),
+                    )
+                }
+            }
         }
     }
 }
@@ -417,8 +537,47 @@ internal fun AnalyticsDetailHeader(
     title: String,
     subtitle: String,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    MerchantBackHeader(title = title, subtitle = subtitle, onBack = onBack)
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = stringResource(R.string.auth_back),
+                tint = Color.White,
+                modifier = Modifier
+                    .size(24.dp)
+                    .offset(x = (-1).dp)
+                    .graphicsLayer { rotationZ = 180f },
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                lineHeight = 24.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = Color.White.copy(alpha = 0.74f),
+            )
+        }
+    }
 }
 
 @Composable
@@ -438,38 +597,18 @@ internal fun CustomerAnalyticsDetailContent(analytics: CustomerAnalyticsDrillDow
             statRightTitle = stringResource(R.string.merchant_metric_average_purchase),
             statRightValue = formatCompactCurrency(analytics.averageLifetimeValue),
         )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            maxItemsInEachRow = 2,
-        ) {
-            AnalyticsMetricBlock(
-                stringResource(R.string.merchant_analytics_segment_new),
-                formatCompactCount(analytics.newCustomers),
-                VerevColors.Gold,
-            )
-            AnalyticsMetricBlock(
-                stringResource(R.string.merchant_analytics_segment_returning),
-                formatCompactCount(analytics.returningCustomers),
-                VerevColors.Moss,
-            )
-            AnalyticsMetricBlock(
-                stringResource(R.string.merchant_analytics_segment_high_value),
-                formatCompactCount(analytics.highValueCustomers),
-                VerevColors.ForestBright,
-            )
-            AnalyticsMetricBlock(
-                stringResource(R.string.merchant_analytics_segment_inactive),
-                formatCompactCount(analytics.inactiveCustomers),
-                VerevColors.Inactive,
-            )
-        }
+        AnalyticsDetailMetricGrid(
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_segment_new), formatCompactCount(analytics.newCustomers), VerevColors.Gold, Icons.Default.Person),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_segment_returning), formatCompactCount(analytics.returningCustomers), VerevColors.Moss, Icons.Default.TrendingUp),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_segment_high_value), formatCompactCount(analytics.highValueCustomers), VerevColors.ForestBright, Icons.Default.WorkspacePremium),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_segment_inactive), formatCompactCount(analytics.inactiveCustomers), VerevColors.Inactive, Icons.Default.QueryStats),
+        )
         AnalyticsComparisonCard(
-            title = stringResource(R.string.merchant_analytics_customer_activity_title),
+            title = stringResource(R.string.merchant_analytics_customer_growth_title),
             subtitle = stringResource(R.string.merchant_analytics_customer_activity_subtitle),
             points = analytics.activityTrend,
             accent = VerevColors.Moss,
+            secondaryAccent = VerevColors.Gold,
         )
         AnalyticsComparisonCard(
             title = stringResource(R.string.merchant_metric_retention),
@@ -477,8 +616,9 @@ internal fun CustomerAnalyticsDetailContent(analytics: CustomerAnalyticsDrillDow
             points = analytics.retentionTrend,
             accent = VerevColors.Gold,
         )
-        AnalyticsSegmentBlock(
+        AnalyticsDonutSegmentCard(
             title = stringResource(R.string.merchant_analytics_customer_tier_breakdown),
+            subtitle = stringResource(R.string.merchant_analytics_customer_segments_title),
             segments = analytics.tierBreakdown,
             accent = VerevColors.Forest,
         )
@@ -486,22 +626,9 @@ internal fun CustomerAnalyticsDetailContent(analytics: CustomerAnalyticsDrillDow
             title = stringResource(R.string.merchant_analytics_customer_segments_title),
             segments = analytics.segmentBreakdown,
             accent = VerevColors.Gold,
+            rich = true,
         )
-        MerchantPrimaryCard {
-            MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_top_customers))
-            analytics.topCustomers.forEachIndexed { index, customer ->
-                AnalyticsCustomerRankCard(
-                    rank = index + 1,
-                    title = customer.customerName,
-                    subtitle = stringResource(
-                        R.string.merchant_analytics_top_customer_subtitle,
-                        customer.loyaltyTier.name,
-                        formatCompactCount(customer.totalVisits),
-                    ),
-                    value = formatCompactCurrency(customer.totalSpent),
-                )
-            }
-        }
+        AnalyticsTopCustomerShowcase(customers = analytics.topCustomers)
     }
 }
 
@@ -518,24 +645,12 @@ internal fun RevenueAnalyticsDetailContent(analytics: RevenueAnalyticsDrillDown)
             statRightTitle = stringResource(R.string.merchant_metric_average_purchase),
             statRightValue = formatCompactCurrency(analytics.averageOrderValue),
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_metric_average_purchase),
-                value = formatCompactCurrency(analytics.averageOrderValue),
-                supporting = stringResource(R.string.merchant_analytics_transaction_count_subtitle),
-                icon = Icons.Default.Assessment,
-                accent = VerevColors.Gold,
-            )
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_analytics_today_revenue),
-                value = formatCompactCurrency(analytics.todayRevenue),
-                supporting = formatCompactCount(analytics.transactionCount),
-                icon = Icons.Default.Payments,
-                accent = VerevColors.Moss,
-            )
-        }
+        AnalyticsDetailMetricGrid(
+            AnalyticsDetailMetric(stringResource(R.string.merchant_metric_average_purchase), formatCompactCurrency(analytics.averageOrderValue), VerevColors.Gold, Icons.Default.Assessment),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_today_revenue), formatCompactCurrency(analytics.todayRevenue), VerevColors.Moss, Icons.Default.Payments),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_transaction_count_subtitle), formatCompactCount(analytics.transactionCount), VerevColors.ForestBright, Icons.Default.QueryStats),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_redemption_short), formatCompactCurrency(analytics.redeemedPointsValue), VerevColors.Tan, Icons.Default.CardGiftcard),
+        )
         AnalyticsComparisonCard(
             title = stringResource(R.string.merchant_analytics_revenue_chart_title),
             subtitle = stringResource(R.string.merchant_analytics_revenue_chart_subtitle),
@@ -548,16 +663,11 @@ internal fun RevenueAnalyticsDetailContent(analytics: RevenueAnalyticsDrillDown)
             points = analytics.timeBucketTrend,
             accent = VerevColors.ForestBright,
         )
-        AnalyticsKpiStrip(
-            firstTitle = stringResource(R.string.merchant_analytics_transaction_count_subtitle),
-            firstValue = formatCompactCount(analytics.transactionCount),
-            secondTitle = stringResource(R.string.merchant_analytics_redemption_short),
-            secondValue = formatCompactCurrency(analytics.redeemedPointsValue),
-        )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_revenue_sources_title),
             segments = analytics.sourceBreakdown,
             accent = VerevColors.Moss,
+            rich = true,
         )
     }
 }
@@ -575,39 +685,23 @@ internal fun PromotionAnalyticsDetailContent(analytics: PromotionAnalyticsDrillD
             statRightTitle = stringResource(R.string.merchant_analytics_average_roi_title),
             statRightValue = formatPercent(analytics.averageRoiScore),
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_analytics_active_promotions),
-                value = formatCompactCount(analytics.activePromotions),
-                supporting = formatCompactCount(analytics.paymentPromotions),
-                icon = Icons.Default.LocalOffer,
-                accent = VerevColors.Gold,
-            )
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_analytics_average_roi_title),
-                value = formatPercent(analytics.averageRoiScore),
-                supporting = stringResource(R.string.merchant_analytics_scheduled_promotions_subtitle),
-                icon = Icons.Default.TrendingUp,
-                accent = VerevColors.Moss,
-            )
-        }
-        AnalyticsKpiStrip(
-            firstTitle = stringResource(R.string.merchant_analytics_scheduled_promotions_subtitle),
-            firstValue = formatCompactCount(analytics.scheduledPromotions),
-            secondTitle = stringResource(R.string.merchant_analytics_status_inactive),
-            secondValue = formatCompactCount(analytics.expiredPromotions),
+        AnalyticsDetailMetricGrid(
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_active_promotions), formatCompactCount(analytics.activePromotions), VerevColors.Gold, Icons.Default.LocalOffer),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_average_roi_title), formatPercent(analytics.averageRoiScore), VerevColors.Moss, Icons.Default.TrendingUp),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_scheduled_promotions_subtitle), formatCompactCount(analytics.scheduledPromotions), VerevColors.ForestBright, Icons.Default.QueryStats),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_status_inactive), formatCompactCount(analytics.expiredPromotions), VerevColors.Inactive, Icons.Default.Campaign),
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_promotion_types),
             segments = analytics.typeBreakdown,
             accent = VerevColors.Gold,
+            rich = true,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_promotion_status_title),
             segments = analytics.statusBreakdown,
             accent = VerevColors.ForestBright,
+            rich = true,
         )
         MerchantPrimaryCard {
             MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_top_promotions))
@@ -635,44 +729,29 @@ internal fun ProgramAnalyticsDetailContent(analytics: ProgramAnalyticsDrillDown)
             statRightTitle = stringResource(R.string.merchant_analytics_redemption_efficiency_title),
             statRightValue = formatPercent(analytics.redemptionEfficiency),
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_analytics_active_programs),
-                value = formatCompactCount(analytics.activePrograms),
-                supporting = stringResource(R.string.merchant_analytics_program_types_label),
-                icon = Icons.Default.CardGiftcard,
-                accent = VerevColors.Gold,
-            )
-            AnalyticsKpiCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_analytics_redemption_efficiency_title),
-                value = formatPercent(analytics.redemptionEfficiency),
-                supporting = stringResource(R.string.merchant_analytics_member_participation_title),
-                icon = Icons.Default.TrendingUp,
-                accent = VerevColors.Moss,
-            )
-        }
-        AnalyticsKpiStrip(
-            firstTitle = stringResource(R.string.merchant_analytics_member_participation_title),
-            firstValue = formatPercent(analytics.memberParticipationRate),
-            secondTitle = stringResource(R.string.merchant_analytics_program_types_label),
-            secondValue = formatCompactCount(analytics.typeBreakdown.sumOf { it.value }),
+        AnalyticsDetailMetricGrid(
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_active_programs), formatCompactCount(analytics.activePrograms), VerevColors.Gold, Icons.Default.CardGiftcard),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_redemption_efficiency_title), formatPercent(analytics.redemptionEfficiency), VerevColors.Moss, Icons.Default.TrendingUp),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_member_participation_title), formatPercent(analytics.memberParticipationRate), VerevColors.ForestBright, Icons.Default.Groups),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_program_types_label), formatCompactCount(analytics.typeBreakdown.sumOf { it.value }), VerevColors.Tan, Icons.Default.QueryStats),
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_program_types),
             segments = analytics.typeBreakdown,
             accent = VerevColors.Forest,
+            rich = true,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_program_reward_usage_title),
             segments = analytics.rewardUsageBreakdown,
             accent = VerevColors.Gold,
+            rich = true,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_program_actions),
             segments = analytics.scanActionBreakdown,
             accent = VerevColors.ForestBright,
+            rich = true,
         )
         MerchantPrimaryCard {
             MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_top_programs))
@@ -702,11 +781,11 @@ internal fun StaffAnalyticsLeaderboard(staffAnalytics: List<StaffAnalytics>) {
             statRightTitle = stringResource(R.string.merchant_analytics_avg_sales_short),
             statRightValue = formatCompactCurrency(staffAnalytics.firstOrNull()?.averageTransactionValue ?: 0.0),
         )
-        AnalyticsKpiStrip(
-            firstTitle = stringResource(R.string.merchant_metric_revenue),
-            firstValue = formatCompactCurrency(staffAnalytics.sumOf { it.revenueHandled }),
-            secondTitle = stringResource(R.string.merchant_analytics_redemption_short),
-            secondValue = formatCompactCount(staffAnalytics.sumOf { it.rewardsRedeemed }),
+        AnalyticsDetailMetricGrid(
+            AnalyticsDetailMetric(stringResource(R.string.merchant_metric_revenue), formatCompactCurrency(staffAnalytics.sumOf { it.revenueHandled }), VerevColors.Gold, Icons.Default.Payments),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_redemption_short), formatCompactCount(staffAnalytics.sumOf { it.rewardsRedeemed }), VerevColors.Moss, Icons.Default.CardGiftcard),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_active_staff_short), formatCompactCount(staffAnalytics.size), VerevColors.ForestBright, Icons.Default.Groups),
+            AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_avg_sales_short), formatCompactCurrency(staffAnalytics.firstOrNull()?.averageTransactionValue ?: 0.0), VerevColors.Tan, Icons.Default.TrendingUp),
         )
         MerchantPrimaryCard {
             MerchantSectionTitle(text = stringResource(R.string.merchant_staff_analytics_ranking_title))
@@ -759,7 +838,7 @@ private fun AnalyticsKpiCard(
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    MerchantPrimaryCard(modifier = modifier, contentPadding = PaddingValues(16.dp)) {
+    MerchantPrimaryCard(modifier = modifier, contentPadding = PaddingValues(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
                 modifier = Modifier
@@ -772,7 +851,7 @@ private fun AnalyticsKpiCard(
             }
             Text(text = title, style = MaterialTheme.typography.bodyMedium, color = VerevColors.Forest.copy(alpha = 0.72f))
         }
-        Text(text = value, style = MaterialTheme.typography.headlineSmall, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
+        Text(text = value, fontSize = 26.sp, lineHeight = 28.sp, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
         Text(text = supporting, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.56f))
     }
 }
@@ -858,7 +937,7 @@ private fun AnalyticsGradientMetricCard(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(gradient))
-            .padding(horizontal = 16.dp, vertical = 15.dp),
+            .padding(horizontal = 15.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
@@ -910,7 +989,7 @@ private fun AnalyticsNeutralMetricCard(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .padding(horizontal = 16.dp, vertical = 15.dp),
+            .padding(horizontal = 15.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
@@ -959,7 +1038,7 @@ private fun AnalyticsHighlightChip(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
@@ -992,9 +1071,15 @@ private fun AnalyticsOverviewSurface(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(22.dp),
+                ambientColor = Color.Black.copy(alpha = 0.07f),
+                spotColor = Color.Black.copy(alpha = 0.07f),
+            )
+            .clip(RoundedCornerShape(22.dp))
             .background(Color.White)
-            .padding(20.dp),
+            .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         content = content,
     )
@@ -1013,6 +1098,12 @@ private fun AnalyticsInsightCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 7.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.06f),
+                spotColor = Color.Black.copy(alpha = 0.06f),
+            )
             .clip(RoundedCornerShape(24.dp))
             .background(Color.White)
             .clickable(onClick = onClick)
@@ -1054,6 +1145,7 @@ private fun AnalyticsInsightCard(
                 modifier = Modifier.size(18.dp),
             )
         }
+        Spacer(modifier = Modifier.height(14.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1064,7 +1156,7 @@ private fun AnalyticsInsightCard(
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
                         .background(VerevColors.SurfaceSoft)
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
@@ -1214,11 +1306,22 @@ private fun AnalyticsComparisonCard(
     subtitle: String,
     points: List<AnalyticsPoint>,
     accent: Color,
+    secondaryAccent: Color = VerevColors.ForestBright,
 ) {
     MerchantPrimaryCard {
-        Text(text = title, style = MaterialTheme.typography.titleMedium, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
-        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.58f))
+        AnalyticsCardHeader(
+            title = title,
+            subtitle = subtitle,
+            actionText = stringResource(R.string.merchant_analytics_view_details),
+            onClick = {},
+        )
         AnalyticsAreaChartFromPoints(points = points, lineColor = accent)
+        AnalyticsMiniLegend(
+            leftLabel = stringResource(R.string.merchant_analytics_new_label),
+            leftColor = accent,
+            rightLabel = stringResource(R.string.merchant_analytics_returning_label),
+            rightColor = secondaryAccent,
+        )
     }
 }
 
@@ -1227,11 +1330,20 @@ private fun AnalyticsSegmentBlock(
     title: String,
     segments: List<AnalyticsSegment>,
     accent: Color,
+    rich: Boolean = false,
 ) {
     MerchantPrimaryCard {
         MerchantSectionTitle(text = title)
         segments.forEach { segment ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (rich) VerevColors.SurfaceSoft else Color.Transparent)
+                    .padding(horizontal = if (rich) 14.dp else 0.dp, vertical = if (rich) 12.dp else 0.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box(
                     modifier = Modifier
                         .size(12.dp)
@@ -1251,6 +1363,167 @@ private fun AnalyticsSegmentBlock(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
+        }
+    }
+}
+
+private data class AnalyticsDetailMetric(
+    val label: String,
+    val value: String,
+    val accent: Color,
+    val icon: ImageVector,
+)
+
+@Composable
+private fun AnalyticsDetailMetricGrid(vararg metrics: AnalyticsDetailMetric) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        maxItemsInEachRow = 2,
+    ) {
+        metrics.forEach { metric ->
+            AnalyticsKpiCard(
+                modifier = Modifier.fillMaxWidth(0.48f),
+                title = metric.label,
+                value = metric.value,
+                supporting = stringResource(R.string.merchant_analytics_detail_metric_supporting),
+                icon = metric.icon,
+                accent = metric.accent,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsDonutSegmentCard(
+    title: String,
+    subtitle: String,
+    segments: List<AnalyticsSegment>,
+    accent: Color,
+) {
+    MerchantPrimaryCard {
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = subtitle,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            color = VerevColors.Forest.copy(alpha = 0.58f),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnalyticsDonutChart(
+                modifier = Modifier.weight(1f),
+                segments = segments,
+                accent = accent,
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                segments.forEach { segment ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(accent.copy(alpha = 0.85f)),
+                            )
+                            Text(
+                                text = segment.label,
+                                fontSize = 13.sp,
+                                lineHeight = 16.sp,
+                                color = VerevColors.Forest,
+                            )
+                        }
+                        Text(
+                            text = formatCompactCount(segment.value),
+                            fontSize = 14.sp,
+                            lineHeight = 18.sp,
+                            color = VerevColors.Forest,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsDonutChart(
+    segments: List<AnalyticsSegment>,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val total = max(segments.sumOf { it.value }, 1)
+    Canvas(
+        modifier = modifier
+            .height(168.dp)
+            .fillMaxWidth(),
+    ) {
+        val strokeWidth = 22.dp.toPx()
+        val diameter = size.minDimension - strokeWidth
+        val topLeft = androidx.compose.ui.geometry.Offset(
+            (size.width - diameter) / 2f,
+            (size.height - diameter) / 2f,
+        )
+        var startAngle = -90f
+        segments.forEachIndexed { index, segment ->
+            val sweep = (segment.value.toFloat() / total.toFloat()) * 360f
+            drawArc(
+                color = when (index % 4) {
+                    0 -> accent
+                    1 -> VerevColors.Gold
+                    2 -> VerevColors.Tan
+                    else -> VerevColors.Moss
+                },
+                startAngle = startAngle,
+                sweepAngle = sweep,
+                useCenter = false,
+                topLeft = topLeft,
+                size = androidx.compose.ui.geometry.Size(diameter, diameter),
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+            startAngle += sweep + 3f
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsTopCustomerShowcase(
+    customers: List<com.vector.verevcodex.domain.model.customer.TopCustomerAnalytics>,
+) {
+    MerchantPrimaryCard {
+        MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_top_customers))
+        customers.forEachIndexed { index, customer ->
+            AnalyticsCustomerRankCard(
+                rank = index + 1,
+                title = customer.customerName,
+                subtitle = stringResource(
+                    R.string.merchant_analytics_top_customer_subtitle,
+                    customer.loyaltyTier.name,
+                    formatCompactCount(customer.totalVisits),
+                ),
+                value = formatCompactCurrency(customer.totalSpent),
+            )
         }
     }
 }

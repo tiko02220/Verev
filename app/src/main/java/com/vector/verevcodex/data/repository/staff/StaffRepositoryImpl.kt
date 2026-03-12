@@ -4,9 +4,12 @@ import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.db.entity.business.StaffMemberEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
 import com.vector.verevcodex.data.mapper.toDomain
+import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.model.analytics.StaffAnalytics
+import com.vector.verevcodex.domain.model.analytics.startDateFrom
 import com.vector.verevcodex.domain.repository.staff.StaffRepository
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,12 +24,19 @@ class StaffRepositoryImpl @Inject constructor(
     override fun observeStaff(storeId: String?) =
         database.staffDao().observeStaff(storeId).map { list -> list.map { it.toDomain() } }
 
-    override fun observeStaffAnalytics(storeId: String?): Flow<List<StaffAnalytics>> = combine(
+    override fun observeStaffAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<List<StaffAnalytics>> = combine(
         observeStaff(storeId),
         database.transactionDao().observeTransactions(storeId),
-    ) { staff, transactions ->
+    ) { staff, transactionEntities ->
+        val today = LocalDate.now()
+        val rangeStart = range.startDateFrom(today)
+        val transactions = transactionEntities.map { it.toDomain(emptyList()) }
+        val rangeTransactions = transactions.filter { transaction ->
+            val date = transaction.timestamp.toLocalDate()
+            date >= rangeStart && date <= today
+        }
         staff.map { member ->
-            val handled = transactions.filter { it.staffId == member.id }
+            val handled = rangeTransactions.filter { it.staffId == member.id }
             val revenue = handled.sumOf { it.amount }
             StaffAnalytics(
                 id = member.id,

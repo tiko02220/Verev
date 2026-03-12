@@ -64,8 +64,18 @@ class ReportsViewModel @Inject constructor(
         saveAutoSettings { copy(includeAllStores = includeAllStores) }
     }
 
+    fun updateAutoReportSettings(settings: ReportAutoSettings) {
+        viewModelScope.launch {
+            saveAutoReportSettingsUseCase(settings)
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun clearLatestExport() {
+        _uiState.update { it.copy(latestExport = null) }
     }
 
     fun export(format: ReportFormat) {

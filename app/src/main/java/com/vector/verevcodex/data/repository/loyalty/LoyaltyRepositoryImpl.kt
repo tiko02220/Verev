@@ -7,6 +7,8 @@ import com.vector.verevcodex.data.mapper.toEntity
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.promotions.CampaignTarget
 import com.vector.verevcodex.domain.model.promotions.PromotionDraft
+import com.vector.verevcodex.domain.model.loyalty.Reward
+import com.vector.verevcodex.domain.model.loyalty.RewardDraft
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramDraft
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
@@ -46,6 +48,48 @@ class LoyaltyRepositoryImpl @Inject constructor(
                 .sortedBy { it.ordinal }
                 .toList()
         }
+
+    override suspend fun createReward(draft: RewardDraft): Reward {
+        val reward = Reward(
+            id = UUID.randomUUID().toString(),
+            storeId = draft.storeId,
+            name = draft.name.trim(),
+            description = draft.description.trim(),
+            pointsRequired = draft.pointsRequired,
+            rewardType = draft.rewardType,
+            expirationDate = draft.expirationDate,
+            usageLimit = draft.usageLimit,
+            activeStatus = draft.activeStatus,
+        )
+        database.loyaltyDao().insertReward(reward.toEntity())
+        return reward
+    }
+
+    override suspend fun updateReward(rewardId: String, draft: RewardDraft): Reward {
+        val existing = database.loyaltyDao().getReward(rewardId) ?: error("Reward $rewardId does not exist")
+        val updated = Reward(
+            id = existing.id,
+            storeId = draft.storeId,
+            name = draft.name.trim(),
+            description = draft.description.trim(),
+            pointsRequired = draft.pointsRequired,
+            rewardType = draft.rewardType,
+            expirationDate = draft.expirationDate,
+            usageLimit = draft.usageLimit,
+            activeStatus = draft.activeStatus,
+        )
+        database.loyaltyDao().insertReward(updated.toEntity())
+        return updated
+    }
+
+    override suspend fun setRewardEnabled(rewardId: String, enabled: Boolean) {
+        val current = database.loyaltyDao().getReward(rewardId) ?: return
+        database.loyaltyDao().insertReward(current.copy(activeStatus = enabled))
+    }
+
+    override suspend fun deleteReward(rewardId: String) {
+        database.loyaltyDao().deleteReward(rewardId)
+    }
 
     override suspend fun createProgram(draft: RewardProgramDraft): RewardProgram {
         val program = RewardProgram(

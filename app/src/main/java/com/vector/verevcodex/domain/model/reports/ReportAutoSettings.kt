@@ -5,4 +5,9 @@ data class ReportAutoSettings(
     val frequency: ReportAutoFrequency = ReportAutoFrequency.WEEKLY,
     val format: ReportFormat = ReportFormat.DOCX,
     val includeAllStores: Boolean = false,
+    val scheduledTime: String = "09:00",
+    val scheduledWeekday: ReportWeekday = ReportWeekday.MONDAY,
+    val scheduledMonthDay: Int = 1,
+    val recipientEmails: Set<String> = emptySet(),
+    val includedSections: Set<ReportSection> = ReportSection.entries.toSet(),
 )

@@ -1,10 +1,15 @@
 package com.vector.verevcodex.presentation.analytics
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CardGiftcard
@@ -14,12 +19,20 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.reports.ReportsViewModel
+import com.vector.verevcodex.presentation.theme.VerevColors
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable
 fun AnalyticsDashboardScreen(
@@ -29,25 +42,38 @@ fun AnalyticsDashboardScreen(
     onOpenPromotionAnalytics: () -> Unit = {},
     onOpenProgramAnalytics: () -> Unit = {},
     onOpenStaffAnalytics: () -> Unit = {},
-    onOpenReports: () -> Unit = {},
     viewModel: AnalyticsViewModel = hiltViewModel(),
+    reportsViewModel: ReportsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val reportsState = reportsViewModel.uiState.collectAsStateWithLifecycle().value
+    var showExportSheet by rememberSaveable { mutableStateOf(false) }
+    var showAutoReportSheet by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(reportsState.latestExport, reportsState.isExporting, showExportSheet) {
+        if (showExportSheet && !reportsState.isExporting && reportsState.latestExport != null) {
+            showExportSheet = false
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 20.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            top = contentPadding.calculateTopPadding() + 14.dp,
+            bottom = contentPadding.calculateBottomPadding() + 84.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
             AnalyticsOverviewHeader(
-                onOpenReports = onOpenReports,
-                onOpenStaffAnalytics = onOpenStaffAnalytics,
+                onOpenReports = {
+                    reportsViewModel.clearError()
+                    reportsViewModel.clearLatestExport()
+                    showExportSheet = true
+                },
+                onOpenSettings = { showAutoReportSheet = true },
             )
         }
         item {
@@ -56,7 +82,9 @@ fun AnalyticsDashboardScreen(
                 onRangeSelected = viewModel::updateRange,
             )
         }
-        state.businessAnalytics?.let { analytics ->
+        if (state.isLoading) {
+            item { AnalyticsLoadingStateCard() }
+        } else state.businessAnalytics?.let { analytics ->
             item { AnalyticsOverviewHero(analytics) }
             item { AnalyticsOverviewMetricStrip(analytics) }
             item { AnalyticsDualTrendCard(analytics, onOpenRevenueAnalytics) }
@@ -73,12 +101,30 @@ fun AnalyticsDashboardScreen(
                 )
             }
         } ?: item {
-            MerchantEmptyStateCard(
+            AnalyticsEmptyStateCard(
                 title = stringResource(R.string.merchant_analytics_empty_title),
                 subtitle = stringResource(R.string.merchant_analytics_empty_subtitle),
                 icon = Icons.Default.QueryStats,
             )
         }
+    }
+
+    if (showExportSheet) {
+        AnalyticsExportSheet(
+            uiState = reportsState,
+            selectedRange = state.selectedRange,
+            onDismiss = { showExportSheet = false },
+            onExport = reportsViewModel::export,
+            onClearError = reportsViewModel::clearError,
+        )
+    }
+
+    if (showAutoReportSheet) {
+        AnalyticsAutoReportSettingsSheet(
+            currentSettings = reportsState.autoSettings,
+            onDismiss = { showAutoReportSheet = false },
+            onSave = reportsViewModel::updateAutoReportSettings,
+        )
     }
 }
 
@@ -89,35 +135,18 @@ fun StaffAnalyticsScreen(
     viewModel: StaffAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 20.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            AnalyticsDetailHeader(
-                title = stringResource(R.string.merchant_staff_analytics_title),
-                subtitle = stringResource(R.string.merchant_staff_analytics_detail_subtitle),
-                onBack = onBack,
-            )
-        }
-        if (state.staffAnalytics.isEmpty()) {
-            item {
-                MerchantEmptyStateCard(
-                    title = stringResource(R.string.merchant_staff_analytics_empty_title),
-                    subtitle = stringResource(R.string.merchant_staff_analytics_empty_subtitle),
-                    icon = Icons.Default.Person,
-                )
-            }
-        } else {
-            item { StaffAnalyticsLeaderboard(state.staffAnalytics) }
-        }
-    }
+    AnalyticsDetailScreenContainer(
+        title = stringResource(R.string.merchant_staff_analytics_title),
+        subtitle = stringResource(R.string.merchant_staff_analytics_detail_subtitle),
+        contentPadding = contentPadding,
+        onBack = onBack,
+        selectedRange = state.selectedRange,
+        onRangeSelected = viewModel::updateRange,
+        emptyIcon = Icons.Default.Person,
+        isLoading = state.isLoading,
+        body = { StaffAnalyticsLeaderboard(it) },
+        analytics = state.staffAnalytics.takeIf { it.isNotEmpty() },
+    )
 }
 
 @Composable
@@ -135,6 +164,7 @@ fun CustomerAnalyticsScreen(
         selectedRange = state.selectedRange,
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Groups,
+        isLoading = state.isLoading,
         body = { CustomerAnalyticsDetailContent(it) },
         analytics = state.analytics,
     )
@@ -155,6 +185,7 @@ fun RevenueAnalyticsScreen(
         selectedRange = state.selectedRange,
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Payments,
+        isLoading = state.isLoading,
         body = { RevenueAnalyticsDetailContent(it) },
         analytics = state.analytics,
     )
@@ -175,6 +206,7 @@ fun PromotionAnalyticsScreen(
         selectedRange = state.selectedRange,
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Campaign,
+        isLoading = state.isLoading,
         body = { PromotionAnalyticsDetailContent(it) },
         analytics = state.analytics,
     )
@@ -195,6 +227,7 @@ fun ProgramAnalyticsScreen(
         selectedRange = state.selectedRange,
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.CardGiftcard,
+        isLoading = state.isLoading,
         body = { ProgramAnalyticsDetailContent(it) },
         analytics = state.analytics,
     )
@@ -210,38 +243,53 @@ private fun <T> AnalyticsDetailScreenContainer(
     onRangeSelected: (com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange) -> Unit,
     emptyIcon: androidx.compose.ui.graphics.vector.ImageVector,
     analytics: T?,
+    isLoading: Boolean,
     body: @Composable (T) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 20.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            AnalyticsDetailHeader(
-                title = title,
-                subtitle = subtitle,
-                onBack = onBack,
-            )
-        }
-        item {
-            AnalyticsRangeSelector(
-                selectedRange = selectedRange,
-                onRangeSelected = onRangeSelected,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-        analytics?.let { item { body(it) } } ?: item {
-            MerchantEmptyStateCard(
-                title = stringResource(R.string.merchant_analytics_empty_title),
-                subtitle = stringResource(R.string.merchant_analytics_empty_subtitle),
-                icon = emptyIcon,
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        AnalyticsDetailHeader(
+            title = title,
+            subtitle = subtitle,
+            onBack = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                .background(Brush.horizontalGradient(listOf(VerevColors.Forest, VerevColors.Moss)))
+                .statusBarsPadding()
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = contentPadding.calculateTopPadding() + 8.dp,
+                    bottom = 18.dp,
+                ),
+        )
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 84.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                AnalyticsRangeSelector(
+                    selectedRange = selectedRange,
+                    onRangeSelected = onRangeSelected,
+                )
+            }
+            if (isLoading) {
+                item { AnalyticsLoadingStateCard() }
+            } else analytics?.let { item { body(it) } } ?: item {
+                AnalyticsEmptyStateCard(
+                    title = stringResource(R.string.merchant_analytics_empty_title),
+                    subtitle = stringResource(R.string.merchant_analytics_empty_subtitle),
+                    icon = emptyIcon,
+                )
+            }
         }
     }
 }

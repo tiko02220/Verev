@@ -6,6 +6,7 @@ import com.vector.verevcodex.domain.model.analytics.StaffAnalytics
 
 data class AnalyticsDashboardUiState(
     val selectedRange: AnalyticsTimeRange = AnalyticsTimeRange.WEEK,
+    val isLoading: Boolean = true,
     val businessAnalytics: BusinessAnalytics? = null,
     val staffAnalytics: List<StaffAnalytics> = emptyList(),
 )

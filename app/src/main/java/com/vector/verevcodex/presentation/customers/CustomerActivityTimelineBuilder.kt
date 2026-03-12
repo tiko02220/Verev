@@ -2,6 +2,8 @@ package com.vector.verevcodex.presentation.customers
 
 import com.vector.verevcodex.domain.model.customer.CustomerActivity
 import com.vector.verevcodex.domain.model.customer.CustomerActivityType
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import com.vector.verevcodex.domain.model.transactions.Transaction
@@ -11,6 +13,7 @@ internal object CustomerActivityTimelineBuilder {
         relation: CustomerBusinessRelation?,
         transactions: List<Transaction>,
         ledgerEntries: List<PointsLedger>,
+        bonusActions: List<CustomerBonusAction>,
     ): List<CustomerActivity> {
         val items = buildList {
             relation?.let { addRelationActivities(it) }
@@ -41,6 +44,20 @@ internal object CustomerActivityTimelineBuilder {
                         description = entry.reason,
                         timestamp = entry.createdAt,
                         pointsDelta = entry.delta,
+                    )
+                )
+            }
+            bonusActions.forEach { action ->
+                add(
+                    CustomerActivity(
+                        id = "bonus-${action.id}",
+                        type = when (action.type) {
+                            CustomerBonusActionType.DISCOUNT_APPLIED -> CustomerActivityType.DISCOUNT_APPLIED
+                            CustomerBonusActionType.TIER_BENEFIT_RECORDED -> CustomerActivityType.TIER_BENEFIT_RECORDED
+                        },
+                        title = action.title,
+                        description = action.details,
+                        timestamp = action.createdAt,
                     )
                 )
             }

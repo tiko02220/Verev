@@ -2,6 +2,7 @@ package com.vector.verevcodex.data.mapper
 
 import com.vector.verevcodex.data.db.entity.loyalty.CampaignEntity
 import com.vector.verevcodex.data.db.entity.loyalty.CampaignTargetEntity
+import com.vector.verevcodex.data.db.entity.customer.CustomerBonusActionEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerBusinessRelationEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerCredentialEntity
 import com.vector.verevcodex.data.db.entity.customer.CustomerEntity
@@ -20,6 +21,8 @@ import com.vector.verevcodex.domain.model.promotions.CampaignTarget
 import com.vector.verevcodex.domain.model.loyalty.CashbackProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
@@ -73,6 +76,15 @@ fun CustomerBusinessRelationEntity.toDomain() = CustomerBusinessRelation(
     joinedAt = LocalDateTime.parse(joinedAt),
     notes = notes,
     tags = tags.split(",").map { it.trim() }.filter { it.isNotBlank() },
+)
+fun CustomerBonusActionEntity.toDomain() = CustomerBonusAction(
+    id = id,
+    customerId = customerId,
+    storeId = storeId,
+    type = CustomerBonusActionType.valueOf(type),
+    title = title,
+    details = details,
+    createdAt = LocalDateTime.parse(createdAt),
 )
 fun RewardProgramEntity.toDomain(): RewardProgram {
     val programType = LoyaltyProgramType.valueOf(type)
@@ -189,6 +201,17 @@ fun RewardProgram.toEntity() = RewardProgramEntity(
     referralCodePrefix = configuration.referralRule.referralCodePrefix,
 )
 fun RewardEntity.toDomain() = Reward(id, storeId, name, description, pointsRequired, RewardType.valueOf(rewardType), expirationDate?.let(LocalDate::parse), usageLimit, activeStatus)
+fun Reward.toEntity() = RewardEntity(
+    id = id,
+    storeId = storeId,
+    name = name,
+    description = description,
+    pointsRequired = pointsRequired,
+    rewardType = rewardType.name,
+    expirationDate = expirationDate?.toString(),
+    usageLimit = usageLimit,
+    activeStatus = activeStatus,
+)
 fun CampaignEntity.toDomain(target: CampaignTargetEntity) = Campaign(
     id = id,
     storeId = storeId,

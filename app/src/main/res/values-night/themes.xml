@@ -1,5 +1,7 @@
 <resources>
-    <style name="Theme.VerevCodex" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.VerevCodex" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
 
     <style name="Theme.VerevCodex.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_forest_deep</item>

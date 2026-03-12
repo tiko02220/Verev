@@ -30,7 +30,11 @@ class CustomerAnalyticsViewModel @Inject constructor(
     ) { store, range -> store?.id to range }
         .flatMapLatest { (storeId, range) ->
             observeCustomerAnalyticsUseCase(storeId, range).combine(selectedRange) { analytics, currentRange ->
-                CustomerAnalyticsUiState(selectedRange = currentRange, analytics = analytics)
+                CustomerAnalyticsUiState(
+                    selectedRange = currentRange,
+                    isLoading = false,
+                    analytics = analytics,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CustomerAnalyticsUiState())

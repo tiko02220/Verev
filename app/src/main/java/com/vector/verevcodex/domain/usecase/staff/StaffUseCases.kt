@@ -1,6 +1,7 @@
 package com.vector.verevcodex.domain.usecase.staff
 
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
+import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.repository.staff.StaffRepository
 
 class ObserveStaffUseCase(private val repository: StaffRepository) {
@@ -12,5 +13,6 @@ class AddStaffMembersUseCase(private val repository: StaffRepository) {
 }
 
 class ObserveStaffAnalyticsUseCase(private val repository: StaffRepository) {
-    operator fun invoke(storeId: String? = null) = repository.observeStaffAnalytics(storeId)
+    operator fun invoke(storeId: String? = null, range: AnalyticsTimeRange = AnalyticsTimeRange.MONTH) =
+        repository.observeStaffAnalytics(storeId, range)
 }
