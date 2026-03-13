@@ -420,6 +420,8 @@
     <string name="merchant_metric_inactive">Inactive</string>
     <string name="merchant_today_stats">Today\'s Stats</string>
     <string name="merchant_recent_transactions">Recent Transactions</string>
+    <string name="merchant_date_today">Today</string>
+    <string name="merchant_date_yesterday">Yesterday</string>
     <string name="merchant_transaction_item_fallback">Transaction</string>
     <string name="merchant_store_portfolio">Store Portfolio</string>
     <string name="merchant_loading_dashboard_title">Loading dashboard</string>

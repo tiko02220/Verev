@@ -743,17 +743,15 @@ internal fun CustomerProfileTransactionSection(
 @Composable
 private fun CustomerTransactionDateHeader(date: LocalDate) {
     Text(
-        text = transactionDateTitle(date),
+        text = when (date) {
+            LocalDate.now() -> stringResource(R.string.merchant_date_today)
+            LocalDate.now().minusDays(1) -> stringResource(R.string.merchant_date_yesterday)
+            else -> date.format(customerTransactionDateFormatter)
+        },
         style = MaterialTheme.typography.titleSmall,
         color = VerevColors.Forest.copy(alpha = 0.72f),
         fontWeight = FontWeight.Medium,
     )
-}
-
-private fun transactionDateTitle(date: LocalDate, today: LocalDate = LocalDate.now()): String = when (date) {
-    today -> "Today"
-    today.minusDays(1) -> "Yesterday"
-    else -> date.format(customerTransactionDateFormatter)
 }
 
 @Composable
