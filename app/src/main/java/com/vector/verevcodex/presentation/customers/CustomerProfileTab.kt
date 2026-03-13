@@ -5,8 +5,7 @@ import com.vector.verevcodex.R
 
 internal enum class CustomerProfileTab(@StringRes val labelRes: Int) {
     OVERVIEW(R.string.merchant_customer_tab_overview),
-    CRM(R.string.merchant_customer_tab_crm),
-    BONUSES(R.string.merchant_customer_tab_bonuses),
+    TRANSACTIONS(R.string.merchant_customer_tab_transactions),
     ACTIVITY(R.string.merchant_customer_tab_activity),
     ACCESS(R.string.merchant_customer_tab_access),
 }

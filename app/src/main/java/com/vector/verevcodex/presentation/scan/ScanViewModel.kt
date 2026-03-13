@@ -84,18 +84,19 @@ class ScanViewModel @Inject constructor(
     }
 
     fun prepareScanEntry(initialMethod: ScanMethod? = null) {
+        val current = _uiState.value
         if (
-            initialMethod != null &&
-            _uiState.value.activeScanMethod == initialMethod &&
-            _uiState.value.contentMode == ScanContentMode.ACTIVE_SCAN &&
-            _uiState.value.customer == null &&
-            _uiState.value.scannedLoyaltyId == null &&
-            _uiState.value.errorRes == null
+            current.activeScanMethod != null ||
+            current.contentMode != ScanContentMode.ACTIVE_SCAN ||
+            current.customer != null ||
+            !current.scannedLoyaltyId.isNullOrBlank() ||
+            current.isSearching ||
+            current.isSubmitting
         ) {
             return
         }
-        val nextAction = _uiState.value.availableActions.firstOrNull()
-        _uiState.value = _uiState.value.copy(
+        val nextAction = current.availableActions.firstOrNull()
+        _uiState.value = current.copy(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             customer = null,
             scannedLoyaltyId = null,

@@ -13,5 +13,6 @@ data class Transaction(
     val pointsRedeemed: Int,
     val timestamp: LocalDateTime,
     val metadata: String,
+    val countsAsVisit: Boolean = true,
     val items: List<TransactionItem> = emptyList(),
 ) : Identifiable

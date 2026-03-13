@@ -14,6 +14,7 @@ data class TransactionEntity(
     val pointsRedeemed: Int,
     val timestamp: String,
     val metadata: String,
+    val countsAsVisit: Boolean,
 )
 
 @Entity(tableName = "transaction_items")

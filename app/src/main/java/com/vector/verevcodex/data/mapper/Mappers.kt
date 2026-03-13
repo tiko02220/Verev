@@ -250,10 +250,22 @@ fun TransactionEntity.toDomain(items: List<TransactionItemEntity>) = Transaction
     pointsRedeemed = pointsRedeemed,
     timestamp = LocalDateTime.parse(timestamp),
     metadata = metadata,
+    countsAsVisit = countsAsVisit,
     items = items.map { TransactionItem(it.id, it.transactionId, it.name, it.quantity, it.unitPrice) },
 )
 
-fun Transaction.toEntity() = TransactionEntity(id, customerId, storeId, staffId, amount, pointsEarned, pointsRedeemed, timestamp.toString(), metadata)
+fun Transaction.toEntity() = TransactionEntity(
+    id = id,
+    customerId = customerId,
+    storeId = storeId,
+    staffId = staffId,
+    amount = amount,
+    pointsEarned = pointsEarned,
+    pointsRedeemed = pointsRedeemed,
+    timestamp = timestamp.toString(),
+    metadata = metadata,
+    countsAsVisit = countsAsVisit,
+)
 fun TransactionItem.toEntity() = TransactionItemEntity(id, transactionId, name, quantity, unitPrice)
 
 fun CustomerCredentialEntity.toDomain() = CustomerCredential(

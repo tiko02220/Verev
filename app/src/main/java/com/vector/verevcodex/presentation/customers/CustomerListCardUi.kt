@@ -4,6 +4,7 @@ import com.vector.verevcodex.domain.model.customer.Customer
 
 internal data class CustomerListCardUi(
     val customer: Customer,
+    val showsTierBadge: Boolean = true,
     val notesPreview: String? = null,
     val tagsPreview: List<String> = emptyList(),
 )

@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.customers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,15 +32,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.presentation.theme.VerevColors
 
+internal enum class CustomerFeatureHeaderStyle {
+    PLAIN,
+    GRADIENT,
+}
+
 @Composable
 internal fun CustomerFeatureScaffold(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    headerStyle: CustomerFeatureHeaderStyle = if (onBack == null) CustomerFeatureHeaderStyle.PLAIN else CustomerFeatureHeaderStyle.GRADIENT,
+    showTitle: Boolean = true,
+    backLabel: String? = null,
+    wrapBodyInSheet: Boolean = headerStyle == CustomerFeatureHeaderStyle.GRADIENT,
     headerContent: @Composable () -> Unit = {},
     body: @Composable () -> Unit,
 ) {
+    val usesGradientHeader = headerStyle == CustomerFeatureHeaderStyle.GRADIENT
     Column(
         modifier = modifier
             .background(VerevColors.AppBackground),
@@ -47,14 +58,24 @@ internal fun CustomerFeatureScaffold(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, Color(0xFF5B8B67))))
+                .background(
+                    if (usesGradientHeader) {
+                        Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, Color(0xFF5B8B67)))
+                    } else {
+                        Brush.verticalGradient(listOf(VerevColors.AppBackground, VerevColors.AppBackground))
+                    }
+                )
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = if (usesGradientHeader) 16.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (onBack == null) {
-                CustomerFeatureTitle(title = title, subtitle = subtitle)
-            } else {
+            if (onBack == null && showTitle) {
+                CustomerFeatureTitle(
+                    title = title,
+                    subtitle = subtitle,
+                    bright = usesGradientHeader,
+                )
+            } else if (onBack != null && showTitle) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -65,21 +86,49 @@ internal fun CustomerFeatureScaffold(
                         title = title,
                         subtitle = subtitle,
                         modifier = Modifier.weight(1f),
+                        bright = usesGradientHeader,
                     )
+                }
+            } else if (onBack != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CustomerBackButton(onBack = onBack)
+                    backLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
             headerContent()
         }
-        Surface(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            color = VerevColors.AppBackground,
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            shadowElevation = 6.dp,
-        ) {
+        if (wrapBodyInSheet) {
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                color = VerevColors.AppBackground,
+                shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+                shadowElevation = 6.dp,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                ) {
+                    body()
+                }
+            }
+        } else {
             Box(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
@@ -114,38 +163,38 @@ private fun CustomerFeatureTitle(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    bright: Boolean = false,
 ) {
     Column(modifier = modifier) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold,
+            color = if (bright) Color.White else VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
         )
         Spacer(modifier = Modifier.size(4.dp))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyLarge,
-            color = Color.White.copy(alpha = 0.78f),
+            color = if (bright) Color.White.copy(alpha = 0.78f) else VerevColors.Forest.copy(alpha = 0.7f),
         )
     }
 }
 
 @Composable
 private fun CustomerBackButton(onBack: () -> Unit) {
-    Surface(
-        onClick = onBack,
-        modifier = Modifier.size(52.dp),
-        color = Color.White.copy(alpha = 0.16f),
-        shape = CircleShape,
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onBack),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(28.dp),
-            )
-        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(30.dp),
+        )
     }
 }

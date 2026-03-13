@@ -387,9 +387,9 @@ object SeedData {
     )
 
     val transactions = listOf(
-        TransactionEntity("aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1", customers[0].id, stores[0].id, staff[2].id, 12500.0, 125, 0, LocalDateTime.now().minusHours(5).toString(), "Latte + pastry"),
-        TransactionEntity("aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaa2", customers[1].id, stores[0].id, staff[2].id, 8400.0, 84, 20, LocalDateTime.now().minusDays(1).toString(), "Flat white + beans"),
-        TransactionEntity("aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaa3", customers[2].id, stores[1].id, staff[3].id, 25500.0, 90, 0, LocalDateTime.now().minusDays(2).toString(), "Hair color service"),
+        TransactionEntity("aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1", customers[0].id, stores[0].id, staff[2].id, 12500.0, 125, 0, LocalDateTime.now().minusHours(5).toString(), "Latte + pastry", true),
+        TransactionEntity("aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaa2", customers[1].id, stores[0].id, staff[2].id, 8400.0, 84, 20, LocalDateTime.now().minusDays(1).toString(), "Flat white + beans", true),
+        TransactionEntity("aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaa3", customers[2].id, stores[1].id, staff[3].id, 25500.0, 90, 0, LocalDateTime.now().minusDays(2).toString(), "Hair color service", true),
     )
 
     val transactionItems = listOf(

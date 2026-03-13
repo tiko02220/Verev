@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.domain.model.common.LoyaltyTier
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomersUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerRelationsByStoreUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.presentation.common.state.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,27 +28,51 @@ class CustomerViewModel @Inject constructor(
     observeCustomersUseCase: ObserveCustomersUseCase,
     observeCustomerRelationsByStoreUseCase: ObserveCustomerRelationsByStoreUseCase,
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
+    observeProgramsUseCase: ObserveProgramsUseCase,
 ) : ViewModel() {
     private val customersState = MutableStateFlow<UiState<List<CustomerListCardUi>>>(UiState.Loading)
     private val errorRes = MutableStateFlow<Int?>(null)
     private val searchQuery = MutableStateFlow("")
     private val selectedTier = MutableStateFlow<LoyaltyTier?>(null)
+    private val hasActiveTierProgram = MutableStateFlow(false)
 
     private val _uiState = MutableStateFlow(CustomerListUiState())
     internal val uiState: StateFlow<CustomerListUiState> = _uiState.asStateFlow()
 
     init {
+        val selectedStoreFlow = observeSelectedStoreUseCase()
+
         combine(
-            observeSelectedStoreUseCase(),
+            selectedStoreFlow,
             observeCustomersUseCase(),
-            observeSelectedStoreUseCase().map { it?.id }.flatMapLatest { storeId ->
+            selectedStoreFlow.map { it?.id }.flatMapLatest { storeId ->
                 if (storeId == null) kotlinx.coroutines.flow.flowOf(emptyList()) else observeCustomerRelationsByStoreUseCase(storeId)
             },
-        ) { selectedStore, customers, relations ->
+            selectedStoreFlow.map { it?.id }.flatMapLatest { storeId ->
+                observeProgramsUseCase(storeId)
+            },
+        ) { selectedStore, customers, relations, programs ->
             val storeId = selectedStore?.id
-            val scopedCustomers = if (storeId == null) customers else customers.filter { it.favoriteStoreId == storeId || it.favoriteStoreId == null }
-            val cards = mapCustomerListCards(scopedCustomers, relations)
-            if (cards.isEmpty()) UiState.Empty else UiState.Success(cards)
+            val relatedCustomerIds = relations.mapTo(mutableSetOf()) { it.customerId }
+            val hasActiveTierProgram = programs.any { program ->
+                program.active && program.configuration.tierTrackingEnabled
+            }
+            val scopedCustomers = if (storeId == null) {
+                customers
+            } else {
+                customers.filter { customer ->
+                    customer.id in relatedCustomerIds || customer.favoriteStoreId == storeId
+                }
+            }
+            val cards = mapCustomerListCards(
+                customers = scopedCustomers,
+                relations = relations,
+                showTierBadge = hasActiveTierProgram,
+            )
+            CustomerListDataState(
+                customers = if (cards.isEmpty()) UiState.Empty else UiState.Success(cards),
+                hasActiveTierProgram = hasActiveTierProgram,
+            )
         }
             .catch {
                 customersState.value = UiState.Empty
@@ -55,19 +80,25 @@ class CustomerViewModel @Inject constructor(
             }
             .onEach {
                 errorRes.value = null
-                customersState.value = it
+                customersState.value = it.customers
+                hasActiveTierProgram.value = it.hasActiveTierProgram
             }
             .launchIn(viewModelScope)
 
-        combine(customersState, errorRes, searchQuery, selectedTier, observeSelectedStoreUseCase()) { dataState, errorRes, query, tier, selectedStore ->
-            CustomerListUiState(
-                dataState = dataState,
-                errorRes = errorRes,
-                searchQuery = query,
-                selectedTier = tier,
-                selectedStoreName = selectedStore?.name.orEmpty(),
-                filteredCustomers = filterCustomers(dataState, query, tier),
-            )
+        combine(
+            combine(customersState, errorRes, searchQuery, selectedTier, hasActiveTierProgram) { dataState, errorRes, query, tier, hasActiveTierProgram ->
+                CustomerListUiState(
+                    dataState = dataState,
+                    errorRes = errorRes,
+                    searchQuery = query,
+                    selectedTier = tier,
+                    hasActiveTierProgram = hasActiveTierProgram,
+                    filteredCustomers = filterCustomers(dataState, query, if (hasActiveTierProgram) tier else null),
+                )
+            },
+            selectedStoreFlow,
+        ) { partialState, selectedStore ->
+            partialState.copy(selectedStoreName = selectedStore?.name.orEmpty())
         }.onEach { _uiState.value = it }.launchIn(viewModelScope)
     }
 
@@ -79,3 +110,8 @@ class CustomerViewModel @Inject constructor(
         selectedTier.value = tier
     }
 }
+
+private data class CustomerListDataState(
+    val customers: UiState<List<CustomerListCardUi>>,
+    val hasActiveTierProgram: Boolean,
+)

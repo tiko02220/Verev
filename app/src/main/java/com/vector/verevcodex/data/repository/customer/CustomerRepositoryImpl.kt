@@ -213,6 +213,17 @@ class CustomerRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun adjustVisits(customerId: String, delta: Int, reason: String) {
+        val customer = database.customerDao().getCustomer(customerId) ?: return
+        val nextVisits = (customer.totalVisits + delta).coerceAtLeast(0)
+        database.customerDao().update(
+            customer.copy(
+                totalVisits = nextVisits,
+                lastVisit = if (delta > 0) LocalDateTime.now().toString() else customer.lastVisit,
+            )
+        )
+    }
+
     override suspend fun recordBonusAction(
         customerId: String,
         storeId: String?,

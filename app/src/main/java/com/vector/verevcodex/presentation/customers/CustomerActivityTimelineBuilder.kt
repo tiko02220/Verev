@@ -54,10 +54,17 @@ internal object CustomerActivityTimelineBuilder {
                         type = when (action.type) {
                             CustomerBonusActionType.DISCOUNT_APPLIED -> CustomerActivityType.DISCOUNT_APPLIED
                             CustomerBonusActionType.TIER_BENEFIT_RECORDED -> CustomerActivityType.TIER_BENEFIT_RECORDED
+                            CustomerBonusActionType.MANUAL_VISITS_ADDED,
+                            CustomerBonusActionType.MANUAL_VISITS_REMOVED -> CustomerActivityType.VISIT_ADJUSTMENT
                         },
                         title = action.title,
                         description = action.details,
                         timestamp = action.createdAt,
+                        pointsDelta = when (action.type) {
+                            CustomerBonusActionType.MANUAL_VISITS_ADDED,
+                            CustomerBonusActionType.MANUAL_VISITS_REMOVED -> CustomerCrmConstants.parseManualVisitDelta(action.details)
+                            else -> null
+                        },
                     )
                 )
             }
