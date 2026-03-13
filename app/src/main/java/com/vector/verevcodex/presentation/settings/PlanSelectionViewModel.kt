@@ -89,4 +89,4 @@ class PlanSelectionViewModel @Inject constructor(
 }
 
 private fun formatPlanPrice(amount: Double, currencyCode: String): String =
-    if (currencyCode == "USD") String.format("$%.0f/mo", amount) else String.format("%.0f %s/mo", amount, currencyCode)
+    String.format("%.0f %s/mo", amount, currencyCode)

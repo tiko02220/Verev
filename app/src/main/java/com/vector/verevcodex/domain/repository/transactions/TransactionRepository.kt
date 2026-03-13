@@ -6,5 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionRepository {
     fun observeTransactions(storeId: String? = null): Flow<List<Transaction>>
     fun observeTransaction(transactionId: String): Flow<Transaction?>
-    suspend fun recordTransaction(transaction: Transaction)
+    suspend fun recordTransaction(transaction: Transaction, incrementVisit: Boolean = true)
 }

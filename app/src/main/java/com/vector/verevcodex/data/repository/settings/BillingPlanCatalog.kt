@@ -7,17 +7,17 @@ internal object BillingPlanCatalog {
         SubscriptionPlanOption(
             id = "starter",
             monthlyPrice = 39.0,
-            currencyCode = "USD",
+            currencyCode = "AMD",
         ),
         SubscriptionPlanOption(
             id = "business_standard",
             monthlyPrice = 99.0,
-            currencyCode = "USD",
+            currencyCode = "AMD",
         ),
         SubscriptionPlanOption(
             id = "growth_plus",
             monthlyPrice = 179.0,
-            currencyCode = "USD",
+            currencyCode = "AMD",
         ),
     )
 

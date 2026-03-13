@@ -516,12 +516,8 @@ private fun DashboardTodayStatCard(
     }
 }
 
-private fun compactDashboardCurrency(amount: Double): String {
-    return when {
-        amount >= 1000.0 -> "$" + String.format(java.util.Locale.US, "%.1fk", amount / 1000.0)
-        else -> "$" + amount.toInt().toString()
-    }
-}
+private fun compactDashboardCurrency(amount: Double): String =
+    com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency(amount)
 
 private fun dashboardPercent(value: Double): String = "${value.toInt()}%"
 

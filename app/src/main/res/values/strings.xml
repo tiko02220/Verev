@@ -804,7 +804,7 @@
     <string name="merchant_analytics_programs_detail_subtitle">Program mix, active rules, and scan action coverage</string>
     <string name="merchant_staff_analytics_detail_subtitle">Productivity, revenue handling, and checkout throughput</string>
     <string name="merchant_analytics_customer_activity_title">Customer Activity Trend</string>
-    <string name="merchant_analytics_customer_activity_subtitle">New signups and returning visits over the last week</string>
+    <string name="merchant_analytics_customer_activity_subtitle">Customer visits and signups across the selected range</string>
     <string name="merchant_analytics_customer_tier_breakdown">Tier Breakdown</string>
     <string name="merchant_analytics_top_customers">Top Customers</string>
     <string name="merchant_analytics_total_revenue">Total Revenue</string>
@@ -825,10 +825,13 @@
     <string name="merchant_analytics_expired_promotions">Expired Promotions</string>
     <string name="merchant_analytics_expired_promotions_subtitle">Offers whose campaign window has closed</string>
     <string name="merchant_analytics_top_promotions">Top Promotions</string>
+    <string name="merchant_analytics_top_promotions_subtitle">Revenue impact across the strongest campaigns</string>
     <string name="merchant_analytics_active_programs">Active Programs</string>
     <string name="merchant_analytics_program_types">Program Type Breakdown</string>
+    <string name="merchant_analytics_promotion_types_subtitle">Active mix across campaign categories</string>
     <string name="merchant_analytics_program_actions">Enabled Scan Actions</string>
     <string name="merchant_analytics_top_programs">Top Programs</string>
+    <string name="merchant_analytics_top_programs_subtitle">Member reach across your leading loyalty programs</string>
     <string name="merchant_analytics_segment_subtitle">Current store distribution</string>
     <string name="merchant_analytics_status_payment">Payment</string>
     <string name="merchant_analytics_status_general">General</string>
@@ -845,6 +848,7 @@
     <string name="merchant_analytics_active_promotions_value">%1$d active promotions</string>
     <string name="merchant_analytics_top_promotion_short">Top Promotion</string>
     <string name="merchant_analytics_total_revenue_short">Revenue</string>
+    <string name="merchant_analytics_transaction_count_title">Transactions</string>
     <string name="merchant_analytics_redemption_short">Redemption</string>
     <string name="merchant_analytics_top_short">Top</string>
     <string name="merchant_analytics_active_staff_short">Active Staff</string>
@@ -865,6 +869,8 @@
     <string name="merchant_analytics_trends_section">Range Trends</string>
     <string name="merchant_analytics_revenue_legend">Revenue</string>
     <string name="merchant_analytics_visit_legend">Visits</string>
+    <string name="merchant_analytics_activity_legend">Activity</string>
+    <string name="merchant_analytics_retention_mix_subtitle">Retained, reactivated, and churned customer mix</string>
     <string name="merchant_analytics_top_promotion">Top Promotion</string>
     <string name="merchant_analytics_customer_story">%1$s retained customers and %2$s inactive accounts need attention</string>
     <string name="merchant_analytics_segment_new">New</string>
@@ -873,6 +879,7 @@
     <string name="merchant_analytics_segment_inactive">Inactive</string>
     <string name="merchant_analytics_customer_segments_title">Customer Segments</string>
     <string name="merchant_analytics_top_customer_subtitle">%1$s tier • %2$s visits</string>
+    <string name="merchant_analytics_top_customer_visits_subtitle">%1$s visits</string>
     <string name="merchant_analytics_revenue_story">%1$s versus the previous period</string>
     <string name="merchant_analytics_time_bucket_subtitle">Revenue concentration by daypart</string>
     <string name="merchant_analytics_revenue_sources_title">Revenue Sources</string>
@@ -882,6 +889,7 @@
     <string name="merchant_analytics_promotion_rank_subtitle">%1$s • %2$s</string>
     <string name="merchant_analytics_program_story">%1$s participation with %2$s redemption efficiency</string>
     <string name="merchant_analytics_program_types_label">Program mix</string>
+    <string name="merchant_analytics_program_types_subtitle">Distribution of configured loyalty programs</string>
     <string name="merchant_analytics_redemption_efficiency_title">Redemption Efficiency</string>
     <string name="merchant_analytics_member_participation_title">Member participation</string>
     <string name="merchant_analytics_program_reward_usage_title">Reward Usage</string>
@@ -894,6 +902,8 @@
     <string name="merchant_staff_analytics_empty_subtitle">Staff productivity metrics will populate after transactions are processed.</string>
     <string name="merchant_staff_analytics_story">%1$s handled by the leading team member this period</string>
     <string name="merchant_staff_analytics_ranking_title">Team Leaderboard</string>
+    <string name="merchant_staff_analytics_revenue_chart_title">Staff Revenue Mix</string>
+    <string name="merchant_staff_analytics_revenue_chart_subtitle">Revenue handled by the leading staff members</string>
     <string name="merchant_staff_analytics_rank_subtitle">%1$s customers served • %2$s rewards redeemed</string>
     <string name="merchant_staff_rank_title">#%1$d Performer</string>
     <string name="merchant_range_week">This Week</string>

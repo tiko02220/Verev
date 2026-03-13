@@ -99,6 +99,7 @@ class ScanViewModel @Inject constructor(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             customer = null,
             scannedLoyaltyId = null,
+            visitCountedForCurrentScan = false,
             selectedAction = nextAction,
             isSearching = false,
             isSubmitting = false,
@@ -116,6 +117,7 @@ class ScanViewModel @Inject constructor(
                 contentMode = ScanContentMode.ACTIVE_SCAN,
                 customer = null,
                 scannedLoyaltyId = null,
+                visitCountedForCurrentScan = false,
                 selectedAction = nextAction,
                 isSearching = false,
                 isSubmitting = false,
@@ -139,6 +141,7 @@ class ScanViewModel @Inject constructor(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             customer = null,
             scannedLoyaltyId = null,
+            visitCountedForCurrentScan = false,
             selectedAction = nextAction,
             isSearching = false,
             isSubmitting = false,
@@ -161,6 +164,8 @@ class ScanViewModel @Inject constructor(
             clearScanPreferenceUseCase()
             _uiState.value = _uiState.value.copy(
                 contentMode = ScanContentMode.ACTIVE_SCAN,
+                scannedLoyaltyId = null,
+                visitCountedForCurrentScan = false,
                 errorRes = null,
                 messageRes = null,
                 fieldErrors = emptyMap(),
@@ -309,6 +314,7 @@ class ScanViewModel @Inject constructor(
             activeScanMethod = method,
             customer = null,
             scannedLoyaltyId = null,
+            visitCountedForCurrentScan = false,
             isSearching = false,
             isSubmitting = false,
             fieldErrors = emptyMap(),
@@ -333,6 +339,7 @@ class ScanViewModel @Inject constructor(
     }
 
     private suspend fun performLookup(loyaltyId: String, successMessageRes: Int? = null) {
+        val previousState = _uiState.value
         _uiState.value = _uiState.value.copy(
             contentMode = ScanContentMode.LOOKUP,
             scannedLoyaltyId = loyaltyId,
@@ -345,11 +352,17 @@ class ScanViewModel @Inject constructor(
         )
         runCatching { findCustomerByLoyaltyIdUseCase(loyaltyId) }
             .onSuccess { customer ->
+                val preserveVisitCount =
+                    customer != null &&
+                        previousState.visitCountedForCurrentScan &&
+                        previousState.scannedLoyaltyId == loyaltyId &&
+                        previousState.customer?.id == customer.id
                 _uiState.value = _uiState.value.copy(
                     contentMode = if (customer == null) ScanContentMode.ACTIVE_SCAN else ScanContentMode.CUSTOMER,
                     isSearching = false,
                     isSubmitting = false,
                     customer = customer,
+                    visitCountedForCurrentScan = preserveVisitCount,
                     errorRes = if (customer == null) R.string.merchant_scan_error_not_found else null,
                     messageRes = successMessageRes ?: if (customer != null) {
                         R.string.merchant_scan_message_member_found
@@ -406,7 +419,10 @@ class ScanViewModel @Inject constructor(
                         )
                     ),
                 )
+                ,
+                incrementVisit = !state.visitCountedForCurrentScan,
             )
+            markVisitCountedForCurrentScan()
             R.string.merchant_scan_message_points_added
         }
         RewardProgramScanAction.REDEEM_REWARDS -> {
@@ -430,7 +446,10 @@ class ScanViewModel @Inject constructor(
                     timestamp = LocalDateTime.now(),
                     metadata = ScanTransactionMetadata.checkIn(program),
                 )
+                ,
+                incrementVisit = !state.visitCountedForCurrentScan,
             )
+            markVisitCountedForCurrentScan()
             R.string.merchant_scan_message_check_in
         }
         RewardProgramScanAction.APPLY_CASHBACK -> {
@@ -490,5 +509,9 @@ class ScanViewModel @Inject constructor(
             messageRes = null,
             fieldErrors = fieldErrors,
         )
+    }
+
+    private fun markVisitCountedForCurrentScan() {
+        _uiState.value = _uiState.value.copy(visitCountedForCurrentScan = true)
     }
 }

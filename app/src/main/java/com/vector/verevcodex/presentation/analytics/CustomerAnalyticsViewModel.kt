@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -34,6 +35,13 @@ class CustomerAnalyticsViewModel @Inject constructor(
                     selectedRange = currentRange,
                     isLoading = false,
                     analytics = analytics,
+                )
+            }.onStart {
+                emit(
+                    CustomerAnalyticsUiState(
+                        selectedRange = range,
+                        isLoading = true,
+                    ),
                 )
             }
         }

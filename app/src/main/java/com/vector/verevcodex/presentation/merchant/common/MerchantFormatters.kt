@@ -12,6 +12,7 @@ import kotlin.math.abs
 
 private val wholeCurrencyFormat = DecimalFormat("#,##0", DecimalFormatSymbols(java.util.Locale.US))
 private val compactCurrencyFormat = DecimalFormat("0.#", DecimalFormatSymbols(java.util.Locale.US))
+private const val DEFAULT_CURRENCY_CODE = "AMD"
 
 fun formatCompactCount(value: Int): String {
     val absValue = abs(value)
@@ -22,14 +23,15 @@ fun formatCompactCount(value: Int): String {
     }
 }
 
-fun formatWholeCurrency(value: Double, suffix: String = "AMD"): String = "${wholeCurrencyFormat.format(value)} $suffix"
+fun formatWholeCurrency(value: Double, currencyCode: String = DEFAULT_CURRENCY_CODE): String =
+    "${wholeCurrencyFormat.format(value)} $currencyCode"
 
-fun formatCompactCurrency(value: Double, currencySymbol: String = "$", suffix: String = ""): String {
+fun formatCompactCurrency(value: Double, currencyCode: String = DEFAULT_CURRENCY_CODE): String {
     val absValue = abs(value)
     return when {
-        absValue >= 1_000_000 -> "$currencySymbol${compactCurrencyFormat.format(value / 1_000_000)}M$suffix"
-        absValue >= 1_000 -> "$currencySymbol${compactCurrencyFormat.format(value / 1_000)}k$suffix"
-        else -> "$currencySymbol${wholeCurrencyFormat.format(value)}$suffix"
+        absValue >= 1_000_000 -> "${compactCurrencyFormat.format(value / 1_000_000)}M $currencyCode"
+        absValue >= 1_000 -> "${compactCurrencyFormat.format(value / 1_000)}K $currencyCode"
+        else -> "${wholeCurrencyFormat.format(value)} $currencyCode"
     }
 }
 

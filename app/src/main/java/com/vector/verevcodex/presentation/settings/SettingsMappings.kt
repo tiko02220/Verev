@@ -8,6 +8,7 @@ import com.vector.verevcodex.domain.model.billing.InvoiceStatus
 import com.vector.verevcodex.domain.model.billing.SavedPaymentMethod
 import com.vector.verevcodex.domain.model.billing.SubscriptionPlan
 import com.vector.verevcodex.domain.model.settings.ThemeMode
+import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -39,7 +40,7 @@ internal fun BillingInvoice.toUi() = BillingEntryUi(
     id = id,
     title = title,
     subtitle = periodLabel,
-    amount = String.format(Locale.US, "$%.2f", amount),
+    amount = formatWholeCurrency(amount, currencyCode),
     statusRes = when (status) {
         InvoiceStatus.PAID -> R.string.merchant_invoice_status_paid
         InvoiceStatus.DUE -> R.string.merchant_invoice_status_due
@@ -47,13 +48,13 @@ internal fun BillingInvoice.toUi() = BillingEntryUi(
     },
 )
 
-internal fun BillingInvoice.amountLabel(): String = String.format(Locale.US, "$%.2f %s", amount, currencyCode)
+internal fun BillingInvoice.amountLabel(): String = formatWholeCurrency(amount, currencyCode)
 
 internal fun BillingInvoice.issuedDateLabel(): String =
     issuedDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
 
 internal fun SubscriptionPlan?.priceLabel(): String =
-    if (this == null) "-" else String.format(Locale.US, "$%.0f/mo", monthlyPrice)
+    if (this == null) "-" else String.format(Locale.US, "%.0f %s/mo", monthlyPrice, currencyCode)
 
 internal fun SubscriptionPlan?.renewalLabel(): String =
     this?.renewalDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "-"

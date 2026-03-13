@@ -12,5 +12,6 @@ class ObserveTransactionUseCase(private val repository: TransactionRepository) {
 }
 
 class RecordTransactionUseCase(private val repository: TransactionRepository) {
-    suspend operator fun invoke(transaction: Transaction) = repository.recordTransaction(transaction)
+    suspend operator fun invoke(transaction: Transaction, incrementVisit: Boolean = true) =
+        repository.recordTransaction(transaction, incrementVisit)
 }

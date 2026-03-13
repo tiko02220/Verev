@@ -31,15 +31,15 @@ class TransactionRepositoryImpl @Inject constructor(
             transaction?.toDomain(items)
         }
 
-    override suspend fun recordTransaction(transaction: Transaction) {
+    override suspend fun recordTransaction(transaction: Transaction, incrementVisit: Boolean) {
         database.transactionDao().insert(transaction.toEntity())
         database.transactionItemDao().insertAll(transaction.items.map { it.toEntity() })
         val customer = database.customerDao().getCustomer(transaction.customerId) ?: return
         val updatedCustomer = customer.copy(
-            totalVisits = customer.totalVisits + 1,
+            totalVisits = customer.totalVisits + if (incrementVisit) 1 else 0,
             totalSpent = customer.totalSpent + transaction.amount,
             currentPoints = customer.currentPoints + transaction.pointsEarned - transaction.pointsRedeemed,
-            lastVisit = transaction.timestamp.toString(),
+            lastVisit = if (incrementVisit) transaction.timestamp.toString() else customer.lastVisit,
             favoriteStoreId = transaction.storeId,
         )
         database.customerDao().update(updatedCustomer)

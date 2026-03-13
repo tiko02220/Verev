@@ -2,6 +2,8 @@
 
 package com.vector.verevcodex.presentation.analytics
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,6 +44,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,7 +59,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -72,11 +82,15 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantInteractiveCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
+import com.vector.verevcodex.presentation.merchant.common.displayName
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency
 import com.vector.verevcodex.presentation.merchant.common.formatPercent
 import com.vector.verevcodex.presentation.theme.VerevColors
 import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.floor
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -128,11 +142,18 @@ internal fun AnalyticsRangeSelector(
 ) {
     LazyRow(
         modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(AnalyticsTimeRange.entries.size) { index ->
             val range = AnalyticsTimeRange.entries[index]
             MerchantFilterChip(
+                modifier = Modifier.shadow(
+                    elevation = if (selectedRange == range) 8.dp else 4.dp,
+                    shape = RoundedCornerShape(100.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.06f),
+                    spotColor = Color.Black.copy(alpha = 0.06f),
+                ),
                 text = stringResource(range.labelRes()),
                 selected = selectedRange == range,
                 onClick = { onRangeSelected(range) },
@@ -186,10 +207,8 @@ internal fun AnalyticsOverviewHero(analytics: BusinessAnalytics) {
             AnalyticsNeutralMetricCard(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.merchant_analytics_promotion_roi_title),
-                value = formatPercent(analytics.rewardRedemptionRate),
-                supporting = analytics.topPromotionName.ifBlank {
-                    stringResource(R.string.merchant_analytics_none_label)
-                },
+                value = formatPercent(analytics.averagePromotionRoi),
+                supporting = stringResource(R.string.merchant_analytics_active_promotions_value, analytics.activePromotions),
                 icon = Icons.Default.CardGiftcard,
                 accent = VerevColors.Gold,
             )
@@ -244,8 +263,8 @@ internal fun AnalyticsOverviewActionGrid(
                         formatCompactCurrency(analytics.totalRevenue),
                     ),
                     AnalyticsInsightStat(
-                        stringResource(R.string.merchant_analytics_redemption_short),
-                        formatPercent(analytics.rewardRedemptionRate),
+                        stringResource(R.string.merchant_analytics_average_roi_title),
+                        formatPercent(analytics.averagePromotionRoi),
                     ),
                     AnalyticsInsightStat(
                         stringResource(R.string.merchant_analytics_top_short),
@@ -328,6 +347,7 @@ internal fun AnalyticsOverviewActionGrid(
 internal fun AnalyticsDualTrendCard(
     analytics: BusinessAnalytics,
     onOpenRevenueAnalytics: () -> Unit,
+    chartAnimationEpoch: Int,
 ) {
     AnalyticsOverviewSurface {
         AnalyticsCardHeader(
@@ -339,17 +359,27 @@ internal fun AnalyticsDualTrendCard(
         AnalyticsHeadlineRow(
             primaryTitle = stringResource(R.string.merchant_metric_revenue),
             primaryValue = formatCompactCurrency(analytics.totalRevenue),
-            secondaryTitle = stringResource(R.string.merchant_metric_visits_today),
-            secondaryValue = formatCompactCount(analytics.visitsToday),
+            secondaryTitle = stringResource(R.string.merchant_analytics_transaction_count_title),
+            secondaryValue = formatCompactCount(analytics.visitsInRange),
         )
-        AnalyticsAreaChartFromPoints(points = analytics.revenueTrend, lineColor = VerevColors.Gold)
+        AnalyticsAreaChartFromPoints(
+            points = analytics.revenueTrend,
+            lineColor = VerevColors.Gold,
+            animationEpoch = chartAnimationEpoch,
+            valueFormatter = { formatCompactCurrency(it.toDouble()) },
+        )
         AnalyticsMiniLegend(
             leftLabel = stringResource(R.string.merchant_analytics_revenue_legend),
             leftColor = VerevColors.Gold,
             rightLabel = stringResource(R.string.merchant_analytics_visit_legend),
             rightColor = VerevColors.Moss,
         )
-        AnalyticsBarChartFromPoints(points = analytics.visitTrend, accent = VerevColors.Moss)
+        AnalyticsBarChartFromPoints(
+            points = analytics.visitTrend,
+            accent = VerevColors.Moss,
+            animationEpoch = chartAnimationEpoch,
+            valueFormatter = { formatCompactCount(it.toInt()) },
+        )
     }
 }
 
@@ -357,6 +387,7 @@ internal fun AnalyticsDualTrendCard(
 internal fun AnalyticsCustomerGrowthCard(
     analytics: BusinessAnalytics,
     onOpenCustomerAnalytics: () -> Unit,
+    chartAnimationEpoch: Int,
 ) {
     AnalyticsOverviewSurface {
         AnalyticsCardHeader(
@@ -368,10 +399,17 @@ internal fun AnalyticsCustomerGrowthCard(
         AnalyticsHeadlineRow(
             primaryTitle = stringResource(R.string.merchant_metric_customers),
             primaryValue = formatCompactCount(analytics.totalCustomers),
-            secondaryTitle = stringResource(R.string.merchant_metric_retention),
-            secondaryValue = formatPercent(analytics.retentionRate),
+            secondaryTitle = stringResource(R.string.merchant_analytics_segment_new),
+            secondaryValue = formatCompactCount(analytics.newCustomers),
         )
-        AnalyticsBarChartFromPoints(points = analytics.visitTrend, accent = VerevColors.Moss)
+        AnalyticsGroupedBarChartFromPoints(
+            primaryPoints = analytics.newCustomerTrend,
+            secondaryPoints = analytics.returningCustomerTrend,
+            primaryAccent = VerevColors.Gold,
+            secondaryAccent = VerevColors.Moss,
+            animationEpoch = chartAnimationEpoch,
+            valueFormatter = { formatCompactCount(it.toInt()) },
+        )
         AnalyticsMiniLegend(
             leftLabel = stringResource(R.string.merchant_analytics_new_label),
             leftColor = VerevColors.Gold,
@@ -411,7 +449,7 @@ internal fun AnalyticsTopPerformanceCard(
             staffAnalytics.take(3).forEachIndexed { index, staff ->
                 AnalyticsRankCard(
                     rank = index + 1,
-                    title = stringResource(R.string.merchant_staff_rank_title, index + 1),
+                    title = staff.staffName.ifBlank { stringResource(R.string.merchant_staff_rank_title, index + 1) },
                     subtitle = stringResource(
                         R.string.merchant_staff_performance_subtitle,
                         formatCompactCount(staff.transactionsProcessed),
@@ -581,7 +619,10 @@ internal fun AnalyticsDetailHeader(
 }
 
 @Composable
-internal fun CustomerAnalyticsDetailContent(analytics: CustomerAnalyticsDrillDown) {
+internal fun CustomerAnalyticsDetailContent(
+    analytics: CustomerAnalyticsDrillDown,
+    chartAnimationEpoch: Int,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AnalyticsDetailHeroCard(
             title = stringResource(R.string.merchant_analytics_customers_detail_title),
@@ -605,35 +646,49 @@ internal fun CustomerAnalyticsDetailContent(analytics: CustomerAnalyticsDrillDow
         )
         AnalyticsComparisonCard(
             title = stringResource(R.string.merchant_analytics_customer_growth_title),
-            subtitle = stringResource(R.string.merchant_analytics_customer_activity_subtitle),
-            points = analytics.activityTrend,
-            accent = VerevColors.Moss,
-            secondaryAccent = VerevColors.Gold,
+            subtitle = stringResource(R.string.merchant_analytics_customer_growth_subtitle),
+            primaryPoints = analytics.newCustomerTrend,
+            secondaryPoints = analytics.returningCustomerTrend,
+            primaryAccent = VerevColors.Gold,
+            secondaryAccent = VerevColors.Moss,
+            legendLeftLabel = stringResource(R.string.merchant_analytics_new_label),
+            legendRightLabel = stringResource(R.string.merchant_analytics_returning_label),
+            valueFormatter = { formatCompactCount(it.toInt()) },
+            animationEpoch = chartAnimationEpoch,
         )
         AnalyticsComparisonCard(
             title = stringResource(R.string.merchant_metric_retention),
-            subtitle = stringResource(R.string.merchant_analytics_customer_growth_subtitle),
+            subtitle = stringResource(R.string.merchant_analytics_retention_mix_subtitle),
             points = analytics.retentionTrend,
             accent = VerevColors.Gold,
+            animationEpoch = chartAnimationEpoch,
         )
-        AnalyticsDonutSegmentCard(
-            title = stringResource(R.string.merchant_analytics_customer_tier_breakdown),
-            subtitle = stringResource(R.string.merchant_analytics_customer_segments_title),
-            segments = analytics.tierBreakdown,
-            accent = VerevColors.Forest,
-        )
+        if (analytics.hasTierAnalytics && analytics.tierBreakdown.isNotEmpty()) {
+            AnalyticsDonutSegmentCard(
+                title = stringResource(R.string.merchant_analytics_customer_tier_breakdown),
+                subtitle = stringResource(R.string.merchant_analytics_customer_segments_title),
+                segments = analytics.tierBreakdown,
+                accent = VerevColors.Forest,
+            )
+        }
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_customer_segments_title),
             segments = analytics.segmentBreakdown,
             accent = VerevColors.Gold,
             rich = true,
         )
-        AnalyticsTopCustomerShowcase(customers = analytics.topCustomers)
+        AnalyticsTopCustomerShowcase(
+            customers = analytics.topCustomers,
+            showTier = analytics.hasTierAnalytics,
+        )
     }
 }
 
 @Composable
-internal fun RevenueAnalyticsDetailContent(analytics: RevenueAnalyticsDrillDown) {
+internal fun RevenueAnalyticsDetailContent(
+    analytics: RevenueAnalyticsDrillDown,
+    chartAnimationEpoch: Int,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AnalyticsDetailHeroCard(
             title = stringResource(R.string.merchant_analytics_total_revenue),
@@ -656,12 +711,18 @@ internal fun RevenueAnalyticsDetailContent(analytics: RevenueAnalyticsDrillDown)
             subtitle = stringResource(R.string.merchant_analytics_revenue_chart_subtitle),
             points = analytics.revenueTrend,
             accent = VerevColors.Gold,
+            legendLeftLabel = stringResource(R.string.merchant_metric_revenue),
+            valueFormatter = { formatCompactCurrency(it.toDouble()) },
+            animationEpoch = chartAnimationEpoch,
         )
         AnalyticsComparisonCard(
             title = stringResource(R.string.merchant_analytics_hourly_revenue_title),
             subtitle = stringResource(R.string.merchant_analytics_time_bucket_subtitle),
             points = analytics.timeBucketTrend,
             accent = VerevColors.ForestBright,
+            legendLeftLabel = stringResource(R.string.merchant_metric_revenue),
+            valueFormatter = { formatCompactCurrency(it.toDouble()) },
+            animationEpoch = chartAnimationEpoch,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_revenue_sources_title),
@@ -691,11 +752,19 @@ internal fun PromotionAnalyticsDetailContent(analytics: PromotionAnalyticsDrillD
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_scheduled_promotions_subtitle), formatCompactCount(analytics.scheduledPromotions), VerevColors.ForestBright, Icons.Default.QueryStats),
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_status_inactive), formatCompactCount(analytics.expiredPromotions), VerevColors.Inactive, Icons.Default.Campaign),
         )
-        AnalyticsSegmentBlock(
+        AnalyticsComparisonCard(
+            title = stringResource(R.string.merchant_analytics_top_promotions),
+            subtitle = stringResource(R.string.merchant_analytics_top_promotions_subtitle),
+            points = analytics.topPromotions.toRevenueImpactPoints(),
+            accent = VerevColors.Gold,
+            legendLeftLabel = stringResource(R.string.merchant_metric_revenue),
+            valueFormatter = { formatCompactCurrency(it.toDouble()) },
+        )
+        AnalyticsDonutSegmentCard(
             title = stringResource(R.string.merchant_analytics_promotion_types),
+            subtitle = stringResource(R.string.merchant_analytics_promotion_types_subtitle),
             segments = analytics.typeBreakdown,
             accent = VerevColors.Gold,
-            rich = true,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_promotion_status_title),
@@ -735,11 +804,18 @@ internal fun ProgramAnalyticsDetailContent(analytics: ProgramAnalyticsDrillDown)
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_member_participation_title), formatPercent(analytics.memberParticipationRate), VerevColors.ForestBright, Icons.Default.Groups),
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_program_types_label), formatCompactCount(analytics.typeBreakdown.sumOf { it.value }), VerevColors.Tan, Icons.Default.QueryStats),
         )
-        AnalyticsSegmentBlock(
+        AnalyticsComparisonCard(
+            title = stringResource(R.string.merchant_analytics_top_programs),
+            subtitle = stringResource(R.string.merchant_analytics_top_programs_subtitle),
+            points = analytics.topPrograms.toProgramMemberPoints(),
+            accent = VerevColors.Forest,
+            legendLeftLabel = stringResource(R.string.merchant_analytics_member_participation_title),
+        )
+        AnalyticsDonutSegmentCard(
             title = stringResource(R.string.merchant_analytics_program_types),
+            subtitle = stringResource(R.string.merchant_analytics_program_types_subtitle),
             segments = analytics.typeBreakdown,
             accent = VerevColors.Forest,
-            rich = true,
         )
         AnalyticsSegmentBlock(
             title = stringResource(R.string.merchant_analytics_program_reward_usage_title),
@@ -766,7 +842,10 @@ internal fun ProgramAnalyticsDetailContent(analytics: ProgramAnalyticsDrillDown)
 }
 
 @Composable
-internal fun StaffAnalyticsLeaderboard(staffAnalytics: List<StaffAnalytics>) {
+internal fun StaffAnalyticsLeaderboard(
+    staffAnalytics: List<StaffAnalytics>,
+    chartAnimationEpoch: Int,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AnalyticsDetailHeroCard(
             title = stringResource(R.string.merchant_staff_analytics_title),
@@ -786,6 +865,15 @@ internal fun StaffAnalyticsLeaderboard(staffAnalytics: List<StaffAnalytics>) {
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_redemption_short), formatCompactCount(staffAnalytics.sumOf { it.rewardsRedeemed }), VerevColors.Moss, Icons.Default.CardGiftcard),
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_active_staff_short), formatCompactCount(staffAnalytics.size), VerevColors.ForestBright, Icons.Default.Groups),
             AnalyticsDetailMetric(stringResource(R.string.merchant_analytics_avg_sales_short), formatCompactCurrency(staffAnalytics.firstOrNull()?.averageTransactionValue ?: 0.0), VerevColors.Tan, Icons.Default.TrendingUp),
+        )
+        AnalyticsComparisonCard(
+            title = stringResource(R.string.merchant_staff_analytics_revenue_chart_title),
+            subtitle = stringResource(R.string.merchant_staff_analytics_revenue_chart_subtitle),
+            points = staffAnalytics.toStaffRevenuePoints(),
+            accent = VerevColors.Tan,
+            legendLeftLabel = stringResource(R.string.merchant_metric_revenue),
+            valueFormatter = { formatCompactCurrency(it.toDouble()) },
+            animationEpoch = chartAnimationEpoch,
         )
         MerchantPrimaryCard {
             MerchantSectionTitle(text = stringResource(R.string.merchant_staff_analytics_ranking_title))
@@ -838,7 +926,15 @@ private fun AnalyticsKpiCard(
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    MerchantPrimaryCard(modifier = modifier, contentPadding = PaddingValues(18.dp)) {
+    MerchantPrimaryCard(
+        modifier = modifier.shadow(
+            elevation = 7.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+        contentPadding = PaddingValues(18.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
                 modifier = Modifier
@@ -865,6 +961,12 @@ private fun AnalyticsHeaderActionButton(
     Box(
         modifier = Modifier
             .size(40.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = CircleShape,
+                ambientColor = Color.Black.copy(alpha = 0.08f),
+                spotColor = Color.Black.copy(alpha = 0.08f),
+            )
             .clip(CircleShape)
             .background(Color.White)
             .clickable(onClick = onClick),
@@ -883,15 +985,18 @@ private fun AnalyticsHeaderActionButton(
 private fun AnalyticsCardHeader(
     title: String,
     subtitle: String,
-    actionText: String,
-    onClick: () -> Unit,
+    actionText: String? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             Text(
                 text = title,
                 fontSize = 16.sp,
@@ -906,20 +1011,23 @@ private fun AnalyticsCardHeader(
                 color = VerevColors.Forest.copy(alpha = 0.58f),
             )
         }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(VerevColors.Moss.copy(alpha = 0.12f))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            Text(
-                text = actionText,
-                fontSize = 12.sp,
-                lineHeight = 14.sp,
-                color = VerevColors.Moss,
-                fontWeight = FontWeight.Medium,
-            )
+        if (actionText != null && onClick != null) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(VerevColors.Moss.copy(alpha = 0.12f))
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = actionText,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    color = VerevColors.Moss,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -935,6 +1043,12 @@ private fun AnalyticsGradientMetricCard(
 ) {
     Column(
         modifier = modifier
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.08f),
+                spotColor = Color.Black.copy(alpha = 0.08f),
+            )
             .clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(gradient))
             .padding(horizontal = 15.dp, vertical = 14.dp),
@@ -987,6 +1101,12 @@ private fun AnalyticsNeutralMetricCard(
 ) {
     Column(
         modifier = modifier
+            .shadow(
+                elevation = 7.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.06f),
+                spotColor = Color.Black.copy(alpha = 0.06f),
+            )
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
             .padding(horizontal = 15.dp, vertical = 14.dp),
@@ -1036,6 +1156,12 @@ private fun AnalyticsHighlightChip(
 ) {
     Column(
         modifier = modifier
+            .shadow(
+                elevation = 5.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.05f),
+            )
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1224,6 +1350,12 @@ private fun AnalyticsDetailHeroCard(
 ) {
     Column(
         modifier = Modifier
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(28.dp),
+                ambientColor = Color.Black.copy(alpha = 0.08f),
+                spotColor = Color.Black.copy(alpha = 0.08f),
+            )
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(accent))
@@ -1307,19 +1439,77 @@ private fun AnalyticsComparisonCard(
     points: List<AnalyticsPoint>,
     accent: Color,
     secondaryAccent: Color = VerevColors.ForestBright,
+    legendLeftLabel: String? = null,
+    legendRightLabel: String? = null,
+    valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
+    animationEpoch: Int = 0,
 ) {
-    MerchantPrimaryCard {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.06f),
+            spotColor = Color.Black.copy(alpha = 0.06f),
+        ),
+    ) {
         AnalyticsCardHeader(
             title = title,
             subtitle = subtitle,
-            actionText = stringResource(R.string.merchant_analytics_view_details),
-            onClick = {},
         )
-        AnalyticsAreaChartFromPoints(points = points, lineColor = accent)
+        AnalyticsAreaChartFromPoints(
+            points = points,
+            lineColor = accent,
+            animationEpoch = animationEpoch,
+            valueFormatter = valueFormatter,
+        )
+        if (legendLeftLabel != null) {
+            AnalyticsMiniLegend(
+                leftLabel = legendLeftLabel,
+                leftColor = accent,
+                rightLabel = legendRightLabel,
+                rightColor = secondaryAccent,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsComparisonCard(
+    title: String,
+    subtitle: String,
+    primaryPoints: List<AnalyticsPoint>,
+    secondaryPoints: List<AnalyticsPoint>,
+    primaryAccent: Color,
+    secondaryAccent: Color,
+    legendLeftLabel: String,
+    legendRightLabel: String,
+    valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
+    animationEpoch: Int = 0,
+) {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.06f),
+            spotColor = Color.Black.copy(alpha = 0.06f),
+        ),
+    ) {
+        AnalyticsCardHeader(
+            title = title,
+            subtitle = subtitle,
+        )
+        AnalyticsGroupedBarChartFromPoints(
+            primaryPoints = primaryPoints,
+            secondaryPoints = secondaryPoints,
+            primaryAccent = primaryAccent,
+            secondaryAccent = secondaryAccent,
+            animationEpoch = animationEpoch,
+            valueFormatter = valueFormatter,
+        )
         AnalyticsMiniLegend(
-            leftLabel = stringResource(R.string.merchant_analytics_new_label),
-            leftColor = accent,
-            rightLabel = stringResource(R.string.merchant_analytics_returning_label),
+            leftLabel = legendLeftLabel,
+            leftColor = primaryAccent,
+            rightLabel = legendRightLabel,
             rightColor = secondaryAccent,
         )
     }
@@ -1332,7 +1522,14 @@ private fun AnalyticsSegmentBlock(
     accent: Color,
     rich: Boolean = false,
 ) {
-    MerchantPrimaryCard {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 7.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+    ) {
         MerchantSectionTitle(text = title)
         segments.forEach { segment ->
             Row(
@@ -1402,7 +1599,14 @@ private fun AnalyticsDonutSegmentCard(
     segments: List<AnalyticsSegment>,
     accent: Color,
 ) {
-    MerchantPrimaryCard {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.06f),
+            spotColor = Color.Black.copy(alpha = 0.06f),
+        ),
+    ) {
         Text(
             text = title,
             fontSize = 16.sp,
@@ -1510,18 +1714,33 @@ private fun AnalyticsDonutChart(
 @Composable
 private fun AnalyticsTopCustomerShowcase(
     customers: List<com.vector.verevcodex.domain.model.customer.TopCustomerAnalytics>,
+    showTier: Boolean,
 ) {
-    MerchantPrimaryCard {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 8.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.06f),
+            spotColor = Color.Black.copy(alpha = 0.06f),
+        ),
+    ) {
         MerchantSectionTitle(text = stringResource(R.string.merchant_analytics_top_customers))
         customers.forEachIndexed { index, customer ->
             AnalyticsCustomerRankCard(
                 rank = index + 1,
                 title = customer.customerName,
-                subtitle = stringResource(
-                    R.string.merchant_analytics_top_customer_subtitle,
-                    customer.loyaltyTier.name,
-                    formatCompactCount(customer.totalVisits),
-                ),
+                subtitle = if (showTier) {
+                    stringResource(
+                        R.string.merchant_analytics_top_customer_subtitle,
+                        customer.loyaltyTier.displayName(),
+                        formatCompactCount(customer.totalVisits),
+                    )
+                } else {
+                    stringResource(
+                        R.string.merchant_analytics_top_customer_visits_subtitle,
+                        formatCompactCount(customer.totalVisits),
+                    )
+                },
                 value = formatCompactCurrency(customer.totalSpent),
             )
         }
@@ -1565,9 +1784,26 @@ private fun AnalyticsRankCard(
         }
     }
     if (onClick != null) {
-        MerchantInteractiveCard(onClick = onClick, contentPadding = PaddingValues(16.dp)) { content() }
+        MerchantInteractiveCard(
+            onClick = onClick,
+            modifier = Modifier.shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.05f),
+            ),
+            contentPadding = PaddingValues(16.dp),
+        ) { content() }
     } else {
-        MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) { content() }
+        MerchantPrimaryCard(
+            modifier = Modifier.shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = Color.Black.copy(alpha = 0.05f),
+                spotColor = Color.Black.copy(alpha = 0.05f),
+            ),
+            contentPadding = PaddingValues(16.dp),
+        ) { content() }
     }
 }
 
@@ -1578,7 +1814,15 @@ private fun AnalyticsCustomerRankCard(
     subtitle: String,
     value: String,
 ) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 6.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+        contentPadding = PaddingValues(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1628,7 +1872,15 @@ private fun AnalyticsPromotionPerformanceCard(
     rank: Int,
     promotion: com.vector.verevcodex.domain.model.promotions.PromotionPerformance,
 ) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 6.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+        contentPadding = PaddingValues(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1646,7 +1898,7 @@ private fun AnalyticsPromotionPerformanceCard(
                         Text(
                             text = stringResource(
                                 R.string.merchant_analytics_promotion_rank_subtitle,
-                                promotion.type.name.replace('_', ' '),
+                                promotion.type.name.analyticsHumanize(),
                                 if (promotion.active) stringResource(R.string.merchant_analytics_status_active) else stringResource(R.string.merchant_analytics_status_inactive),
                             ),
                             style = MaterialTheme.typography.bodySmall,
@@ -1694,7 +1946,15 @@ private fun AnalyticsProgramPerformanceCard(
     rank: Int,
     program: com.vector.verevcodex.domain.model.loyalty.ProgramPerformance,
 ) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 6.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+        contentPadding = PaddingValues(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1712,7 +1972,7 @@ private fun AnalyticsProgramPerformanceCard(
                         Text(
                             text = stringResource(
                                 R.string.merchant_analytics_program_rank_subtitle,
-                                program.type.name.replace('_', ' '),
+                                program.type.name.analyticsHumanize(),
                                 formatCompactCount(program.memberCount),
                             ),
                             style = MaterialTheme.typography.bodySmall,
@@ -1760,7 +2020,15 @@ private fun AnalyticsStaffPerformanceCard(
     rank: Int,
     staff: StaffAnalytics,
 ) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
+    MerchantPrimaryCard(
+        modifier = Modifier.shadow(
+            elevation = 6.dp,
+            shape = RoundedCornerShape(24.dp),
+            ambientColor = Color.Black.copy(alpha = 0.05f),
+            spotColor = Color.Black.copy(alpha = 0.05f),
+        ),
+        contentPadding = PaddingValues(16.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1775,7 +2043,7 @@ private fun AnalyticsStaffPerformanceCard(
                     }
                     Column {
                         Text(
-                            text = stringResource(R.string.merchant_staff_rank_title, rank),
+                            text = staff.staffName.ifBlank { stringResource(R.string.merchant_staff_rank_title, rank) },
                             style = MaterialTheme.typography.titleMedium,
                             color = VerevColors.Forest,
                             fontWeight = FontWeight.SemiBold,
@@ -1818,7 +2086,7 @@ private fun AnalyticsStaffPerformanceCard(
                     )
                     AnalyticsInlineStat(
                         modifier = Modifier.weight(1f),
-                        label = stringResource(R.string.merchant_metric_visits_today),
+                        label = stringResource(R.string.merchant_analytics_transaction_count_subtitle),
                         value = formatCompactCount(staff.transactionsProcessed),
                     )
                 }
@@ -1850,10 +2118,20 @@ private fun AnalyticsInlineStat(
 }
 
 @Composable
-private fun AnalyticsMiniLegend(leftLabel: String, leftColor: Color, rightLabel: String, rightColor: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+private fun AnalyticsMiniLegend(
+    leftLabel: String,
+    leftColor: Color,
+    rightLabel: String? = null,
+    rightColor: Color = leftColor,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         AnalyticsLegendDot(color = leftColor, label = leftLabel)
-        AnalyticsLegendDot(color = rightColor, label = rightLabel)
+        if (rightLabel != null) {
+            AnalyticsLegendDot(color = rightColor, label = rightLabel)
+        }
     }
 }
 
@@ -1871,42 +2149,125 @@ internal fun AnalyticsAreaChartFromPoints(
     lineColor: Color,
     modifier: Modifier = Modifier,
     chartHeight: Dp = 180.dp,
+    animationEpoch: Int = 0,
+    valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
     val chartPoints = points.map { AnalyticsChartPoint(label = it.label, primary = it.value) }
-    val maxValue = max(chartPoints.maxOfOrNull { it.primary } ?: 1f, 1f)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier.fillMaxWidth()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = chartHeight),
-        ) {
-            if (chartPoints.size < 2) return@Canvas
-            val spacing = size.width / (chartPoints.size - 1).coerceAtLeast(1)
-            val linePath = Path()
-            val fillPath = Path()
-            chartPoints.forEachIndexed { index, point ->
-                val x = spacing * index
-                val y = size.height - ((point.primary / maxValue) * (size.height * 0.82f))
-                if (index == 0) {
-                    linePath.moveTo(x, y)
-                    fillPath.moveTo(x, size.height)
-                    fillPath.lineTo(x, y)
-                } else {
-                    linePath.lineTo(x, y)
-                    fillPath.lineTo(x, y)
+    val chartScale = remember(chartPoints) {
+        analyticsChartScale(chartPoints.maxOfOrNull { it.primary } ?: 0f)
+    }
+    val maxValue = chartScale.maxValue
+    val yAxisValues = remember(chartScale, valueFormatter) {
+        chartScale.axisValues.map(valueFormatter)
+    }
+    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
+    val animatedRevealProgress by animateFloatAsState(
+        targetValue = revealProgress,
+        animationSpec = tween(durationMillis = 850),
+        label = "analyticsAreaReveal",
+    )
+    LaunchedEffect(animationEpoch, points) {
+        revealProgress = 0f
+        delay(40)
+        revealProgress = 1f
+    }
+    AnalyticsChartFrame(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(
+                    modifier = Modifier.width(52.dp).height(chartHeight),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    yAxisValues.forEach { value ->
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VerevColors.Forest.copy(alpha = 0.52f),
+                            maxLines = 1,
+                        )
+                    }
+                }
+                Canvas(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(chartHeight),
+                ) {
+                    if (chartPoints.size < 2) return@Canvas
+                    val bucketWidth = size.width / chartPoints.size.toFloat().coerceAtLeast(1f)
+                    val plotTop = analyticsPlotTop()
+                    val plotBottom = analyticsPlotBottom()
+                    val plotHeight = plotBottom - plotTop
+                    drawAnalyticsGrid(columnCount = chartPoints.size)
+                    val linePath = Path()
+                    val fillPath = Path()
+                    chartPoints.forEachIndexed { index, point ->
+                        val x = (bucketWidth * index) + (bucketWidth / 2f)
+                        val y = plotBottom - ((point.primary / maxValue) * plotHeight * animatedRevealProgress)
+                        if (index == 0) {
+                            linePath.moveTo(x, y)
+                            fillPath.moveTo(x, plotBottom)
+                            fillPath.lineTo(x, y)
+                        } else {
+                            linePath.lineTo(x, y)
+                            fillPath.lineTo(x, y)
+                        }
+                    }
+                    fillPath.lineTo(size.width, plotBottom)
+                    fillPath.close()
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                lineColor.copy(alpha = 0.24f * animatedRevealProgress.coerceIn(0f, 1f)),
+                                Color.Transparent,
+                            ),
+                        ),
+                    )
+                    drawPath(
+                        path = linePath,
+                        color = lineColor.copy(alpha = 0.45f + (0.55f * animatedRevealProgress.coerceIn(0f, 1f))),
+                        style = Stroke(width = 6f, cap = StrokeCap.Round),
+                    )
+                    chartPoints.forEachIndexed { index, point ->
+                        val x = (bucketWidth * index) + (bucketWidth / 2f)
+                        val y = plotBottom - ((point.primary / maxValue) * plotHeight * animatedRevealProgress)
+                        drawCircle(
+                            color = lineColor,
+                            radius = 4.dp.toPx(),
+                            center = androidx.compose.ui.geometry.Offset(x, y),
+                        )
+                        drawCircle(
+                            color = Color.White,
+                            radius = 2.dp.toPx(),
+                            center = androidx.compose.ui.geometry.Offset(x, y),
+                        )
+                    }
                 }
             }
-            fillPath.lineTo(size.width, size.height)
-            fillPath.close()
-            drawPath(
-                path = fillPath,
-                brush = Brush.verticalGradient(listOf(lineColor.copy(alpha = 0.24f), Color.Transparent)),
-            )
-            drawPath(path = linePath, color = lineColor, style = Stroke(width = 6f, cap = StrokeCap.Round))
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            chartPoints.forEach {
-                Text(text = it.label, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.5f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Spacer(modifier = Modifier.width(52.dp))
+                Row(modifier = Modifier.weight(1f)) {
+                    chartPoints.forEach {
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = it.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = VerevColors.Forest.copy(alpha = 0.62f),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -1918,37 +2279,358 @@ internal fun AnalyticsBarChartFromPoints(
     accent: Color,
     modifier: Modifier = Modifier,
     chartHeight: Dp = 140.dp,
+    animationEpoch: Int = 0,
+    valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val maxValue = max(points.maxOfOrNull { it.value } ?: 1f, 1f)
-    Row(
-        modifier = modifier.fillMaxWidth().height(chartHeight),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        points.forEach { point ->
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom,
+    val chartScale = remember(points) {
+        analyticsChartScale(points.maxOfOrNull { it.value } ?: 0f)
+    }
+    val maxValue = chartScale.maxValue
+    val yAxisValues = remember(chartScale, valueFormatter) {
+        chartScale.axisValues.map(valueFormatter)
+    }
+    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
+    val animatedRevealProgress by animateFloatAsState(
+        targetValue = revealProgress,
+        animationSpec = tween(durationMillis = 700),
+        label = "analyticsBarReveal",
+    )
+    LaunchedEffect(animationEpoch, points) {
+        revealProgress = 0f
+        delay(40)
+        revealProgress = 1f
+    }
+    AnalyticsChartFrame(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                Column(
+                    modifier = Modifier.width(52.dp).height(chartHeight),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    yAxisValues.forEach { value ->
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VerevColors.Forest.copy(alpha = 0.52f),
+                            maxLines = 1,
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height((point.value / maxValue * chartHeight.value).dp)
-                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                        .background(accent.copy(alpha = 0.88f)),
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(text = point.label, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.52f))
+                        .weight(1f)
+                        .height(chartHeight),
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(chartHeight),
+                    ) {
+                        drawAnalyticsGrid(columnCount = points.size)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(chartHeight),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        points.forEach { point ->
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Bottom,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(chartHeight * ((point.value / maxValue) * animatedRevealProgress))
+                                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                                        .background(accent.copy(alpha = 0.88f)),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Spacer(modifier = Modifier.width(52.dp))
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    points.forEach { point ->
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = point.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = VerevColors.Forest.copy(alpha = 0.62f),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+@Composable
+internal fun AnalyticsGroupedBarChartFromPoints(
+    primaryPoints: List<AnalyticsPoint>,
+    secondaryPoints: List<AnalyticsPoint>,
+    primaryAccent: Color,
+    secondaryAccent: Color,
+    modifier: Modifier = Modifier,
+    chartHeight: Dp = 148.dp,
+    animationEpoch: Int = 0,
+    valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
+) {
+    val chartPoints = remember(primaryPoints, secondaryPoints) {
+        primaryPoints.mapIndexed { index, point ->
+            AnalyticsChartPoint(
+                label = point.label,
+                primary = point.value,
+                secondary = secondaryPoints.getOrNull(index)?.value ?: 0f,
+            )
+        }
+    }
+    val chartScale = remember(chartPoints) {
+        analyticsChartScale(chartPoints.maxOfOrNull { max(it.primary, it.secondary) } ?: 0f)
+    }
+    val maxValue = chartScale.maxValue
+    val yAxisValues = remember(chartScale, valueFormatter) {
+        chartScale.axisValues.map(valueFormatter)
+    }
+    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
+    val animatedRevealProgress by animateFloatAsState(
+        targetValue = revealProgress,
+        animationSpec = tween(durationMillis = 760),
+        label = "analyticsGroupedBarReveal",
+    )
+    LaunchedEffect(animationEpoch, primaryPoints, secondaryPoints) {
+        revealProgress = 0f
+        delay(40)
+        revealProgress = 1f
+    }
+    AnalyticsChartFrame(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(
+                    modifier = Modifier.width(52.dp).height(chartHeight),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    yAxisValues.forEach { value ->
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = VerevColors.Forest.copy(alpha = 0.52f),
+                            maxLines = 1,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(chartHeight),
+                ) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(chartHeight),
+                    ) {
+                        drawAnalyticsGrid(columnCount = chartPoints.size)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(chartHeight),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        chartPoints.forEach { point ->
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(chartHeight * ((point.primary / maxValue) * animatedRevealProgress))
+                                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                        .background(primaryAccent.copy(alpha = 0.92f)),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(chartHeight * ((point.secondary / maxValue) * animatedRevealProgress))
+                                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                        .background(secondaryAccent.copy(alpha = 0.88f)),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Spacer(modifier = Modifier.width(52.dp))
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    chartPoints.forEach { point ->
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = point.label,
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp,
+                                color = VerevColors.Forest.copy(alpha = 0.66f),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsChartFrame(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(22.dp),
+                ambientColor = Color.Black.copy(alpha = 0.04f),
+                spotColor = Color.Black.copy(alpha = 0.04f),
+            )
+            .clip(RoundedCornerShape(22.dp))
+            .background(VerevColors.SurfaceSoft)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
+}
+
 private data class AnalyticsChartPoint(
     val label: String,
     val primary: Float,
+    val secondary: Float = 0f,
 )
+
+private fun List<com.vector.verevcodex.domain.model.promotions.PromotionPerformance>.toRevenueImpactPoints(): List<AnalyticsPoint> =
+    take(5).map { promotion ->
+        AnalyticsPoint(promotion.name.analyticsCompactLabel(), promotion.revenueImpact.toFloat())
+    }
+
+private fun List<com.vector.verevcodex.domain.model.loyalty.ProgramPerformance>.toProgramMemberPoints(): List<AnalyticsPoint> =
+    take(5).map { program ->
+        AnalyticsPoint(program.name.analyticsCompactLabel(), program.memberCount.toFloat())
+    }
+
+private fun List<StaffAnalytics>.toStaffRevenuePoints(): List<AnalyticsPoint> =
+    take(5).map { staff ->
+        AnalyticsPoint(staff.staffName.analyticsCompactLabel(), staff.revenueHandled.toFloat())
+    }
+
+private fun String.analyticsCompactLabel(): String {
+    val words = trim().split(" ").filter { it.isNotBlank() }
+    return when {
+        words.isEmpty() -> ""
+        words.size == 1 -> words.first().take(6)
+        else -> words.take(3).joinToString("") { it.take(1).uppercase() }
+    }
+}
+
+private fun String.analyticsHumanize(): String =
+    lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
+
+private data class AnalyticsChartScale(
+    val maxValue: Float,
+    val axisValues: List<Float>,
+)
+
+private fun analyticsChartScale(rawMaxValue: Float): AnalyticsChartScale {
+    val safeMaxValue = max(rawMaxValue, 1f)
+    val roughStep = safeMaxValue / 3f
+    val magnitude = 10f.pow(floor(kotlin.math.log10(roughStep.toDouble())).toFloat())
+    val normalized = roughStep / magnitude
+    val step = max(
+        when {
+        normalized <= 1f -> 1f * magnitude
+        normalized <= 2f -> 2f * magnitude
+        normalized <= 5f -> 5f * magnitude
+        else -> 10f * magnitude
+        },
+        1f,
+    )
+    val niceMax = max(step * 3f, 1f)
+    return AnalyticsChartScale(
+        maxValue = niceMax,
+        axisValues = listOf(niceMax, niceMax - step, niceMax - (step * 2f), 0f),
+    )
+}
+
+private fun DrawScope.analyticsPlotTop(): Float = 8.dp.toPx()
+
+private fun DrawScope.analyticsPlotBottom(): Float = size.height - 8.dp.toPx()
+
+private fun DrawScope.drawAnalyticsGrid(columnCount: Int) {
+    val plotTop = analyticsPlotTop()
+    val plotBottom = analyticsPlotBottom()
+    val plotHeight = plotBottom - plotTop
+    val strokeWidth = 1.dp.toPx()
+    repeat(columnCount.coerceAtLeast(1)) { index ->
+        val x = if (columnCount <= 1) {
+            size.width / 2f
+        } else {
+            val step = size.width / columnCount.toFloat()
+            (step * index) + (step / 2f)
+        }
+        drawLine(
+            color = VerevColors.Forest.copy(alpha = 0.12f),
+            start = androidx.compose.ui.geometry.Offset(x, plotTop),
+            end = androidx.compose.ui.geometry.Offset(x, plotBottom),
+            strokeWidth = strokeWidth,
+        )
+    }
+    repeat(4) { index ->
+        val y = plotTop + (plotHeight * (index / 3f))
+        drawLine(
+            color = VerevColors.Forest.copy(alpha = 0.10f),
+            start = androidx.compose.ui.geometry.Offset(0f, y),
+            end = androidx.compose.ui.geometry.Offset(size.width, y),
+            strokeWidth = strokeWidth,
+        )
+    }
+}
 
 private fun AnalyticsTimeRange.labelRes(): Int = when (this) {
     AnalyticsTimeRange.WEEK -> R.string.merchant_range_week
