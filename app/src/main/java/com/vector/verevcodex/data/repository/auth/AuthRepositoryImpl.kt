@@ -155,6 +155,7 @@ class AuthRepositoryImpl @Inject constructor(
             fullName = account.fullName.trim(),
             email = account.email.trim().lowercase(),
             phoneNumber = business.phoneNumber,
+            profilePhotoUri = "",
             password = account.password,
             role = StaffRole.OWNER.name,
             active = true,
@@ -191,6 +192,7 @@ class AuthRepositoryImpl @Inject constructor(
                 fullName = update.fullName.trim(),
                 email = normalizedEmail,
                 phoneNumber = update.phoneNumber.trim(),
+                profilePhotoUri = update.profilePhotoUri.trim(),
             )
         )
         return Result.success(Unit)

@@ -4,4 +4,5 @@ data class PersonalInformationUpdate(
     val fullName: String,
     val email: String,
     val phoneNumber: String,
+    val profilePhotoUri: String,
 )

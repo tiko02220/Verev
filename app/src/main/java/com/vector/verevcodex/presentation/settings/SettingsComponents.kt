@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,19 +34,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.auth.AuthUser
-import com.vector.verevcodex.presentation.merchant.common.MerchantMenuRow
-import com.vector.verevcodex.presentation.merchant.common.MerchantPageHeader
-import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
+import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 internal fun SettingsHeader(roleSubtitle: String) {
-    MerchantPageHeader(
-        title = stringResource(R.string.merchant_settings_title),
-        subtitle = roleSubtitle,
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(R.string.merchant_settings_title),
+            style = MaterialTheme.typography.headlineMedium,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = roleSubtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = VerevColors.Forest.copy(alpha = 0.7f),
+        )
+    }
 }
 
 @Composable
@@ -59,6 +64,7 @@ internal fun SettingsBusinessCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
         Row(
             modifier = Modifier
@@ -75,16 +81,20 @@ internal fun SettingsBusinessCard(
                     .background(VerevColors.White.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Storefront, contentDescription = null, tint = VerevColors.White, modifier = Modifier.size(28.dp))
+                Icon(
+                    imageVector = Icons.Default.Storefront,
+                    contentDescription = null,
+                    tint = VerevColors.White,
+                    modifier = Modifier.size(28.dp),
+                )
             }
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = store?.name ?: stringResource(R.string.merchant_select_store),
                     style = MaterialTheme.typography.titleLarge,
                     color = VerevColors.White,
                     fontWeight = FontWeight.Medium,
                 )
-                Spacer(Modifier.size(2.dp))
                 Text(
                     text = buildString {
                         append(store?.category ?: stringResource(R.string.merchant_business_location))
@@ -98,10 +108,9 @@ internal fun SettingsBusinessCard(
                         )
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.White.copy(alpha = 0.8f),
+                    color = VerevColors.White.copy(alpha = 0.82f),
                 )
                 currentUser?.email?.takeIf { it.isNotBlank() }?.let { email ->
-                    Spacer(Modifier.size(2.dp))
                     Text(
                         text = email,
                         style = MaterialTheme.typography.bodySmall,
@@ -109,7 +118,11 @@ internal fun SettingsBusinessCard(
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = VerevColors.White.copy(alpha = 0.8f))
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = VerevColors.White.copy(alpha = 0.8f),
+            )
         }
     }
 }
@@ -122,6 +135,87 @@ internal data class SettingsMenuItem(
 )
 
 @Composable
+private fun SettingsGroupLabel(
+    title: String,
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = VerevColors.Forest.copy(alpha = 0.55f),
+        fontWeight = FontWeight.Medium,
+    )
+}
+
+@Composable
+private fun SettingsMenuCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = VerevColors.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                VerevColors.Moss.copy(alpha = 0.12f),
+                                VerevColors.Forest.copy(alpha = 0.12f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = VerevColors.Forest,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                    maxLines = 1,
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = VerevColors.Forest.copy(alpha = 0.34f),
+            )
+        }
+    }
+}
+
+@Composable
 internal fun SettingsMenuRow(
     title: String,
     subtitle: String,
@@ -129,20 +223,59 @@ internal fun SettingsMenuRow(
     trailingLabel: String,
     onClick: () -> Unit,
 ) {
-    MerchantMenuRow(
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        onClick = onClick,
-        trailing = {
-            Text(
-                text = trailingLabel,
-                color = VerevColors.Moss,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-            )
-        },
-    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = VerevColors.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(VerevColors.AppBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = VerevColors.Forest, modifier = Modifier.size(20.dp))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                )
+            }
+            if (trailingLabel.isNotBlank()) {
+                Text(
+                    text = trailingLabel,
+                    color = VerevColors.Moss,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = VerevColors.Forest.copy(alpha = 0.34f),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -151,16 +284,13 @@ internal fun SettingsGroup(
     items: List<SettingsMenuItem>,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        MerchantSectionTitle(text = title)
+        SettingsGroupLabel(title = title)
         items.forEach { item ->
-            MerchantMenuRow(
+            SettingsMenuCard(
                 title = item.title,
                 subtitle = item.subtitle,
                 icon = item.icon,
                 onClick = item.onClick,
-                trailing = {
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = VerevColors.Inactive)
-                },
             )
         }
     }
@@ -168,19 +298,34 @@ internal fun SettingsGroup(
 
 @Composable
 internal fun SettingsLogoutButton(onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = VerevColors.White, contentColor = VerevColors.Danger),
+        colors = CardDefaults.cardColors(containerColor = VerevColors.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(vertical = 4.dp),
         ) {
-            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-            Text(text = stringResource(R.string.merchant_logout), fontWeight = FontWeight.Medium)
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+                tint = VerevColors.Danger,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.size(12.dp))
+            Text(
+                text = stringResource(R.string.merchant_logout),
+                color = VerevColors.Danger,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+            )
         }
     }
 }
@@ -229,24 +374,38 @@ internal fun SettingsLogoutDialog(
                     color = VerevColors.Forest.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                 )
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth(),
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onConfirm),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = VerevColors.DangerStrong,
-                        contentColor = VerevColors.White,
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = VerevColors.DangerStrong),
                 ) {
-                    Text(stringResource(R.string.merchant_logout))
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.merchant_logout),
+                            color = VerevColors.White,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
-                Button(
-                    onClick = onCancel,
-                    modifier = Modifier.fillMaxWidth(),
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onCancel),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.White, contentColor = VerevColors.Moss),
+                    colors = CardDefaults.cardColors(containerColor = VerevColors.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    Text(stringResource(R.string.auth_cancel))
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.auth_cancel),
+                            color = VerevColors.Moss,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
         }

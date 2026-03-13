@@ -8,6 +8,7 @@ data class AuthUser(
     val fullName: String,
     val email: String,
     val phoneNumber: String,
+    val profilePhotoUri: String,
     val role: StaffRole,
     val active: Boolean,
 )

@@ -10,6 +10,7 @@ data class AuthAccountEntity(
     val fullName: String,
     val email: String,
     val phoneNumber: String,
+    val profilePhotoUri: String,
     val password: String,
     val role: String,
     val active: Boolean,

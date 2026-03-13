@@ -64,7 +64,7 @@ import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
         BillingInvoiceEntity::class,
         BranchConfigurationEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

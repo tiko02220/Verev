@@ -82,6 +82,7 @@ class StaffRepositoryImpl @Inject constructor(
                     fullName = member.fullName.trim(),
                     email = member.email.trim().lowercase(),
                     phoneNumber = "",
+                    profilePhotoUri = "",
                     password = member.password,
                     role = member.role.name,
                     active = true,

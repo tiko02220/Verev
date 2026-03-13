@@ -4,6 +4,16 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigrations {
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                ALTER TABLE `auth_accounts` ADD COLUMN `profilePhotoUri` TEXT NOT NULL DEFAULT ''
+                """.trimIndent(),
+            )
+        }
+    }
+
     val MIGRATION_8_9 = object : Migration(8, 9) {
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL(
@@ -249,6 +259,7 @@ object AppDatabaseMigrations {
         MIGRATION_6_7,
         MIGRATION_7_8,
         MIGRATION_8_9,
+        MIGRATION_9_10,
     )
 }
 

@@ -234,29 +234,23 @@ fun BusinessSettingsScreen(
                         icon = Icons.Default.Groups,
                         onClick = onOpenStaff,
                     ),
+                    SettingsMenuItem(
+                        title = stringResource(R.string.merchant_settings_payments),
+                        subtitle = stringResource(R.string.merchant_settings_payments_subtitle),
+                        icon = Icons.Default.Payments,
+                        onClick = onOpenPayments,
+                    ),
+                    SettingsMenuItem(
+                        title = stringResource(R.string.merchant_settings_branding),
+                        subtitle = stringResource(R.string.merchant_settings_branding_subtitle),
+                        icon = Icons.Default.Palette,
+                        onClick = onOpenBranding,
+                    ),
                 )
             )
         }
         add(
             stringResource(R.string.merchant_settings_group_tools) to listOf(
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_reports),
-                    subtitle = stringResource(R.string.merchant_settings_reports_subtitle),
-                    icon = Icons.Default.Description,
-                    onClick = onOpenReports,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_payments),
-                    subtitle = stringResource(R.string.merchant_settings_payments_subtitle),
-                    icon = Icons.Default.Payments,
-                    onClick = onOpenPayments,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_branding),
-                    subtitle = stringResource(R.string.merchant_settings_branding_subtitle),
-                    icon = Icons.Default.Palette,
-                    onClick = onOpenBranding,
-                ),
                 SettingsMenuItem(
                     title = stringResource(R.string.merchant_settings_privacy),
                     subtitle = stringResource(R.string.merchant_settings_privacy_subtitle),
@@ -285,9 +279,10 @@ fun BusinessSettingsScreen(
         item {
             androidx.compose.material3.Text(
                 text = stringResource(R.string.merchant_settings_version_label),
-                modifier = Modifier,
+                modifier = Modifier.fillParentMaxWidth(),
                 color = com.vector.verevcodex.presentation.theme.VerevColors.Inactive,
                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
         item { SettingsLogoutButton(onClick = { showLogoutDialog = true }) }

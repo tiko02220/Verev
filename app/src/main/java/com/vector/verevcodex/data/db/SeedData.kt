@@ -412,9 +412,9 @@ object SeedData {
     )
 
     val authAccounts = listOf(
-        AuthAccountEntity("auth-owner-1", owner.id, "Test Owner", "owner@verevcrm.local", owner.phoneNumber, "12345678", "OWNER", true),
-        AuthAccountEntity("auth-manager-1", staff[1].id, "Mariam Petrosyan", "manager@gmail.com", staff[1].phoneNumber, "12345678", "STORE_MANAGER", true),
-        AuthAccountEntity("auth-staff-1", staff[2].id, "Narek Sahakyan", "staff@gmail.com", staff[2].phoneNumber, "12345678", "STAFF", true),
+        AuthAccountEntity("auth-owner-1", owner.id, "Test Owner", "owner@verevcrm.local", owner.phoneNumber, "", "12345678", "OWNER", true),
+        AuthAccountEntity("auth-manager-1", staff[1].id, "Mariam Petrosyan", "manager@gmail.com", staff[1].phoneNumber, "", "12345678", "STORE_MANAGER", true),
+        AuthAccountEntity("auth-staff-1", staff[2].id, "Narek Sahakyan", "staff@gmail.com", staff[2].phoneNumber, "", "12345678", "STAFF", true),
     )
 
     val brandingSettings = listOf(

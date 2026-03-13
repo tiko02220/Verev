@@ -71,25 +71,12 @@ fun BusinessDetailsScreen(
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
     val selectedStore = shellState.selectedStore
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsDetailInnerScaffold(
+        title = stringResource(R.string.merchant_business_details_title),
+        subtitle = stringResource(R.string.merchant_business_details_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_business_details_title),
-                subtitle = stringResource(R.string.merchant_business_details_subtitle),
-                icon = Icons.Default.Business,
-                colors = listOf(VerevColors.Forest, Color(0xFF1A5C47)),
-            )
-        }
         item {
             SettingsDetailSection(title = stringResource(R.string.merchant_business_details_current_location)) {
                 SettingsDetailRow(
@@ -240,25 +227,12 @@ fun PaymentMethodsScreen(
         )
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsDetailInnerScaffold(
+        title = stringResource(R.string.merchant_payment_methods_title),
+        subtitle = stringResource(R.string.merchant_payment_methods_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_payment_methods_title),
-                subtitle = stringResource(R.string.merchant_payment_methods_subtitle),
-                icon = Icons.Default.Payments,
-                colors = listOf(VerevColors.Gold, VerevColors.Tan),
-            )
-        }
         state.messageRes?.let { messageRes ->
             item {
                 SettingsDetailSection(title = stringResource(messageRes)) {
@@ -373,25 +347,12 @@ fun BrandingScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedPalette = state.palettes.firstOrNull { it.id == state.selectedPaletteId }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsDetailInnerScaffold(
+        title = stringResource(R.string.merchant_branding_title),
+        subtitle = stringResource(R.string.merchant_branding_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_branding_title),
-                subtitle = stringResource(R.string.merchant_branding_subtitle),
-                icon = Icons.Default.Palette,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
         item {
             SettingsDetailSection(title = stringResource(R.string.merchant_branding_preview_title)) {
                 Box(
@@ -476,25 +437,12 @@ fun PrivacyTermsScreen(
     var expandedSectionId by rememberSaveable { mutableStateOf("privacy_main") }
     val sections = rememberPrivacySections(activeTab)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsDetailInnerScaffold(
+        title = stringResource(R.string.merchant_privacy_title),
+        subtitle = stringResource(R.string.merchant_privacy_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_privacy_title),
-                subtitle = stringResource(R.string.merchant_privacy_subtitle),
-                icon = Icons.Default.PrivacyTip,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -572,6 +520,34 @@ fun PrivacyTermsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsDetailInnerScaffold(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    contentPadding: PaddingValues,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        SettingsCompactHeader(
+            title = title,
+            subtitle = subtitle,
+            onBack = onBack,
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = content,
+        )
     }
 }
 

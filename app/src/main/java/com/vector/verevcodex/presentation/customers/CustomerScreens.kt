@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,7 +28,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.common.state.UiState
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
-import com.vector.verevcodex.presentation.merchant.common.displayName
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
