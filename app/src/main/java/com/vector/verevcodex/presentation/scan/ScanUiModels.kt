@@ -34,6 +34,7 @@ data class ScanUiState(
     val availableActions: List<RewardProgramScanAction> = emptyList(),
     val activeScanMethod: ScanMethod? = null,
     val scannedLoyaltyId: String? = null,
+    val visitCountedForCurrentScan: Boolean = false,
     val customer: Customer? = null,
     val selectedAction: RewardProgramScanAction? = null,
     val isSearching: Boolean = false,

@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.promotions
 
 import com.vector.verevcodex.domain.model.promotions.Campaign
+import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import java.time.temporal.ChronoUnit
 
 internal data class NetworkPromotionBreakdown(
@@ -19,6 +20,6 @@ internal fun Campaign.toNetworkPromotionBreakdown(): NetworkPromotionBreakdown {
     val estimatedReach = NETWORK_PROMOTION_REACH_BASE + (promotionValue * NETWORK_PROMOTION_REACH_MULTIPLIER).toInt()
     return NetworkPromotionBreakdown(
         estimatedReach = estimatedReach,
-        totalLabel = "$" + String.format("%,.0f", total.toDouble()),
+        totalLabel = formatWholeCurrency(total.toDouble()),
     )
 }

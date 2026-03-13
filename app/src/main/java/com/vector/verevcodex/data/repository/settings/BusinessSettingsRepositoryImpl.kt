@@ -164,7 +164,7 @@ class BusinessSettingsRepositoryImpl @Inject constructor(
                     ownerId = ownerId,
                     name = BusinessSettingsDefaults.subscriptionPlanId,
                     monthlyPrice = BillingPlanCatalog.find(BusinessSettingsDefaults.subscriptionPlanId)?.monthlyPrice ?: 99.0,
-                    currencyCode = BillingPlanCatalog.find(BusinessSettingsDefaults.subscriptionPlanId)?.currencyCode ?: "USD",
+                    currencyCode = BillingPlanCatalog.find(BusinessSettingsDefaults.subscriptionPlanId)?.currencyCode ?: "AMD",
                     renewalDate = LocalDate.now().plusMonths(1).toString(),
                     active = true,
                 )

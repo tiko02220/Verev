@@ -174,7 +174,8 @@ private fun PromotionHeroMetric(label: String, value: String, modifier: Modifier
     }
 }
 
-private fun formatPromotionRevenue(value: Double): String = "$" + String.format("%,.0f", value)
+private fun formatPromotionRevenue(value: Double): String =
+    com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency(value)
 
 @Composable
 internal fun PromotionsFilterRow(selectedFilter: PromotionFilter, onSelected: (PromotionFilter) -> Unit) {

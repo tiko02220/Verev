@@ -5,6 +5,7 @@ import com.vector.verevcodex.domain.model.analytics.AnalyticsSegment
 
 data class CustomerAnalyticsDrillDown(
     val storeId: String?,
+    val hasTierAnalytics: Boolean,
     val totalCustomers: Int,
     val newCustomers: Int,
     val returningCustomers: Int,
@@ -15,6 +16,7 @@ data class CustomerAnalyticsDrillDown(
     val topCustomers: List<TopCustomerAnalytics>,
     val tierBreakdown: List<AnalyticsSegment>,
     val segmentBreakdown: List<AnalyticsSegment>,
-    val activityTrend: List<AnalyticsPoint>,
+    val newCustomerTrend: List<AnalyticsPoint>,
+    val returningCustomerTrend: List<AnalyticsPoint>,
     val retentionTrend: List<AnalyticsPoint>,
 )

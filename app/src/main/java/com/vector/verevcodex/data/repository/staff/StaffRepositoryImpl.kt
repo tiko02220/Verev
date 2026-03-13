@@ -41,6 +41,7 @@ class StaffRepositoryImpl @Inject constructor(
             StaffAnalytics(
                 id = member.id,
                 staffId = member.id,
+                staffName = listOf(member.firstName, member.lastName).joinToString(" ").trim(),
                 storeId = member.storeId,
                 transactionsProcessed = handled.size,
                 revenueHandled = revenue,

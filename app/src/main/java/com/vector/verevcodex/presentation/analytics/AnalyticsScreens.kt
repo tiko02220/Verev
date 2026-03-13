@@ -18,20 +18,26 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.reports.ReportsViewModel
 import com.vector.verevcodex.presentation.theme.VerevColors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 
 @Composable
@@ -47,6 +53,7 @@ fun AnalyticsDashboardScreen(
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
     val reportsState = reportsViewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     var showExportSheet by rememberSaveable { mutableStateOf(false) }
     var showAutoReportSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -87,8 +94,8 @@ fun AnalyticsDashboardScreen(
         } else state.businessAnalytics?.let { analytics ->
             item { AnalyticsOverviewHero(analytics) }
             item { AnalyticsOverviewMetricStrip(analytics) }
-            item { AnalyticsDualTrendCard(analytics, onOpenRevenueAnalytics) }
-            item { AnalyticsCustomerGrowthCard(analytics, onOpenCustomerAnalytics) }
+            item { AnalyticsDualTrendCard(analytics, onOpenRevenueAnalytics, chartAnimationEpoch) }
+            item { AnalyticsCustomerGrowthCard(analytics, onOpenCustomerAnalytics, chartAnimationEpoch) }
             item {
                 AnalyticsOverviewActionGrid(
                     analytics = analytics,
@@ -135,6 +142,7 @@ fun StaffAnalyticsScreen(
     viewModel: StaffAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_staff_analytics_title),
         subtitle = stringResource(R.string.merchant_staff_analytics_detail_subtitle),
@@ -144,7 +152,8 @@ fun StaffAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Person,
         isLoading = state.isLoading,
-        body = { StaffAnalyticsLeaderboard(it) },
+        body = { analytics, animationEpoch -> StaffAnalyticsLeaderboard(analytics, animationEpoch) },
+        chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.staffAnalytics.takeIf { it.isNotEmpty() },
     )
 }
@@ -156,6 +165,7 @@ fun CustomerAnalyticsScreen(
     viewModel: CustomerAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_analytics_customers_detail_title),
         subtitle = stringResource(R.string.merchant_analytics_customers_detail_subtitle),
@@ -165,7 +175,8 @@ fun CustomerAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Groups,
         isLoading = state.isLoading,
-        body = { CustomerAnalyticsDetailContent(it) },
+        body = { analytics, animationEpoch -> CustomerAnalyticsDetailContent(analytics, animationEpoch) },
+        chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.analytics,
     )
 }
@@ -177,6 +188,7 @@ fun RevenueAnalyticsScreen(
     viewModel: RevenueAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_analytics_revenue_detail_title),
         subtitle = stringResource(R.string.merchant_analytics_revenue_detail_subtitle),
@@ -186,7 +198,8 @@ fun RevenueAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Payments,
         isLoading = state.isLoading,
-        body = { RevenueAnalyticsDetailContent(it) },
+        body = { analytics, animationEpoch -> RevenueAnalyticsDetailContent(analytics, animationEpoch) },
+        chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.analytics,
     )
 }
@@ -198,6 +211,7 @@ fun PromotionAnalyticsScreen(
     viewModel: PromotionAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_analytics_promotions_detail_title),
         subtitle = stringResource(R.string.merchant_analytics_promotions_detail_subtitle),
@@ -207,7 +221,8 @@ fun PromotionAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Campaign,
         isLoading = state.isLoading,
-        body = { PromotionAnalyticsDetailContent(it) },
+        body = { analytics, _ -> PromotionAnalyticsDetailContent(analytics) },
+        chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.analytics,
     )
 }
@@ -219,6 +234,7 @@ fun ProgramAnalyticsScreen(
     viewModel: ProgramAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_analytics_programs_detail_title),
         subtitle = stringResource(R.string.merchant_analytics_programs_detail_subtitle),
@@ -228,7 +244,8 @@ fun ProgramAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.CardGiftcard,
         isLoading = state.isLoading,
-        body = { ProgramAnalyticsDetailContent(it) },
+        body = { analytics, _ -> ProgramAnalyticsDetailContent(analytics) },
+        chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.analytics,
     )
 }
@@ -244,7 +261,8 @@ private fun <T> AnalyticsDetailScreenContainer(
     emptyIcon: androidx.compose.ui.graphics.vector.ImageVector,
     analytics: T?,
     isLoading: Boolean,
-    body: @Composable (T) -> Unit,
+    chartAnimationEpoch: Int,
+    body: @Composable (T, Int) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         AnalyticsDetailHeader(
@@ -283,7 +301,7 @@ private fun <T> AnalyticsDetailScreenContainer(
             }
             if (isLoading) {
                 item { AnalyticsLoadingStateCard() }
-            } else analytics?.let { item { body(it) } } ?: item {
+            } else analytics?.let { item { body(it, chartAnimationEpoch) } } ?: item {
                 AnalyticsEmptyStateCard(
                     title = stringResource(R.string.merchant_analytics_empty_title),
                     subtitle = stringResource(R.string.merchant_analytics_empty_subtitle),
@@ -292,4 +310,25 @@ private fun <T> AnalyticsDetailScreenContainer(
             }
         }
     }
+}
+
+@Composable
+private fun rememberAnalyticsChartAnimationEpoch(): Int {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var epoch by rememberSaveable { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            epoch += 1
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                epoch += 1
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    return epoch
 }

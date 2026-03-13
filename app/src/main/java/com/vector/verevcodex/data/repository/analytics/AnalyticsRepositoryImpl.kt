@@ -74,6 +74,7 @@ class AnalyticsRepositoryImpl @Inject constructor(
         val previousWindow = range.previousWindowBefore(today)
         val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
         val previousTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end)
+        val scopedPromotions = promotions.filter { it.endDate >= rangeWindow.start && it.startDate <= rangeWindow.end }
         val totalRevenue = rangeTransactions.sumOf { it.amount }
         val previousRevenue = previousTransactions.sumOf { it.amount }
         val newCustomersInRange = customers.count { it.enrolledDate in rangeWindow.start..rangeWindow.end }
@@ -85,23 +86,29 @@ class AnalyticsRepositoryImpl @Inject constructor(
             totalCustomers = customers.distinctBy(Customer::id).size,
             newCustomers = newCustomersInRange,
             visitsToday = transactions.count { it.timestamp.toLocalDate() == today },
+            visitsInRange = rangeTransactions.size,
             totalRevenue = totalRevenue,
             averagePurchaseValue = rangeTransactions.averageAmount(),
             rewardRedemptionRate = rangeTransactions.redemptionRate(),
+            averagePromotionRoi = scopedPromotions.averagePromotionRoi(rangeTransactions),
+            activePromotions = scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) },
             retentionRate = customers.retentionRate(),
             revenueGrowthRate = growthRate(totalRevenue, previousRevenue),
             customerGrowthRate = growthRate(newCustomersInRange.toDouble(), previousNewCustomers.toDouble()),
             topCustomerName = customers.maxByOrNull(Customer::totalSpent)?.displayName().orEmpty(),
-            topPromotionName = topPromotionName(promotions, rangeTransactions),
+            topPromotionName = topPromotionName(scopedPromotions, rangeTransactions),
             revenueTrend = buildPeriodRevenueTrend(rangeTransactions, range),
             visitTrend = buildPeriodVisitTrend(rangeTransactions, range),
+            newCustomerTrend = buildNewCustomerTrend(customers, range),
+            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeTransactions, range),
         )
     }
 
     override fun observeCustomerAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<CustomerAnalyticsDrillDown> = combine(
         database.customerDao().observeCustomers(storeId),
         database.transactionDao().observeTransactions(storeId),
-    ) { customerEntities, transactionEntities ->
+        loyaltyRepository.observePrograms(storeId),
+    ) { customerEntities, transactionEntities, programs ->
         val today = LocalDate.now()
         val customers = customerEntities.map { it.toDomain() }
         val transactions = transactionEntities.map { it.toDomain(emptyList()) }
@@ -110,9 +117,11 @@ class AnalyticsRepositoryImpl @Inject constructor(
         val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
         val currentVisitors = rangeTransactions.map(Transaction::customerId).toSet()
         val previousVisitors = transactions.inDateRange(previousWindow.start, previousWindow.end).map(Transaction::customerId).toSet()
+        val hasTierAnalytics = programs.any { it.active && it.configuration.tierTrackingEnabled }
 
         CustomerAnalyticsDrillDown(
             storeId = storeId,
+            hasTierAnalytics = hasTierAnalytics,
             totalCustomers = customers.size,
             newCustomers = customers.count { it.enrolledDate in rangeWindow.start..rangeWindow.end },
             returningCustomers = customers.count { it.totalVisits > 1 },
@@ -131,14 +140,15 @@ class AnalyticsRepositoryImpl @Inject constructor(
                         loyaltyTier = customer.loyaltyTier,
                     )
                 },
-            tierBreakdown = customerTierSegments(customers),
+            tierBreakdown = if (hasTierAnalytics) customerTierSegments(customers) else emptyList(),
             segmentBreakdown = listOf(
                 AnalyticsSegment("High value", customers.count { it.totalSpent >= highValueThreshold(customers) }),
                 AnalyticsSegment("At risk", customers.count { it.lastVisit == null || it.lastVisit.toLocalDate().isBefore(today.minusDays(30)) }),
                 AnalyticsSegment("Inactive", customers.count { it.lastVisit == null || it.lastVisit.toLocalDate().isBefore(today.minusDays(45)) }),
                 AnalyticsSegment("Returning", customers.count { it.totalVisits > 1 }),
             ).filter { it.value > 0 },
-            activityTrend = buildCustomerActivityTrend(customers, rangeTransactions, range),
+            newCustomerTrend = buildNewCustomerTrend(customers, range),
+            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeTransactions, range),
             retentionTrend = buildRetentionTrend(range, currentVisitors, previousVisitors),
         )
     }
@@ -367,40 +377,91 @@ private fun growthRate(current: Double, previous: Double): Double = when {
 }
 
 private fun buildPeriodRevenueTrend(transactions: List<Transaction>, range: AnalyticsTimeRange): List<AnalyticsPoint> = when (range) {
-    WEEK -> buildDailyPoints(7) { date -> transactions.filter { it.timestamp.toLocalDate() == date }.sumOf(Transaction::amount).toFloat() }
+    WEEK -> buildWeekdayPoints { date -> transactions.filter { it.timestamp.toLocalDate() == date }.sumOf(Transaction::amount).toFloat() }
     MONTH -> buildWeeklyPoints(5) { start, end -> transactions.filter { it.timestamp.toLocalDate() in start..end }.sumOf(Transaction::amount).toFloat() }
     QUARTER -> buildMonthlyPoints(3) { month -> transactions.filter { YearMonth.from(it.timestamp) == month }.sumOf(Transaction::amount).toFloat() }
     YEAR -> buildMonthlyPoints(12) { month -> transactions.filter { YearMonth.from(it.timestamp) == month }.sumOf(Transaction::amount).toFloat() }
 }
 
 private fun buildPeriodVisitTrend(transactions: List<Transaction>, range: AnalyticsTimeRange): List<AnalyticsPoint> = when (range) {
-    WEEK -> buildDailyPoints(7) { date -> transactions.count { it.timestamp.toLocalDate() == date }.toFloat() }
+    WEEK -> buildWeekdayPoints { date -> transactions.count { it.timestamp.toLocalDate() == date }.toFloat() }
     MONTH -> buildWeeklyPoints(5) { start, end -> transactions.count { it.timestamp.toLocalDate() in start..end }.toFloat() }
     QUARTER -> buildMonthlyPoints(3) { month -> transactions.count { YearMonth.from(it.timestamp) == month }.toFloat() }
     YEAR -> buildMonthlyPoints(12) { month -> transactions.count { YearMonth.from(it.timestamp) == month }.toFloat() }
 }
 
-private fun buildCustomerActivityTrend(customers: List<Customer>, transactions: List<Transaction>, range: AnalyticsTimeRange): List<AnalyticsPoint> = when (range) {
-    WEEK -> buildDailyPoints(7) { date ->
-        val newCustomers = customers.count { it.enrolledDate == date }
-        val visits = transactions.count { it.timestamp.toLocalDate() == date }
-        (newCustomers + visits).toFloat()
+private fun buildNewCustomerTrend(customers: List<Customer>, range: AnalyticsTimeRange): List<AnalyticsPoint> = when (range) {
+    WEEK -> buildWeekdayPoints { date ->
+        customers.count { it.enrolledDate == date }.toFloat()
     }
     MONTH -> buildWeeklyPoints(5) { start, end ->
-        val newCustomers = customers.count { it.enrolledDate in start..end }
-        val visits = transactions.count { it.timestamp.toLocalDate() in start..end }
-        (newCustomers + visits).toFloat()
+        customers.count { it.enrolledDate in start..end }.toFloat()
     }
     QUARTER -> buildMonthlyPoints(3) { month ->
-        val newCustomers = customers.count { YearMonth.from(it.enrolledDate) == month }
-        val visits = transactions.count { YearMonth.from(it.timestamp) == month }
-        (newCustomers + visits).toFloat()
+        customers.count { YearMonth.from(it.enrolledDate) == month }.toFloat()
     }
     YEAR -> buildMonthlyPoints(12) { month ->
-        val newCustomers = customers.count { YearMonth.from(it.enrolledDate) == month }
-        val visits = transactions.count { YearMonth.from(it.timestamp) == month }
-        (newCustomers + visits).toFloat()
+        customers.count { YearMonth.from(it.enrolledDate) == month }.toFloat()
     }
+}
+
+private fun buildReturningCustomerTrend(
+    customers: List<Customer>,
+    transactions: List<Transaction>,
+    range: AnalyticsTimeRange,
+): List<AnalyticsPoint> = when (range) {
+    WEEK -> buildWeekdayPoints { date ->
+        returningCustomersForBucket(
+            customers = customers,
+            transactions = transactions,
+            start = date,
+            end = date,
+        ).toFloat()
+    }
+    MONTH -> buildWeeklyPoints(5) { start, end ->
+        returningCustomersForBucket(
+            customers = customers,
+            transactions = transactions,
+            start = start,
+            end = end,
+        ).toFloat()
+    }
+    QUARTER -> buildMonthlyPoints(3) { month ->
+        returningCustomersForBucket(
+            customers = customers,
+            transactions = transactions,
+            start = month.atDay(1),
+            end = month.atEndOfMonth(),
+        ).toFloat()
+    }
+    YEAR -> buildMonthlyPoints(12) { month ->
+        returningCustomersForBucket(
+            customers = customers,
+            transactions = transactions,
+            start = month.atDay(1),
+            end = month.atEndOfMonth(),
+        ).toFloat()
+    }
+}
+
+private fun returningCustomersForBucket(
+    customers: List<Customer>,
+    transactions: List<Transaction>,
+    start: LocalDate,
+    end: LocalDate,
+): Int {
+    val returningCustomerIds = customers
+        .asSequence()
+        .filter { it.enrolledDate < start }
+        .map(Customer::id)
+        .toSet()
+    return transactions
+        .asSequence()
+        .filter { it.timestamp.toLocalDate() in start..end }
+        .map(Transaction::customerId)
+        .filter { it in returningCustomerIds }
+        .distinct()
+        .count()
 }
 
 private fun buildRetentionTrend(range: AnalyticsTimeRange, currentVisitors: Set<String>, previousVisitors: Set<String>): List<AnalyticsPoint> {
@@ -462,6 +523,17 @@ private fun estimatePromotionRevenueImpact(promotion: Campaign, transactions: Li
     transactions.filter { it.metadata.contains(promotion.id) || it.metadata.contains(promotion.name, ignoreCase = true) }
         .sumOf(Transaction::amount)
 
+private fun List<Campaign>.averagePromotionRoi(transactions: List<Transaction>): Double =
+    map { promotion ->
+        val usageCount = estimatePromotionUsage(promotion, transactions).coerceAtLeast(1)
+        val revenueImpact = estimatePromotionRevenueImpact(promotion, transactions)
+        if (promotion.promotionValue <= 0.0) {
+            revenueImpact
+        } else {
+            revenueImpact / (promotion.promotionValue * usageCount)
+        }
+    }.average().takeIf { !it.isNaN() } ?: 0.0
+
 private fun rewardUsageBreakdown(transactions: List<Transaction>): List<AnalyticsSegment> = listOf(
     AnalyticsSegment("Points issued", transactions.sumOf(Transaction::pointsEarned)),
     AnalyticsSegment("Points redeemed", transactions.sumOf(Transaction::pointsRedeemed)),
@@ -497,6 +569,14 @@ private fun buildDailyPoints(days: Int, valueForDate: (LocalDate) -> Float): Lis
     return (days - 1 downTo 0).map { offset ->
         val date = today.minusDays(offset.toLong())
         AnalyticsPoint(date.dayOfWeek.name.take(3), valueForDate(date))
+    }
+}
+
+private fun buildWeekdayPoints(valueForDate: (LocalDate) -> Float): List<AnalyticsPoint> {
+    val monday = AnalyticsTimeRange.WEEK.startDateFrom(LocalDate.now())
+    return (0..6).map { offset ->
+        val date = monday.plusDays(offset.toLong())
+        AnalyticsPoint(date.dayOfWeek.name.take(3).lowercase().replaceFirstChar(Char::uppercase), valueForDate(date))
     }
 }
 
