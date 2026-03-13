@@ -74,7 +74,7 @@ class PasswordSecurityViewModel @Inject constructor(
                             newPassword = "",
                             confirmPassword = "",
                             isSavingPassword = false,
-                            messageRes = R.string.merchant_settings_message_password_updated,
+                            messageRes = null,
                         )
                     }
                 }
@@ -114,7 +114,7 @@ class PasswordSecurityViewModel @Inject constructor(
                         newPin = "",
                         confirmPin = "",
                         isSavingPin = false,
-                        messageRes = R.string.merchant_settings_message_quick_pin_updated,
+                        messageRes = null,
                     )
                 }
             }.onFailure { throwable ->
@@ -137,11 +137,7 @@ class PasswordSecurityViewModel @Inject constructor(
                         it.copy(
                             biometricEnabled = enabled,
                             isSavingBiometric = false,
-                            messageRes = if (enabled) {
-                                R.string.merchant_settings_message_biometric_enabled
-                            } else {
-                                R.string.merchant_settings_message_biometric_disabled
-                            },
+                            messageRes = null,
                         )
                     }
                 }
