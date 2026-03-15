@@ -4,6 +4,49 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object AppDatabaseMigrations {
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canViewAnalytics` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canManagePrograms` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canProcessTransactions` INTEGER NOT NULL DEFAULT 1")
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canManageCustomers` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canManageStaff` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `staff` ADD COLUMN `canViewSettings` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canViewAnalytics` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canManagePrograms` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canProcessTransactions` INTEGER NOT NULL DEFAULT 1")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canManageCustomers` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canManageStaff` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `auth_accounts` ADD COLUMN `canViewSettings` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("UPDATE `staff` SET `canViewAnalytics` = 1, `canManagePrograms` = 1, `canProcessTransactions` = 1, `canManageCustomers` = 1, `canManageStaff` = 1, `canViewSettings` = 1 WHERE `role` = 'OWNER'")
+            database.execSQL("UPDATE `staff` SET `canViewAnalytics` = 1, `canManagePrograms` = 1, `canProcessTransactions` = 1, `canManageCustomers` = 1, `canManageStaff` = 0, `canViewSettings` = 0 WHERE `role` = 'STORE_MANAGER'")
+            database.execSQL("UPDATE `staff` SET `canViewAnalytics` = 0, `canManagePrograms` = 0, `canProcessTransactions` = 1, `canManageCustomers` = 0, `canManageStaff` = 0, `canViewSettings` = 0 WHERE `role` IN ('CASHIER', 'STAFF')")
+            database.execSQL("UPDATE `auth_accounts` SET `canViewAnalytics` = 1, `canManagePrograms` = 1, `canProcessTransactions` = 1, `canManageCustomers` = 1, `canManageStaff` = 1, `canViewSettings` = 1 WHERE `role` = 'OWNER'")
+            database.execSQL("UPDATE `auth_accounts` SET `canViewAnalytics` = 1, `canManagePrograms` = 1, `canProcessTransactions` = 1, `canManageCustomers` = 1, `canManageStaff` = 0, `canViewSettings` = 0 WHERE `role` = 'STORE_MANAGER'")
+            database.execSQL("UPDATE `auth_accounts` SET `canViewAnalytics` = 0, `canManagePrograms` = 0, `canProcessTransactions` = 1, `canManageCustomers` = 0, `canManageStaff` = 0, `canViewSettings` = 0 WHERE `role` IN ('CASHIER', 'STAFF')")
+        }
+    }
+
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE `campaigns` ADD COLUMN `imageUri` TEXT NOT NULL DEFAULT ''")
+            database.execSQL("ALTER TABLE `campaigns` ADD COLUMN `minimumPurchaseAmount` REAL NOT NULL DEFAULT 0.0")
+            database.execSQL("ALTER TABLE `campaigns` ADD COLUMN `usageLimit` INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE `campaigns` ADD COLUMN `visibility` TEXT NOT NULL DEFAULT 'BUSINESS_ONLY'")
+            database.execSQL("ALTER TABLE `campaigns` ADD COLUMN `boostLevel` TEXT")
+        }
+    }
+
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                ALTER TABLE `branding_settings` ADD COLUMN `logoUri` TEXT NOT NULL DEFAULT ''
+                """.trimIndent(),
+            )
+        }
+    }
+
     val MIGRATION_9_10 = object : Migration(9, 10) {
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL(
@@ -260,6 +303,9 @@ object AppDatabaseMigrations {
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
+        MIGRATION_10_11,
+        MIGRATION_11_12,
+        MIGRATION_12_13,
     )
 }
 
@@ -272,6 +318,7 @@ private fun recreateSettingsTables(database: SupportSQLiteDatabase) {
             `selectedPaletteId` TEXT NOT NULL,
             `themeMode` TEXT NOT NULL,
             `accentColor` TEXT NOT NULL,
+            `logoUri` TEXT NOT NULL,
             PRIMARY KEY(`storeId`)
         )
         """.trimIndent(),

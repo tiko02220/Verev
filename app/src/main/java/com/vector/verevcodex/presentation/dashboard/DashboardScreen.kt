@@ -52,10 +52,10 @@ fun DashboardScreen(
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 24.dp,
+            top = contentPadding.calculateTopPadding() + 18.dp,
             bottom = contentPadding.calculateBottomPadding() + 96.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         when (val snapshotState = state) {
             UiState.Loading -> {

@@ -4,13 +4,17 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
-import com.vector.verevcodex.domain.model.business.StaffMember
-import com.vector.verevcodex.domain.model.common.StaffRole
-import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
+import com.vector.verevcodex.domain.model.business.StaffMember
+import com.vector.verevcodex.domain.model.business.StaffMemberDraft
+import com.vector.verevcodex.domain.model.common.StaffPermissions
+import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.summary
 import com.vector.verevcodex.domain.repository.store.StoreRepository
 import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
+import com.vector.verevcodex.domain.usecase.staff.RemoveStaffMemberUseCase
+import com.vector.verevcodex.domain.usecase.staff.UpdateStaffMemberUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +31,8 @@ import kotlinx.coroutines.launch
 class StaffViewModel @Inject constructor(
     private val storeRepository: StoreRepository,
     private val addStaffMembersUseCase: AddStaffMembersUseCase,
+    private val updateStaffMemberUseCase: UpdateStaffMemberUseCase,
+    private val removeStaffMemberUseCase: RemoveStaffMemberUseCase,
     observeStaffUseCase: ObserveStaffUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(StaffUiState())
@@ -46,7 +52,14 @@ class StaffViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    fun addMember(fullName: String, email: String, password: String, role: StaffRole) {
+    fun addMember(
+        fullName: String,
+        email: String,
+        phoneNumber: String,
+        password: String,
+        role: StaffRole,
+        permissions: StaffPermissions,
+    ) {
         val selectedStoreId = _uiState.value.selectedStoreId
         if (selectedStoreId.isNullOrBlank()) {
             publishError(R.string.merchant_staff_error_missing_store)
@@ -73,9 +86,11 @@ class StaffViewModel @Inject constructor(
                     StaffOnboardingMember(
                         fullName = fullName.trim(),
                         email = email.trim().lowercase(),
+                        phoneNumber = phoneNumber.trim(),
                         password = password,
                         role = role,
-                        permissionsSummary = role.defaultPermissionsSummary(),
+                        permissionsSummary = permissions.summary(),
+                        permissions = permissions,
                     )
                 ),
             ).fold(
@@ -83,6 +98,72 @@ class StaffViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         messageRes = R.string.merchant_staff_message_added,
+                    )
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        errorRes = R.string.merchant_staff_error_generic,
+                    )
+                },
+            )
+        }
+    }
+
+    fun updateMember(
+        staffId: String,
+        fullName: String,
+        email: String,
+        phoneNumber: String,
+        role: StaffRole,
+        permissions: StaffPermissions,
+    ) {
+        if (fullName.isBlank()) {
+            publishError(R.string.merchant_staff_error_name)
+            return
+        }
+        if (email.isBlank()) {
+            publishError(R.string.merchant_staff_error_email)
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, errorRes = null)
+            updateStaffMemberUseCase(
+                staffId,
+                StaffMemberDraft(
+                    fullName = fullName.trim(),
+                    email = email.trim().lowercase(),
+                    phoneNumber = phoneNumber.trim(),
+                    role = role,
+                    permissionsSummary = permissions.summary(),
+                    permissions = permissions,
+                ),
+            ).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        messageRes = R.string.merchant_staff_message_updated,
+                    )
+                },
+                onFailure = {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        errorRes = R.string.merchant_staff_error_generic,
+                    )
+                },
+            )
+        }
+    }
+
+    fun removeMember(staffId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, errorRes = null)
+            removeStaffMemberUseCase(staffId).fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        messageRes = R.string.merchant_staff_message_deleted,
                     )
                 },
                 onFailure = {

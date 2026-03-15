@@ -171,7 +171,7 @@ fun BusinessSettingsScreen(
     onOpenPasswordSecurity: () -> Unit = {},
     onOpenEmailNotifications: () -> Unit = {},
     onOpenBusinessDetails: () -> Unit = {},
-    onOpenPrograms: () -> Unit = {},
+    onOpenPromotions: () -> Unit = {},
     onOpenStaff: () -> Unit = {},
     onOpenReports: () -> Unit = {},
     onOpenPayments: () -> Unit = {},
@@ -226,7 +226,7 @@ fun BusinessSettingsScreen(
                         title = stringResource(R.string.merchant_settings_promotions),
                         subtitle = stringResource(R.string.merchant_settings_promotions_subtitle),
                         icon = Icons.Default.Campaign,
-                        onClick = onOpenPrograms,
+                        onClick = onOpenPromotions,
                     ),
                     SettingsMenuItem(
                         title = stringResource(R.string.merchant_settings_staff),

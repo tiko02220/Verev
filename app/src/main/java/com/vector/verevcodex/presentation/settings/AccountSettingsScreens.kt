@@ -5,8 +5,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -279,7 +284,7 @@ fun PasswordSecurityScreen(
                         state.newPassword.length >= 8 &&
                         state.newPassword == state.confirmPassword,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Forest, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
                 ) {
                     Text(
                         text = if (state.isSavingPassword) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_update_password),
@@ -359,10 +364,11 @@ fun PasswordSecurityScreen(
                     actionLabel = null,
                     onAction = null,
                     trailing = {
-                        Switch(
+                        SettingsInlineToggle(
                             checked = state.biometricEnabled,
                             onCheckedChange = viewModel::toggleBiometric,
                             enabled = !state.isSavingBiometric,
+                            accent = VerevColors.Gold,
                         )
                     },
                 )
@@ -378,187 +384,14 @@ fun PasswordSecurityScreen(
                 SettingsSessionRow(
                     icon = Icons.Default.Devices,
                     title = stringResource(R.string.merchant_settings_current_device),
-                    subtitle = stringResource(R.string.merchant_settings_active_now),
+                    location = stringResource(R.string.merchant_settings_current_device_location),
+                    lastActive = stringResource(R.string.merchant_settings_active_now),
                     statusLabel = stringResource(R.string.merchant_settings_session_current),
+                    current = true,
                 )
             }
         }
     }
-}
-
-@Composable
-private fun SettingsSecurityOptionRow(
-    icon: ImageVector,
-    accent: Color,
-    title: String,
-    subtitle: String,
-    actionLabel: String?,
-    onAction: (() -> Unit)?,
-    trailing: @Composable (() -> Unit)? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF8F9FA))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(accent.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = VerevColors.Forest.copy(alpha = 0.6f),
-            )
-        }
-        when {
-            trailing != null -> trailing()
-            actionLabel != null && onAction != null -> Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(Color.White)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSessionRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    statusLabel: String,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF8F9FA))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(VerevColors.Moss.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = VerevColors.Moss,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = VerevColors.Forest.copy(alpha = 0.6f),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(100.dp))
-                .background(VerevColors.Moss)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        ) {
-            Text(
-                text = statusLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsSecureField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    leadingIcon: ImageVector,
-    visible: Boolean,
-    onToggleVisibility: () -> Unit,
-    supportingText: String? = null,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onValueChange(it.replace("\n", "")) },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        leadingIcon = { Icon(leadingIcon, contentDescription = null) },
-        trailingIcon = {
-            Icon(
-                imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                contentDescription = null,
-                tint = VerevColors.Forest.copy(alpha = 0.56f),
-                modifier = Modifier.clickable(onClick = onToggleVisibility),
-            )
-        },
-        supportingText = supportingText?.let {
-            { Text(text = it, color = VerevColors.Forest.copy(alpha = 0.5f)) }
-        },
-        singleLine = true,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        shape = RoundedCornerShape(18.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VerevColors.Gold,
-            unfocusedBorderColor = VerevColors.Forest.copy(alpha = 0.12f),
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedLabelColor = VerevColors.Forest,
-            unfocusedLabelColor = VerevColors.Forest.copy(alpha = 0.56f),
-            focusedLeadingIconColor = VerevColors.Gold,
-            unfocusedLeadingIconColor = VerevColors.Forest.copy(alpha = 0.5f),
-            cursorColor = VerevColors.Gold,
-        ),
-    )
 }
 
 @Composable
@@ -571,21 +404,25 @@ fun EmailNotificationsScreen(
     val settings = state.settings
 
     SettingsInnerScaffold(
-        title = stringResource(R.string.merchant_settings_email_notifications),
-        subtitle = stringResource(R.string.merchant_settings_email_notifications_subtitle),
+        title = stringResource(R.string.merchant_settings_notifications_title),
+        subtitle = stringResource(R.string.merchant_settings_notifications_screen_subtitle),
         onBack = onBack,
         contentPadding = contentPadding,
     ) {
-        state.messageRes?.let { messageRes ->
-            item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
-        }
         state.errorRes?.let { errorRes ->
             item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
         }
         item {
+            SettingsNotificationHero(
+                emailEnabled = settings.emailEnabled,
+                pushEnabled = settings.pushEnabled,
+                soundEnabled = settings.soundEnabled,
+            )
+        }
+        item {
             SettingsFeatureCard(
-                title = stringResource(R.string.merchant_settings_email_notifications),
-                subtitle = stringResource(R.string.merchant_settings_email_master_subtitle),
+                title = stringResource(R.string.merchant_settings_master_controls_title),
+                subtitle = stringResource(R.string.merchant_settings_master_controls_subtitle),
                 icon = Icons.Default.NotificationsActive,
                 accent = VerevColors.Forest,
             ) {
@@ -619,9 +456,15 @@ fun EmailNotificationsScreen(
             }
         }
         item {
+            SettingsSectionIntro(
+                title = stringResource(R.string.merchant_settings_email_preferences_title),
+                subtitle = stringResource(R.string.merchant_settings_email_preferences_design_subtitle),
+            )
+        }
+        item {
             SettingsFeatureCard(
                 title = stringResource(R.string.merchant_settings_email_preferences_title),
-                subtitle = stringResource(R.string.merchant_settings_email_preferences_subtitle),
+                subtitle = stringResource(R.string.merchant_settings_notify_email_master_subtitle),
                 icon = Icons.Default.Email,
                 accent = VerevColors.Gold,
             ) {
@@ -664,9 +507,15 @@ fun EmailNotificationsScreen(
             }
         }
         item {
+            SettingsSectionIntro(
+                title = stringResource(R.string.merchant_settings_push_notifications_title),
+                subtitle = stringResource(R.string.merchant_settings_push_notifications_design_subtitle),
+            )
+        }
+        item {
             SettingsFeatureCard(
                 title = stringResource(R.string.merchant_settings_push_notifications_title),
-                subtitle = stringResource(R.string.merchant_settings_push_notifications_subtitle),
+                subtitle = stringResource(R.string.merchant_settings_notify_push_master_subtitle),
                 icon = Icons.Default.NotificationsActive,
                 accent = VerevColors.Moss,
             ) {
@@ -731,7 +580,7 @@ fun EmailNotificationsScreen(
                 onClick = viewModel::save,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = state.hasChanges && !state.isSaving && !state.isLoading,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = VerevColors.Gold,
                     contentColor = Color.White,
@@ -764,319 +613,4 @@ fun EmailNotificationsScreen(
             }
         }
     }
-}
-
-@Composable
-private fun SettingsInnerScaffold(
-    title: String,
-    subtitle: String,
-    onBack: () -> Unit,
-    contentPadding: PaddingValues,
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        SettingsCompactHeader(
-            title = title,
-            subtitle = subtitle,
-            onBack = onBack,
-        )
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            content = content,
-        )
-    }
-}
-
-@Composable
-private fun SettingsMessageCard(
-    title: String,
-    accent: Color,
-) {
-    MerchantPrimaryCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = accent,
-            fontWeight = FontWeight.Medium,
-        )
-    }
-}
-
-@Composable
-private fun SettingsToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean,
-    leadingIcon: ImageVector? = null,
-    accent: Color = VerevColors.Forest,
-) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (leadingIcon != null) {
-                    androidx.compose.foundation.layout.Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = accent.copy(alpha = 0.12f),
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = leadingIcon,
-                            contentDescription = null,
-                            tint = accent,
-                        )
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = VerevColors.Forest,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.64f),
-                    )
-                }
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PersonalInformationProfileCard(
-    fullName: String,
-    email: String,
-    profilePhotoUri: String,
-    isEditing: Boolean,
-    onUploadPhoto: () -> Unit,
-) {
-    val profileBitmap = rememberProfileImageBitmap(profilePhotoUri)
-    MerchantPrimaryCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x1AFFBA00)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (profileBitmap != null) {
-                    Image(
-                        bitmap = profileBitmap,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Text(
-                        text = fullName
-                            .split(" ")
-                            .filter { it.isNotBlank() }
-                            .take(2)
-                            .joinToString("") { it.first().uppercase() },
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = VerevColors.Gold,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = fullName,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = email,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.Forest.copy(alpha = 0.74f),
-                )
-                Text(
-                    text = stringResource(R.string.merchant_settings_personal_information_photo_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.56f),
-                )
-                Button(
-                    onClick = onUploadPhoto,
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEditing) VerevColors.Gold else Color(0xFFF1F4F1),
-                        contentColor = if (isEditing) Color.White else VerevColors.Forest,
-                    ),
-                ) {
-                    Icon(
-                        imageVector = if (profilePhotoUri.isBlank()) Icons.Default.CameraAlt else Icons.Default.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(
-                        text = if (profilePhotoUri.isBlank()) {
-                            stringResource(R.string.merchant_settings_upload_photo)
-                        } else {
-                            stringResource(R.string.merchant_settings_change_photo)
-                        },
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun rememberProfileImageBitmap(profilePhotoUri: String): ImageBitmap? {
-    val context = LocalContext.current
-    val bitmapState = produceState<ImageBitmap?>(initialValue = null, profilePhotoUri) {
-        value = if (profilePhotoUri.isBlank()) {
-            null
-        } else {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(profilePhotoUri)).use { stream ->
-                        stream ?: return@runCatching null
-                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                    }
-                }.getOrNull()
-            }
-        }
-    }
-    return bitmapState.value
-}
-
-@Composable
-private fun SettingsProfileInfoRow(
-    icon: ImageVector,
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFF7F8F7))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(VerevColors.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.compose.material3.Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = VerevColors.Forest.copy(alpha = 0.62f),
-            )
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = VerevColors.Forest.copy(alpha = 0.58f),
-            )
-            Text(
-                text = value.ifBlank { "-" },
-                style = MaterialTheme.typography.titleMedium,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SettingsFeatureCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    accent: Color,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    MerchantPrimaryCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(accent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.material3.Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.58f),
-                )
-            }
-        }
-        content()
-    }
-}
-
-private fun StaffRole?.toPersonalInfoRoleLabel(): String = when (this) {
-    StaffRole.OWNER -> "Owner"
-    StaffRole.STORE_MANAGER -> "Manager"
-    StaffRole.CASHIER -> "Cashier"
-    StaffRole.STAFF -> "Staff Member"
-    null -> "-"
 }

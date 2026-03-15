@@ -19,9 +19,24 @@ internal fun computeCheckoutTotals(
     selectedPromotion: Campaign? = null,
 ): CheckoutTotals {
     val subtotal = items.sumOf { it.quantity * it.unitPrice }
+    val promotionEligible = selectedPromotion?.minimumPurchaseAmount?.let { subtotal >= it } ?: true
     val promotionDiscount = when (selectedPromotion?.promotionType) {
-        PromotionType.PERCENT_DISCOUNT -> (subtotal * (selectedPromotion.promotionValue / 100.0)).coerceAtMost(subtotal)
-        PromotionType.FIXED_DISCOUNT -> selectedPromotion.promotionValue.coerceAtMost(subtotal)
+        PromotionType.PERCENT_DISCOUNT -> if (promotionEligible) {
+            (subtotal * (selectedPromotion.promotionValue / 100.0)).coerceAtMost(subtotal)
+        } else {
+            0.0
+        }
+        PromotionType.FIXED_DISCOUNT -> if (promotionEligible) {
+            selectedPromotion.promotionValue.coerceAtMost(subtotal)
+        } else {
+            0.0
+        }
+        PromotionType.BUY_ONE_GET_ONE,
+        PromotionType.FREE_ITEM -> if (promotionEligible) {
+            items.minOfOrNull { it.unitPrice }?.coerceAtMost(subtotal) ?: 0.0
+        } else {
+            0.0
+        }
         else -> 0.0
     }
     val subtotalAfterPromotion = (subtotal - promotionDiscount).coerceAtLeast(0.0)

@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.defaultPermissions
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.staff.StaffAddMemberSheet
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -35,8 +37,12 @@ fun BranchStaffConfigScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var role by rememberSaveable { mutableStateOf(StaffRole.STORE_MANAGER) }
+    var permissions by rememberSaveable(stateSaver = BranchStaffPermissionsSaver) {
+        mutableStateOf(StaffRole.STORE_MANAGER.defaultPermissions())
+    }
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
@@ -119,22 +125,47 @@ fun BranchStaffConfigScreen(
         StaffAddMemberSheet(
             fullName = fullName,
             email = email,
+            phoneNumber = phoneNumber,
             password = password,
             role = role,
+            permissions = permissions,
             isSaving = state.isSaving,
+            isEditing = false,
+            errorText = state.errorRes?.let { stringResource(it) },
             onFullNameChanged = { fullName = it },
             onEmailChanged = { email = it },
+            onPhoneNumberChanged = { phoneNumber = it },
             onPasswordChanged = { password = it },
-            onRoleSelected = { role = it },
+            onRoleSelected = {
+                role = it
+                permissions = it.defaultPermissions()
+            },
+            onPermissionsChanged = { permissions = it },
             onDismiss = { showAddSheet = false },
             onSave = {
-                viewModel.addMember(fullName, email, password, role)
+                viewModel.addMember(fullName, email, phoneNumber, password, role, permissions)
                 fullName = ""
                 email = ""
+                phoneNumber = ""
                 password = ""
                 role = StaffRole.STORE_MANAGER
+                permissions = StaffRole.STORE_MANAGER.defaultPermissions()
                 showAddSheet = false
             },
         )
     }
 }
+
+private val BranchStaffPermissionsSaver = androidx.compose.runtime.saveable.listSaver<StaffPermissions, Boolean>(
+    save = { listOf(it.viewAnalytics, it.managePrograms, it.processTransactions, it.manageCustomers, it.manageStaff, it.viewSettings) },
+    restore = {
+        StaffPermissions(
+            viewAnalytics = it[0],
+            managePrograms = it[1],
+            processTransactions = it[2],
+            manageCustomers = it[3],
+            manageStaff = it[4],
+            viewSettings = it[5],
+        )
+    },
+)

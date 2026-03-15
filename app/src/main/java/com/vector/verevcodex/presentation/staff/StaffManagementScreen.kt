@@ -1,41 +1,27 @@
 package com.vector.verevcodex.presentation.staff
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PeopleAlt
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
-import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
-import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
-import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
+import com.vector.verevcodex.domain.model.common.defaultPermissions
 import com.vector.verevcodex.presentation.merchant.common.displayName
-import com.vector.verevcodex.presentation.settings.SettingsBackRow
-import com.vector.verevcodex.presentation.settings.SettingsHeroCard
-import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 fun StaffManagementScreen(
@@ -44,145 +30,163 @@ fun StaffManagementScreen(
     viewModel: StaffViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    var showEditor by rememberSaveable { mutableStateOf(false) }
+    var editingStaffId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingDeleteStaffId by rememberSaveable { mutableStateOf<String?>(null) }
     var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var role by rememberSaveable { mutableStateOf(StaffRole.STAFF) }
+    var permissions by rememberSaveable(stateSaver = StaffPermissionsSaver) {
+        mutableStateOf(StaffRole.STAFF.defaultPermissions())
+    }
 
     LaunchedEffect(state.messageRes) {
         if (state.messageRes != null) {
             fullName = ""
             email = ""
+            phoneNumber = ""
             password = ""
             role = StaffRole.STAFF
-            showAddSheet = false
+            permissions = StaffRole.STAFF.defaultPermissions()
+            showEditor = false
+            editingStaffId = null
+            pendingDeleteStaffId = null
+            viewModel.dismissFeedback()
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 24.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_staff_title),
-                subtitle = stringResource(R.string.merchant_staff_subtitle, state.members.size),
-                icon = Icons.Default.PeopleAlt,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.messageRes?.let { messageRes ->
-            item {
-                MerchantPrimaryCard {
-                    Text(
-                        text = stringResource(messageRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = VerevColors.Forest,
-                    )
-                    Text(
-                        text = stringResource(R.string.merchant_staff_feedback_subtitle, state.selectedStoreName.ifBlank { stringResource(R.string.merchant_select_store) }),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.6f),
-                    )
-                }
-            }
-        }
-        state.errorRes?.let { errorRes ->
-            item {
-                MerchantPrimaryCard {
-                    Text(
-                        text = stringResource(errorRes),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFFB91C1C),
-                    )
-                    Text(
-                        text = stringResource(R.string.merchant_staff_error_supporting),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.64f),
+    Column(modifier = Modifier.fillMaxSize()) {
+        StaffHeader(
+            memberCount = state.members.size,
+            onBack = onBack,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 18.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (state.members.isEmpty()) {
+                item { StaffEmptyState() }
+            } else {
+                items(state.members, key = { it.id }) { member ->
+                    StaffMemberCard(
+                        member = member,
+                        onEdit = {
+                            viewModel.dismissFeedback()
+                            fullName = "${member.firstName} ${member.lastName}".trim()
+                            email = member.email
+                            phoneNumber = member.phoneNumber
+                            password = ""
+                            role = member.role
+                            permissions = member.permissions
+                            editingStaffId = member.id
+                            showEditor = true
+                        },
+                        onDelete = {
+                            viewModel.dismissFeedback()
+                            pendingDeleteStaffId = member.id
+                        },
                     )
                 }
             }
-        }
-        item {
-            Button(
-                onClick = {
-                    viewModel.dismissFeedback()
-                    showAddSheet = true
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Forest, contentColor = Color.White),
-            ) {
-                Text(stringResource(R.string.merchant_staff_add_member))
-            }
-        }
-        if (state.members.isEmpty()) {
             item {
-                MerchantEmptyStateCard(
-                    title = stringResource(R.string.merchant_staff_empty_title),
-                    subtitle = stringResource(R.string.merchant_staff_empty_subtitle),
-                    icon = Icons.Default.Person,
+                StaffPrimaryAction(
+                    text = androidx.compose.ui.res.stringResource(com.vector.verevcodex.R.string.merchant_staff_add_member),
+                    onClick = {
+                        viewModel.dismissFeedback()
+                        fullName = ""
+                        email = ""
+                        phoneNumber = ""
+                        password = ""
+                        role = StaffRole.STAFF
+                        permissions = StaffRole.STAFF.defaultPermissions()
+                        editingStaffId = null
+                        showEditor = true
+                    },
                 )
             }
-        } else {
-            items(state.members, key = { it.id }) { member ->
-                MerchantPrimaryCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "${member.firstName} ${member.lastName}".trim(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = VerevColors.Forest,
-                            )
-                            Text(
-                                text = member.email,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = VerevColors.Forest.copy(alpha = 0.6f),
-                            )
-                        }
-                        MerchantStatusPill(
-                            text = member.role.displayName(),
-                            backgroundColor = if (member.active) VerevColors.Moss.copy(alpha = 0.16f) else Color(0xFFF3F4F6),
-                            contentColor = if (member.active) VerevColors.Moss else VerevColors.Inactive,
-                        )
-                    }
-                    Text(
-                        text = member.permissionsSummary,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.56f),
-                    )
-                }
-            }
         }
     }
 
-    if (showAddSheet) {
+    if (showEditor) {
         StaffAddMemberSheet(
             fullName = fullName,
             email = email,
+            phoneNumber = phoneNumber,
             password = password,
             role = role,
+            permissions = permissions,
             isSaving = state.isSaving,
+            isEditing = editingStaffId != null,
+            errorText = state.errorRes?.let { androidx.compose.ui.res.stringResource(it) },
             onFullNameChanged = { fullName = it },
             onEmailChanged = { email = it },
+            onPhoneNumberChanged = { phoneNumber = it },
             onPasswordChanged = { password = it },
-            onRoleSelected = { role = it },
-            onDismiss = { showAddSheet = false },
+            onRoleSelected = {
+                role = it
+                permissions = it.defaultPermissions()
+            },
+            onPermissionsChanged = { permissions = it },
+            onDismiss = {
+                showEditor = false
+                editingStaffId = null
+            },
             onSave = {
-                viewModel.addMember(fullName = fullName, email = email, password = password, role = role)
+                val editingId = editingStaffId
+                if (editingId == null) {
+                    viewModel.addMember(
+                        fullName = fullName,
+                        email = email,
+                        phoneNumber = phoneNumber,
+                        password = password,
+                        role = role,
+                        permissions = permissions,
+                    )
+                } else {
+                    viewModel.updateMember(
+                        staffId = editingId,
+                        fullName = fullName,
+                        email = email,
+                        phoneNumber = phoneNumber,
+                        role = role,
+                        permissions = permissions,
+                    )
+                }
             },
         )
     }
+
+    pendingDeleteStaffId?.let { staffId ->
+        state.members.firstOrNull { it.id == staffId }?.let { member ->
+            StaffDeleteDialog(
+                memberName = "${member.firstName} ${member.lastName}".trim().ifBlank { member.role.displayName() },
+                onDismiss = { pendingDeleteStaffId = null },
+                onConfirm = { viewModel.removeMember(staffId) },
+            )
+        }
+    }
 }
+
+private val StaffPermissionsSaver = androidx.compose.runtime.saveable.listSaver<StaffPermissions, Boolean>(
+    save = { listOf(it.viewAnalytics, it.managePrograms, it.processTransactions, it.manageCustomers, it.manageStaff, it.viewSettings) },
+    restore = {
+        StaffPermissions(
+            viewAnalytics = it[0],
+            managePrograms = it[1],
+            processTransactions = it[2],
+            manageCustomers = it[3],
+            manageStaff = it[4],
+            viewSettings = it[5],
+        )
+    },
+)

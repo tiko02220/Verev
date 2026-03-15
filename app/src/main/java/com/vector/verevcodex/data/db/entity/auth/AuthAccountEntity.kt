@@ -14,4 +14,10 @@ data class AuthAccountEntity(
     val password: String,
     val role: String,
     val active: Boolean,
+    val canViewAnalytics: Boolean,
+    val canManagePrograms: Boolean,
+    val canProcessTransactions: Boolean,
+    val canManageCustomers: Boolean,
+    val canManageStaff: Boolean,
+    val canViewSettings: Boolean,
 )

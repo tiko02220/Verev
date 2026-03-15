@@ -47,6 +47,7 @@ class BusinessSettingsRepositoryImpl @Inject constructor(
                 selectedPaletteId = settings.selectedPaletteId,
                 themeMode = settings.themeMode.name,
                 accentColor = settings.accentColor,
+                logoUri = settings.logoUri,
             )
         )
     }
@@ -133,6 +134,7 @@ class BusinessSettingsRepositoryImpl @Inject constructor(
                     selectedPaletteId = BusinessSettingsDefaults.defaultPaletteId,
                     themeMode = ThemeMode.LIGHT.name,
                     accentColor = secondaryColor,
+                    logoUri = "",
                 )
             )
         }

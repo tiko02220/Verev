@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.auth.signup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.defaultPermissions
 import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
 import com.vector.verevcodex.domain.model.auth.BusinessRegistration
@@ -193,6 +194,7 @@ class SignupViewModel @Inject constructor(
                     password = staffPassword,
                     role = staffRole,
                     permissionsSummary = permissionsSummary,
+                    permissions = staffRole.defaultPermissions(),
                 ),
                 staffName = "",
                 staffEmail = "",

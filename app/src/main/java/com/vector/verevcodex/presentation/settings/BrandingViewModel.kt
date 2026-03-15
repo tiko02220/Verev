@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.domain.model.settings.BrandingSettings
+import com.vector.verevcodex.domain.model.settings.ThemeMode
 import com.vector.verevcodex.domain.usecase.settings.ObserveBrandingSettingsUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.settings.SaveBrandingSettingsUseCase
@@ -54,6 +55,7 @@ class BrandingViewModel @Inject constructor(
                     palettes = palettes,
                     selectedPaletteId = settings.selectedPaletteId,
                     themeMode = settings.themeModeUi(),
+                    logoUri = settings.logoUri,
                 )
             }
             .launchIn(viewModelScope)
@@ -70,6 +72,7 @@ class BrandingViewModel @Inject constructor(
                 primaryColor = palette.primary.toHexString(),
                 secondaryColor = palette.secondary.toHexString(),
                 accentColor = palette.accent.toHexString(),
+                logoUri = _uiState.value.logoUri,
             )
         )
     }
@@ -85,13 +88,41 @@ class BrandingViewModel @Inject constructor(
                 primaryColor = palette.primary.toHexString(),
                 secondaryColor = palette.secondary.toHexString(),
                 accentColor = palette.accent.toHexString(),
+                logoUri = _uiState.value.logoUri,
+            )
+        )
+    }
+
+    fun updateLogoUri(uri: String) {
+        val storeId = currentStoreId ?: return
+        val palette = palettes.firstOrNull { it.id == _uiState.value.selectedPaletteId } ?: palettes.first()
+        persist(
+            BrandingSettings(
+                storeId = storeId,
+                selectedPaletteId = palette.id,
+                themeMode = _uiState.value.themeMode.toDomain(),
+                primaryColor = palette.primary.toHexString(),
+                secondaryColor = palette.secondary.toHexString(),
+                accentColor = palette.accent.toHexString(),
+                logoUri = uri,
             )
         )
     }
 
     fun reset() {
-        selectPalette(palettes.first().id)
-        setTheme(ThemeModeUi.LIGHT)
+        val storeId = currentStoreId ?: return
+        val palette = palettes.first()
+        persist(
+            BrandingSettings(
+                storeId = storeId,
+                selectedPaletteId = palette.id,
+                themeMode = ThemeMode.LIGHT,
+                primaryColor = palette.primary.toHexString(),
+                secondaryColor = palette.secondary.toHexString(),
+                accentColor = palette.accent.toHexString(),
+                logoUri = "",
+            )
+        )
     }
 
     private fun persist(settings: BrandingSettings) {

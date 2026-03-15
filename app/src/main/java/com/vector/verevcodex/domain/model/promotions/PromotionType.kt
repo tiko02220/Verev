@@ -5,4 +5,6 @@ enum class PromotionType {
     PERCENT_DISCOUNT,
     FIXED_DISCOUNT,
     BONUS_POINTS,
+    BUY_ONE_GET_ONE,
+    FREE_ITEM,
 }

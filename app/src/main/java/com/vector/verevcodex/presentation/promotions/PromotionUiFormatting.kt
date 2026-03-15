@@ -24,4 +24,6 @@ internal fun Campaign.promotionValueText(): String = when (promotionType) {
         R.string.merchant_promotion_value_bonus_points,
         promotionValue.toInt(),
     )
+    PromotionType.BUY_ONE_GET_ONE -> stringResource(R.string.merchant_promotion_value_buy_one_get_one)
+    PromotionType.FREE_ITEM -> stringResource(R.string.merchant_promotion_value_free_item)
 }

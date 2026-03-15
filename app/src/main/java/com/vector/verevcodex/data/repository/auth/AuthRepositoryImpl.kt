@@ -159,6 +159,12 @@ class AuthRepositoryImpl @Inject constructor(
             password = account.password,
             role = StaffRole.OWNER.name,
             active = true,
+            canViewAnalytics = true,
+            canManagePrograms = true,
+            canProcessTransactions = true,
+            canManageCustomers = true,
+            canManageStaff = true,
+            canViewSettings = true,
         )
         database.authDao().insert(authAccount)
         businessSettingsRepository.createDefaultStoreSettings(
