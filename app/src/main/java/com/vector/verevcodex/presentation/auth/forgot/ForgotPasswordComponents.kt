@@ -24,7 +24,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +51,7 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.auth.common.AuthBackRow
 import com.vector.verevcodex.presentation.auth.common.AuthEmailChip
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
+import com.vector.verevcodex.presentation.auth.common.AuthFormField
 import com.vector.verevcodex.presentation.auth.common.AuthHeroIcon
 import com.vector.verevcodex.presentation.auth.common.AuthInfoPanel
 import com.vector.verevcodex.presentation.auth.common.AuthOtpBoxes
@@ -74,7 +74,11 @@ internal fun ForgotRequestCard(
     onSend: () -> Unit,
     focusManager: FocusManager,
 ) {
-    Card(shape = RoundedCornerShape(32.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(32.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -99,14 +103,12 @@ internal fun ForgotRequestCard(
                     style = MaterialTheme.typography.titleMedium,
                     color = colorResource(R.color.text_primary),
                 )
-                OutlinedTextField(
+                AuthFormField(
                     value = state.email,
-                    onValueChange = { onEmailChanged(it.replace("\n", "")) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = colorResource(R.color.text_hint)) },
-                    placeholder = { Text(stringResource(R.string.auth_hint_email), color = colorResource(R.color.text_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    singleLine = true,
+                    onValueChange = onEmailChanged,
+                    label = stringResource(R.string.auth_email_label),
+                    placeholder = stringResource(R.string.auth_hint_email),
+                    leadingIcon = Icons.Default.Email,
                     isError = state.error == "required_email" || state.error == "invalid_email",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
@@ -133,7 +135,11 @@ internal fun ForgotOtpCard(
     onVerify: () -> Unit,
     onResend: () -> Unit,
 ) {
-    Card(shape = RoundedCornerShape(32.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(32.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -179,7 +185,11 @@ internal fun ForgotResetCard(
     onConfirmPasswordChanged: (String) -> Unit,
     onSubmit: () -> Unit,
 ) {
-    Card(shape = RoundedCornerShape(32.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(32.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -245,7 +255,11 @@ internal fun ForgotResetCard(
 
 @Composable
 internal fun ForgotSuccessCard(email: String, mode: RecoveryMode) {
-    Card(shape = RoundedCornerShape(32.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(32.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -292,12 +306,12 @@ private fun NewPasswordFields(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
+        AuthFormField(
             value = password,
-            onValueChange = { onPasswordChanged(it.replace("\n", "")) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.auth_new_password_label)) },
-            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            onValueChange = onPasswordChanged,
+            label = stringResource(R.string.auth_new_password_label),
+            placeholder = stringResource(R.string.auth_hint_password),
+            leadingIcon = Icons.Default.Lock,
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
@@ -306,17 +320,15 @@ private fun NewPasswordFields(
                     )
                 }
             },
-            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            shape = RoundedCornerShape(18.dp),
         )
-        OutlinedTextField(
+        AuthFormField(
             value = confirmPassword,
-            onValueChange = { onConfirmPasswordChanged(it.replace("\n", "")) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.auth_confirm_password_label)) },
-            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            onValueChange = onConfirmPasswordChanged,
+            label = stringResource(R.string.auth_confirm_password_label),
+            placeholder = stringResource(R.string.auth_hint_password),
+            leadingIcon = Icons.Default.Lock,
             trailingIcon = {
                 IconButton(onClick = { confirmVisible = !confirmVisible }) {
                     Icon(
@@ -325,10 +337,8 @@ private fun NewPasswordFields(
                     )
                 }
             },
-            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            shape = RoundedCornerShape(18.dp),
         )
     }
 }

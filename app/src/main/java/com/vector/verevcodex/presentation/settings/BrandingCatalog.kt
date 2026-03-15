@@ -44,4 +44,5 @@ internal fun defaultBrandingSettings(
     primaryColor = primaryColor,
     secondaryColor = secondaryColor,
     accentColor = secondaryColor,
+    logoUri = "",
 )

@@ -635,7 +635,7 @@ internal fun CustomerAnalyticsDetailContent(
             accent = listOf(VerevColors.Moss, VerevColors.Forest),
             statLeftTitle = stringResource(R.string.merchant_analytics_segment_high_value),
             statLeftValue = formatCompactCount(analytics.highValueCustomers),
-            statRightTitle = stringResource(R.string.merchant_metric_average_purchase),
+            statRightTitle = stringResource(R.string.merchant_analytics_average_lifetime_value_title),
             statRightValue = formatCompactCurrency(analytics.averageLifetimeValue),
         )
         AnalyticsDetailMetricGrid(

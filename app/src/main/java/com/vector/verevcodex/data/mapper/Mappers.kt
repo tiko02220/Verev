@@ -32,7 +32,9 @@ import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.common.LoyaltyTier
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
+import com.vector.verevcodex.domain.model.promotions.PromotionBoostLevel
 import com.vector.verevcodex.domain.model.promotions.PromotionType
+import com.vector.verevcodex.domain.model.promotions.PromotionVisibility
 import com.vector.verevcodex.domain.model.loyalty.PurchaseFrequencyProgramRule
 import com.vector.verevcodex.domain.model.loyalty.ReferralProgramRule
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfiguration
@@ -43,6 +45,7 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.common.RewardType
 import com.vector.verevcodex.domain.model.business.StaffMember
 import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
 import com.vector.verevcodex.domain.model.transactions.Transaction
@@ -53,7 +56,25 @@ import java.time.LocalDateTime
 fun OwnerEntity.toDomain() = BusinessOwner(id, firstName, lastName, email, phoneNumber)
 fun StoreEntity.toDomain() = Store(id, ownerId, name, address, contactInfo, category, workingHours, logoUrl, primaryColor, secondaryColor, active)
 fun Store.toEntity() = StoreEntity(id, ownerId, name, address, contactInfo, category, workingHours, logoUrl, primaryColor, secondaryColor, active)
-fun StaffMemberEntity.toDomain() = StaffMember(id, storeId, firstName, lastName, email, phoneNumber, StaffRole.valueOf(role), active, permissionsSummary)
+fun StaffMemberEntity.toDomain() = StaffMember(
+    id = id,
+    storeId = storeId,
+    firstName = firstName,
+    lastName = lastName,
+    email = email,
+    phoneNumber = phoneNumber,
+    role = StaffRole.valueOf(role),
+    active = active,
+    permissionsSummary = permissionsSummary,
+    permissions = StaffPermissions(
+        viewAnalytics = canViewAnalytics,
+        managePrograms = canManagePrograms,
+        processTransactions = canProcessTransactions,
+        manageCustomers = canManageCustomers,
+        manageStaff = canManageStaff,
+        viewSettings = canViewSettings,
+    ),
+)
 fun CustomerEntity.toDomain() = Customer(
     id = id,
     firstName = firstName,
@@ -217,11 +238,16 @@ fun CampaignEntity.toDomain(target: CampaignTargetEntity) = Campaign(
     storeId = storeId,
     name = name,
     description = description,
+    imageUri = imageUri.ifBlank { null },
     startDate = LocalDate.parse(startDate),
     endDate = LocalDate.parse(endDate),
     promotionType = PromotionType.valueOf(promotionType),
     promotionValue = promotionValue,
+    minimumPurchaseAmount = minimumPurchaseAmount,
+    usageLimit = usageLimit,
     promoCode = promoCode,
+    visibility = PromotionVisibility.valueOf(visibility),
+    boostLevel = boostLevel?.let(PromotionBoostLevel::valueOf),
     paymentFlowEnabled = paymentFlowEnabled,
     active = active,
     target = CampaignTarget(target.id, target.campaignId, CampaignSegment.valueOf(target.segment), target.description),
@@ -232,11 +258,16 @@ fun Campaign.toEntity() = CampaignEntity(
     storeId = storeId,
     name = name,
     description = description,
+    imageUri = imageUri.orEmpty(),
     startDate = startDate.toString(),
     endDate = endDate.toString(),
     promotionType = promotionType.name,
     promotionValue = promotionValue,
+    minimumPurchaseAmount = minimumPurchaseAmount,
+    usageLimit = usageLimit,
     promoCode = promoCode,
+    visibility = visibility.name,
+    boostLevel = boostLevel?.name,
     paymentFlowEnabled = paymentFlowEnabled,
     active = active,
 )
@@ -250,10 +281,22 @@ fun TransactionEntity.toDomain(items: List<TransactionItemEntity>) = Transaction
     pointsRedeemed = pointsRedeemed,
     timestamp = LocalDateTime.parse(timestamp),
     metadata = metadata,
+    countsAsVisit = countsAsVisit,
     items = items.map { TransactionItem(it.id, it.transactionId, it.name, it.quantity, it.unitPrice) },
 )
 
-fun Transaction.toEntity() = TransactionEntity(id, customerId, storeId, staffId, amount, pointsEarned, pointsRedeemed, timestamp.toString(), metadata)
+fun Transaction.toEntity() = TransactionEntity(
+    id = id,
+    customerId = customerId,
+    storeId = storeId,
+    staffId = staffId,
+    amount = amount,
+    pointsEarned = pointsEarned,
+    pointsRedeemed = pointsRedeemed,
+    timestamp = timestamp.toString(),
+    metadata = metadata,
+    countsAsVisit = countsAsVisit,
+)
 fun TransactionItem.toEntity() = TransactionItemEntity(id, transactionId, name, quantity, unitPrice)
 
 fun CustomerCredentialEntity.toDomain() = CustomerCredential(

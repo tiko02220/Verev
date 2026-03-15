@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,9 +34,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vector.verevcodex.R
@@ -45,13 +49,13 @@ import com.vector.verevcodex.presentation.theme.VerevColors
 @Composable
 internal fun DashboardOverviewCard(snapshot: DashboardSnapshot) {
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
                 text = stringResource(R.string.merchant_branch_overview),
@@ -105,7 +109,7 @@ internal fun DashboardQuickActions(
         DashboardSectionTitle(text = stringResource(R.string.merchant_quick_actions))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             DashboardActionCard(
                 modifier = Modifier.weight(1f),
@@ -138,15 +142,15 @@ internal fun DashboardPromotionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenPromotions),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
     ) {
         Column(
             modifier = Modifier
                 .background(Brush.verticalGradient(listOf(VerevColors.Gold, VerevColors.Tan)))
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -166,8 +170,8 @@ internal fun DashboardPromotionCard(
                     Text(
                         text = stringResource(R.string.merchant_promotions_title),
                         style = TextStyle(
-                            fontSize = 20.sp,
-                            lineHeight = 28.sp,
+                            fontSize = 18.sp,
+                            lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
                         ),
                         color = Color.White,
@@ -177,7 +181,7 @@ internal fun DashboardPromotionCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White.copy(alpha = 0.16f))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(horizontal = 9.dp, vertical = 7.dp),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -251,25 +255,25 @@ internal fun DashboardStateCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Card(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 36.dp),
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(24.dp))
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(20.dp))
                         .background(
                             Brush.linearGradient(
                                 listOf(
@@ -280,7 +284,7 @@ internal fun DashboardStateCard(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = null, tint = VerevColors.Forest, modifier = Modifier.size(34.dp))
+                    Icon(icon, contentDescription = null, tint = VerevColors.Forest, modifier = Modifier.size(30.dp))
                 }
                 Text(
                     text = title,
@@ -306,7 +310,7 @@ private fun DashboardSectionTitle(text: String) {
         text = text,
         style = TextStyle(
             fontSize = 16.sp,
-            lineHeight = 24.sp,
+            lineHeight = 22.sp,
             letterSpacing = (-0.3).sp,
             fontWeight = FontWeight.Normal,
         ),
@@ -326,18 +330,18 @@ private fun DashboardActionCard(
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(gradient)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -350,15 +354,15 @@ private fun DashboardActionCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(24.dp),
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
                     style = TextStyle(
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
                         letterSpacing = (-0.3).sp,
                         fontWeight = FontWeight.Medium,
                     ),
@@ -367,8 +371,8 @@ private fun DashboardActionCard(
                 Text(
                     text = subtitle,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
                         fontWeight = FontWeight.Normal,
                     ),
                     color = VerevColors.Forest.copy(alpha = 0.6f),
@@ -388,7 +392,7 @@ private fun DashboardOverviewMetric(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
             text = label,
@@ -400,15 +404,21 @@ private fun DashboardOverviewMetric(
             ),
             color = VerevColors.Forest.copy(alpha = 0.5f),
         )
-        Text(
-            text = value,
-            style = TextStyle(
-                fontSize = 24.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.SemiBold,
-            ),
-            color = VerevColors.Forest,
-        )
+        if (value.endsWith(" AMD")) {
+            DashboardMoneyValue(value = value)
+        } else {
+            Text(
+                text = value,
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                color = VerevColors.Forest,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
         if (!delta.isNullOrBlank()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -425,7 +435,7 @@ private fun DashboardOverviewMetric(
                 Text(
                     text = delta,
                     style = TextStyle(
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         lineHeight = 12.sp,
                         fontWeight = FontWeight.Medium,
                     ),
@@ -444,9 +454,9 @@ private fun DashboardPromotionStatCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.15f))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
@@ -458,15 +468,25 @@ private fun DashboardPromotionStatCard(
             ),
             color = Color.White.copy(alpha = 0.72f),
         )
-        Text(
-            text = value,
-            style = TextStyle(
-                fontSize = 20.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-            color = Color.White,
-        )
+        if (value.endsWith(" AMD")) {
+            DashboardMoneyValue(
+                value = value,
+                color = Color.White,
+                numberSize = 17.sp,
+                codeSize = 11.sp,
+            )
+        } else {
+            Text(
+                text = value,
+                style = TextStyle(
+                    fontSize = 17.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                color = Color.White,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -480,24 +500,24 @@ private fun DashboardTodayStatCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
                 Text(
                     text = label,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
                         fontWeight = FontWeight.Normal,
                     ),
                     color = VerevColors.Forest.copy(alpha = 0.6f),
@@ -506,14 +526,62 @@ private fun DashboardTodayStatCard(
             Text(
                 text = value,
                 style = TextStyle(
-                    fontSize = 24.sp,
-                    lineHeight = 28.sp,
+                    fontSize = 20.sp,
+                    lineHeight = 24.sp,
                     fontWeight = FontWeight.Medium,
                 ),
                 color = VerevColors.Forest,
             )
         }
     }
+}
+
+@Composable
+private fun DashboardMoneyValue(
+    value: String,
+    color: Color = VerevColors.Forest,
+    numberSize: androidx.compose.ui.unit.TextUnit = 20.sp,
+    codeSize: androidx.compose.ui.unit.TextUnit = 11.sp,
+) {
+    val splitIndex = value.lastIndexOf(' ')
+    if (splitIndex <= 0 || splitIndex >= value.lastIndex) {
+        Text(
+            text = value,
+            style = TextStyle(
+                fontSize = numberSize,
+                lineHeight = numberSize,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = color,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
+        return
+    }
+    val amount = value.substring(0, splitIndex)
+    val currency = value.substring(splitIndex + 1)
+    Text(
+        text = buildAnnotatedString {
+            withStyle(
+                SpanStyle(
+                    fontSize = numberSize,
+                    fontWeight = FontWeight.SemiBold,
+                    color = color,
+                ),
+            ) { append(amount) }
+            append(" ")
+            withStyle(
+                SpanStyle(
+                    fontSize = codeSize,
+                    fontWeight = FontWeight.Medium,
+                    color = color.copy(alpha = 0.88f),
+                ),
+            ) { append(currency) }
+        },
+        modifier = Modifier.height((numberSize.value + 8).dp),
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+    )
 }
 
 private fun compactDashboardCurrency(amount: Double): String =

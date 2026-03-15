@@ -19,6 +19,9 @@ interface AuthDao {
     @Query("SELECT * FROM auth_accounts WHERE email = :email LIMIT 1")
     suspend fun findByEmail(email: String): AuthAccountEntity?
 
+    @Query("SELECT * FROM auth_accounts WHERE relatedEntityId = :relatedEntityId LIMIT 1")
+    suspend fun findByRelatedEntityId(relatedEntityId: String): AuthAccountEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: AuthAccountEntity)
 
@@ -27,4 +30,7 @@ interface AuthDao {
 
     @Update
     suspend fun update(item: AuthAccountEntity)
+
+    @Query("DELETE FROM auth_accounts WHERE relatedEntityId = :relatedEntityId")
+    suspend fun deleteByRelatedEntityId(relatedEntityId: String)
 }

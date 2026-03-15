@@ -5,6 +5,9 @@ import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
@@ -19,6 +22,7 @@ import com.vector.verevcodex.presentation.scan.ScanViewModel
 import com.vector.verevcodex.presentation.theme.VerevMerchantTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -27,6 +31,7 @@ class MainActivity : FragmentActivity() {
     private var shouldRelockOnPause = false
     private var didEnterBackground = false
     private var suppressRelockUntilResume = false
+    private var pendingExternalNfcResult: PendingExternalNfcResult? = null
 
     @Inject lateinit var nfcCardWriteCoordinator: NfcCardWriteCoordinator
     @Inject lateinit var googleWalletProvisioningManager: GoogleWalletProvisioningManager
@@ -44,6 +49,15 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                appSecurityViewModel.uiState.collect { state ->
+                    if (!state.requiresUnlock && state.authEntryDestination == null) {
+                        deliverPendingExternalNfcResult()
+                    }
+                }
+            }
+        }
         handleNfcIntent(intent)
         setContentView(
             ComposeView(this).apply {
@@ -122,11 +136,32 @@ class MainActivity : FragmentActivity() {
         if (action == NfcAdapter.ACTION_TAG_DISCOVERED || action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
             if (nfcCardWriteCoordinator.handleIntent(intent)) return
             val tagId = NfcCardPayloadParser.extractLoyaltyId(intent)
+            if (appSecurityViewModel.uiState.value.requiresUnlock) {
+                pendingExternalNfcResult = if (tagId.isNullOrBlank()) {
+                    PendingExternalNfcResult.Failure
+                } else {
+                    PendingExternalNfcResult.Success(tagId)
+                }
+                return
+            }
             if (tagId.isNullOrBlank()) {
                 scanViewModel.onNfcScanFailed()
                 return
             }
             scanViewModel.onExternalNfcScan(tagId)
         }
+    }
+
+    private fun deliverPendingExternalNfcResult() {
+        when (val pendingResult = pendingExternalNfcResult ?: return) {
+            PendingExternalNfcResult.Failure -> scanViewModel.onNfcScanFailed()
+            is PendingExternalNfcResult.Success -> scanViewModel.onExternalNfcScan(pendingResult.loyaltyId)
+        }
+        pendingExternalNfcResult = null
+    }
+
+    private sealed interface PendingExternalNfcResult {
+        data object Failure : PendingExternalNfcResult
+        data class Success(val loyaltyId: String) : PendingExternalNfcResult
     }
 }

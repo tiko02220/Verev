@@ -32,25 +32,26 @@ class TransactionRepositoryImpl @Inject constructor(
         }
 
     override suspend fun recordTransaction(transaction: Transaction, incrementVisit: Boolean) {
-        database.transactionDao().insert(transaction.toEntity())
-        database.transactionItemDao().insertAll(transaction.items.map { it.toEntity() })
+        val persistedTransaction = transaction.copy(countsAsVisit = incrementVisit)
+        database.transactionDao().insert(persistedTransaction.toEntity())
+        database.transactionItemDao().insertAll(persistedTransaction.items.map { it.toEntity() })
         val customer = database.customerDao().getCustomer(transaction.customerId) ?: return
         val updatedCustomer = customer.copy(
             totalVisits = customer.totalVisits + if (incrementVisit) 1 else 0,
-            totalSpent = customer.totalSpent + transaction.amount,
-            currentPoints = customer.currentPoints + transaction.pointsEarned - transaction.pointsRedeemed,
-            lastVisit = if (incrementVisit) transaction.timestamp.toString() else customer.lastVisit,
-            favoriteStoreId = transaction.storeId,
+            totalSpent = customer.totalSpent + persistedTransaction.amount,
+            currentPoints = customer.currentPoints + persistedTransaction.pointsEarned - persistedTransaction.pointsRedeemed,
+            lastVisit = if (incrementVisit) persistedTransaction.timestamp.toString() else customer.lastVisit,
+            favoriteStoreId = persistedTransaction.storeId,
         )
         database.customerDao().update(updatedCustomer)
         database.pointsLedgerDao().insert(
             PointsLedgerEntity(
                 UUID.randomUUID().toString(),
-                transaction.customerId,
-                transaction.id,
-                transaction.pointsEarned - transaction.pointsRedeemed,
+                persistedTransaction.customerId,
+                persistedTransaction.id,
+                persistedTransaction.pointsEarned - persistedTransaction.pointsRedeemed,
                 "Transaction sync",
-                transaction.timestamp.toString(),
+                persistedTransaction.timestamp.toString(),
             )
         )
     }

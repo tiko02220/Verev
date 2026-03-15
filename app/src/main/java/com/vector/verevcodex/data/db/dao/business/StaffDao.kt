@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.vector.verevcodex.data.db.entity.business.StaffMemberEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,4 +21,10 @@ interface StaffDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<StaffMemberEntity>)
+
+    @Update
+    suspend fun update(item: StaffMemberEntity)
+
+    @Query("DELETE FROM staff WHERE id = :staffId")
+    suspend fun deleteById(staffId: String)
 }

@@ -3,26 +3,38 @@ package com.vector.verevcodex.presentation.promotions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.billing.SavedPaymentMethod
+import com.vector.verevcodex.domain.usecase.customer.ObserveCustomersUseCase
 import com.vector.verevcodex.domain.model.promotions.PromotionType
+import com.vector.verevcodex.domain.model.promotions.PromotionBoostLevel
+import com.vector.verevcodex.domain.model.promotions.PromotionVisibility
 import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.promotions.DeletePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveCampaignsUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.promotions.SetPromotionEnabledUseCase
 import com.vector.verevcodex.domain.usecase.promotions.UpdatePromotionUseCase
+import com.vector.verevcodex.domain.usecase.settings.ObservePaymentMethodsUseCase
+import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PromotionsViewModel @Inject constructor(
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     observeCampaignsUseCase: ObserveCampaignsUseCase,
+    observeTransactionsUseCase: ObserveTransactionsUseCase,
+    observeCustomersUseCase: ObserveCustomersUseCase,
+    observePaymentMethodsUseCase: ObservePaymentMethodsUseCase,
     private val createPromotionUseCase: CreatePromotionUseCase,
     private val updatePromotionUseCase: UpdatePromotionUseCase,
     private val setPromotionEnabledUseCase: SetPromotionEnabledUseCase,
@@ -32,17 +44,39 @@ class PromotionsViewModel @Inject constructor(
     val uiState: StateFlow<PromotionsUiState> = _uiState
 
     init {
-        combine(observeSelectedStoreUseCase(), observeCampaignsUseCase()) { store, promotions ->
-            store to promotions
-        }.onEach { (store, promotions) ->
-            val current = _uiState.value
-            _uiState.value = current.copy(
-                selectedStoreId = store?.id,
-                selectedStoreName = store?.name.orEmpty(),
-                promotions = promotions,
-                busyPromotionId = current.busyPromotionId?.takeIf { busyId -> promotions.any { it.id == busyId } },
-            )
-        }.launchIn(viewModelScope)
+        observeSelectedStoreUseCase()
+            .flatMapLatest { store ->
+                combine(
+                    observeCampaignsUseCase(store?.id),
+                    observeTransactionsUseCase(store?.id),
+                    observeCustomersUseCase(store?.id),
+                    observePaymentMethodsUseCase(store?.ownerId.orEmpty()),
+                ) { promotions, transactions, customers, paymentMethods ->
+                    PromotionsStoreSnapshot(
+                        storeId = store?.id,
+                        ownerId = store?.ownerId,
+                        storeName = store?.name.orEmpty(),
+                        promotions = promotions,
+                        transactions = transactions,
+                        customers = customers,
+                        paymentMethods = paymentMethods,
+                    )
+                }
+            }
+            .onEach { snapshot ->
+                val current = _uiState.value
+                _uiState.value = current.copy(
+                    selectedStoreId = snapshot.storeId,
+                    selectedOwnerId = snapshot.ownerId,
+                    selectedStoreName = snapshot.storeName,
+                    promotions = snapshot.promotions,
+                    transactions = snapshot.transactions,
+                    customers = snapshot.customers,
+                    paymentMethods = snapshot.paymentMethods,
+                    busyPromotionId = current.busyPromotionId?.takeIf { busyId -> snapshot.promotions.any { it.id == busyId } },
+                )
+            }
+            .launchIn(viewModelScope)
     }
 
     fun selectFilter(filter: PromotionFilter) {
@@ -67,7 +101,7 @@ class PromotionsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(paymentPromotionId = null)
     }
 
-    fun openCreatePromotion(type: PromotionType = PromotionType.POINTS_MULTIPLIER) {
+    fun openCreatePromotion(type: PromotionType = PromotionType.PERCENT_DISCOUNT) {
         _uiState.value = _uiState.value.copy(
             editorState = defaultPromotionEditorState().copy(promotionType = type),
             editorFieldErrors = emptyMap(),
@@ -94,15 +128,26 @@ class PromotionsViewModel @Inject constructor(
 
     fun updateName(value: String) = updateEditor { copy(name = value) }
     fun updateDescription(value: String) = updateEditor { copy(description = value) }
+    fun updateImageUri(value: String) = updateEditor { copy(imageUri = value) }
     fun updateStartDate(value: String) = updateEditor { copy(startDate = value) }
     fun updateEndDate(value: String) = updateEditor { copy(endDate = value) }
     fun updatePromotionType(value: PromotionType) = updateEditor { copy(promotionType = value) }
     fun updatePromotionValue(value: String) = updateEditor { copy(promotionValue = value.filter { it.isDigit() || it == '.' }) }
+    fun updateMinimumPurchaseAmount(value: String) = updateEditor { copy(minimumPurchaseAmount = value.filter { it.isDigit() || it == '.' }) }
+    fun updateUsageLimit(value: String) = updateEditor { copy(usageLimit = value.filter(Char::isDigit)) }
     fun updatePromoCode(value: String) = updateEditor { copy(promoCode = value.uppercase()) }
+    fun updateVisibility(value: PromotionVisibility) = updateEditor {
+        copy(
+            visibility = value,
+            paymentFlowEnabled = value == PromotionVisibility.NETWORK_WIDE,
+        )
+    }
+    fun updateBoostLevel(value: PromotionBoostLevel) = updateEditor { copy(boostLevel = value) }
     fun updatePaymentFlowEnabled(value: Boolean) = updateEditor { copy(paymentFlowEnabled = value) }
     fun updateActive(value: Boolean) = updateEditor { copy(active = value) }
     fun updateTargetSegment(index: Int) = updateEditor {
-        copy(targetSegment = com.vector.verevcodex.domain.model.common.CampaignSegment.entries[index])
+        val segment = com.vector.verevcodex.domain.model.common.CampaignSegment.entries[index]
+        copy(targetSegment = segment, targetDescription = segment.name)
     }
     fun updateTargetDescription(value: String) = updateEditor { copy(targetDescription = value) }
 
@@ -192,3 +237,13 @@ class PromotionsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(editorState = current.transform(), editorFieldErrors = emptyMap(), errorRes = null)
     }
 }
+
+private data class PromotionsStoreSnapshot(
+    val storeId: String?,
+    val ownerId: String?,
+    val storeName: String,
+    val promotions: List<com.vector.verevcodex.domain.model.promotions.Campaign>,
+    val transactions: List<com.vector.verevcodex.domain.model.transactions.Transaction>,
+    val customers: List<com.vector.verevcodex.domain.model.customer.Customer>,
+    val paymentMethods: List<SavedPaymentMethod>,
+)

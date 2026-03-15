@@ -1,6 +1,7 @@
 package com.vector.verevcodex.domain.model.business
 
 import com.vector.verevcodex.domain.model.common.Identifiable
+import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
 
 data class StaffMember(
@@ -13,4 +14,5 @@ data class StaffMember(
     val role: StaffRole,
     val active: Boolean,
     val permissionsSummary: String,
+    val permissions: StaffPermissions,
 ) : Identifiable

@@ -7,4 +7,5 @@ data class BrandingSettings(
     val primaryColor: String,
     val secondaryColor: String,
     val accentColor: String,
+    val logoUri: String = "",
 )

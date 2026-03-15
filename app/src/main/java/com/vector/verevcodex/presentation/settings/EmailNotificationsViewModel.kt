@@ -80,7 +80,7 @@ class EmailNotificationsViewModel @Inject constructor(
                             savedSettings = settings,
                             hasChanges = false,
                             isSaving = false,
-                            messageRes = R.string.merchant_settings_message_notifications_updated,
+                            messageRes = null,
                         )
                     }
                 }

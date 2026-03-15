@@ -2,13 +2,12 @@ package com.vector.verevcodex.presentation.auth.signup
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,29 +17,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,28 +52,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CardDefaults
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.StaffRole
+import com.vector.verevcodex.domain.model.common.StaffPermissions
+import com.vector.verevcodex.presentation.auth.common.AuthFormField
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
 import com.vector.verevcodex.presentation.auth.common.AuthHeroIcon
 import com.vector.verevcodex.presentation.auth.common.AuthInfoPanel
 import com.vector.verevcodex.presentation.auth.common.AuthPinBoxes
 import com.vector.verevcodex.presentation.auth.common.AuthPrimaryButton
 import com.vector.verevcodex.presentation.auth.common.AuthProgressPill
+import com.vector.verevcodex.presentation.auth.common.AuthSelectField
 import com.vector.verevcodex.presentation.auth.common.SignupStep
 
 @Composable
@@ -106,16 +103,18 @@ internal fun SignupHeader(step: SignupStep) {
 internal fun SignupFormCard(
     state: SignupUiState,
     viewModel: SignupViewModel,
-    industries: Array<String>,
-    industryExpanded: Boolean,
-    onIndustryExpandedChange: (Boolean) -> Unit,
+    onOpenIndustrySheet: () -> Unit,
     focusManager: FocusManager,
     passwordVisible: Boolean,
     onPasswordVisibleChange: () -> Unit,
     confirmPasswordVisible: Boolean,
     onConfirmPasswordVisibleChange: () -> Unit,
 ) {
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -135,38 +134,19 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateBusinessName,
                     icon = Icons.Default.Business,
                     errorKey = state.errors["businessName"],
-                    hintRes = R.string.auth_hint_business_name,
+                    hint = stringResource(R.string.auth_hint_business_name),
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
                 )
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    SignupDropdownField(
-                        label = stringResource(R.string.auth_industry),
-                        value = state.industry.ifBlank { stringResource(R.string.auth_select_your_industry) },
-                        icon = Icons.Default.Business,
-                        isPlaceholder = state.industry.isBlank(),
-                        isError = state.errors["industry"] != null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onIndustryExpandedChange(!industryExpanded) },
-                    )
-                    DropdownMenu(
-                        expanded = industryExpanded,
-                        onDismissRequest = { onIndustryExpandedChange(false) },
-                        modifier = Modifier.background(colorResource(R.color.surface_white)),
-                    ) {
-                        industries.forEach { industry ->
-                            DropdownMenuItem(
-                                text = { Text(industry) },
-                                onClick = {
-                                    viewModel.updateIndustry(industry)
-                                    onIndustryExpandedChange(false)
-                                },
-                            )
-                        }
-                    }
-                }
+                SignupDropdownField(
+                    label = stringResource(R.string.auth_industry),
+                    value = state.industry.ifBlank { stringResource(R.string.auth_select_your_industry) },
+                    icon = Icons.Default.Business,
+                    isPlaceholder = state.industry.isBlank(),
+                    isError = state.errors["industry"] != null,
+                    onClick = onOpenIndustrySheet,
+                )
                 AuthErrorMessage(state.errors["industry"])
                 SignupField(
                     label = stringResource(R.string.auth_address),
@@ -174,7 +154,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateAddress,
                     icon = Icons.Default.LocationOn,
                     errorKey = state.errors["address"],
-                    hintRes = R.string.auth_hint_address,
+                    hint = stringResource(R.string.auth_hint_address),
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
@@ -185,7 +165,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateCity,
                     icon = Icons.Default.LocationOn,
                     errorKey = state.errors["city"],
-                    hintRes = R.string.auth_hint_city,
+                    hint = stringResource(R.string.auth_hint_city),
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
@@ -196,7 +176,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updatePhone,
                     icon = Icons.Default.Phone,
                     errorKey = state.errors["phone"],
-                    hintRes = R.string.auth_hint_phone,
+                    hint = stringResource(R.string.auth_hint_phone),
                     keyboardType = KeyboardType.Phone,
                     imeAction = ImeAction.Done,
                     onImeAction = {
@@ -216,7 +196,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateFullName,
                     icon = Icons.Default.Person,
                     errorKey = state.errors["fullName"],
-                    hintRes = R.string.auth_hint_full_name,
+                    hint = stringResource(R.string.auth_hint_full_name),
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
@@ -227,7 +207,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateEmail,
                     icon = Icons.Default.Email,
                     errorKey = state.errors["email"],
-                    hintRes = R.string.auth_hint_email,
+                    hint = stringResource(R.string.auth_hint_email),
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
@@ -238,7 +218,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updatePassword,
                     icon = Icons.Default.Lock,
                     errorKey = state.errors["password"],
-                    hintRes = R.string.auth_hint_password,
+                    hint = stringResource(R.string.auth_hint_password),
                     isPassword = true,
                     passwordVisible = passwordVisible,
                     onPasswordVisibilityChange = onPasswordVisibleChange,
@@ -252,7 +232,7 @@ internal fun SignupFormCard(
                     onValueChange = viewModel::updateConfirmPassword,
                     icon = Icons.Default.Lock,
                     errorKey = state.errors["confirmPassword"],
-                    hintRes = R.string.auth_hint_password,
+                    hint = stringResource(R.string.auth_hint_password),
                     isPassword = true,
                     passwordVisible = confirmPasswordVisible,
                     onPasswordVisibilityChange = onConfirmPasswordVisibleChange,
@@ -281,7 +261,7 @@ private fun SignupField(
     onValueChange: (String) -> Unit,
     icon: ImageVector,
     errorKey: String?,
-    @StringRes hintRes: Int,
+    hint: String,
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     onPasswordVisibilityChange: (() -> Unit)? = null,
@@ -289,17 +269,14 @@ private fun SignupField(
     imeAction: ImeAction = ImeAction.Next,
     onImeAction: () -> Unit = {},
 ) {
-    OutlinedTextField(
+    AuthFormField(
         value = value,
-        onValueChange = { onValueChange(it.replace("\n", "")) },
-        label = { Text(label) },
-        placeholder = { Text(stringResource(hintRes)) },
-        leadingIcon = { Icon(icon, null) },
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        onValueChange = onValueChange,
+        label = label,
+        placeholder = hint,
+        leadingIcon = icon,
         isError = errorKey != null,
         visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-        singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
         keyboardActions = KeyboardActions(onNext = { onImeAction() }, onDone = { onImeAction() }),
         trailingIcon = if (isPassword && onPasswordVisibilityChange != null) {
@@ -311,9 +288,7 @@ private fun SignupField(
                     )
                 }
             }
-        } else {
-            null
-        },
+        } else null,
     )
     AuthErrorMessage(errorKey)
 }
@@ -326,39 +301,99 @@ private fun SignupDropdownField(
     isPlaceholder: Boolean,
     isError: Boolean,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    AuthSelectField(
+        label = label,
+        value = value,
+        leadingIcon = icon,
+        isPlaceholder = isPlaceholder,
+        isError = isError,
+        modifier = modifier,
+        onClick = onClick,
+    )
+}
+
+@Composable
+internal fun IndustrySelectionSheet(
+    industries: Array<String>,
+    selectedIndustry: String,
+    onIndustrySelected: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
+            text = stringResource(R.string.auth_select_industry),
+            style = MaterialTheme.typography.headlineSmall,
+            color = colorResource(R.color.text_primary),
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = stringResource(R.string.auth_select_your_industry),
+            style = MaterialTheme.typography.bodyLarge,
             color = colorResource(R.color.text_secondary),
         )
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(colorResource(R.color.app_background))
-                .border(
-                    width = 1.dp,
-                    color = if (isError) colorResource(R.color.error_red) else colorResource(R.color.text_hint).copy(alpha = 0.25f),
-                    shape = RoundedCornerShape(14.dp),
-                )
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isPlaceholder) colorResource(R.color.text_hint) else colorResource(R.color.text_primary),
-            )
-            Text(
-                text = value,
-                modifier = Modifier.weight(1f),
-                color = if (isPlaceholder) colorResource(R.color.text_hint) else colorResource(R.color.text_primary),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = colorResource(R.color.text_secondary))
+            industries.forEach { industry ->
+                val selected = industry == selectedIndustry
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            if (selected) colorResource(R.color.brand_green).copy(alpha = 0.08f)
+                            else Color.White
+                        )
+                        .clickable { onIndustrySelected(industry) }
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) Brush.linearGradient(
+                                    listOf(
+                                        colorResource(R.color.brand_gold),
+                                        colorResource(R.color.brand_tan),
+                                    )
+                                ) else Brush.linearGradient(
+                                    listOf(
+                                        colorResource(R.color.app_background),
+                                        colorResource(R.color.app_background),
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Business,
+                            contentDescription = null,
+                            tint = if (selected) Color.White else colorResource(R.color.brand_green),
+                        )
+                    }
+                    Text(
+                        text = industry,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colorResource(R.color.text_primary),
+                    )
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = colorResource(R.color.brand_gold),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -372,7 +407,11 @@ internal fun PinSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
         }
     }
 
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -440,7 +479,11 @@ internal fun PinSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
 
 @Composable
 internal fun BiometricSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -515,7 +558,11 @@ private fun BiometricBenefitRow(title: String, subtitle: String) {
 
 @Composable
 internal fun StaffPromptCard(state: SignupUiState, onSkip: () -> Unit, onAddStaff: () -> Unit) {
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -539,14 +586,18 @@ internal fun StaffPromptCard(state: SignupUiState, onSkip: () -> Unit, onAddStaf
 
 @Composable
 internal fun StaffSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
-    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
         Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             AuthHeroIcon(icon = { Icon(Icons.Default.PersonAdd, null, tint = Color.White, modifier = Modifier.size(32.dp)) })
             Text(stringResource(R.string.auth_staff_title), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(R.string.auth_staff_subtitle), color = colorResource(R.color.text_secondary))
-            SignupField(stringResource(R.string.auth_full_name), state.staffName, viewModel::updateStaffName, Icons.Default.Person, null, R.string.auth_hint_full_name)
-            SignupField(stringResource(R.string.auth_email_label), state.staffEmail, viewModel::updateStaffEmail, Icons.Default.Email, null, R.string.auth_hint_email, keyboardType = KeyboardType.Email)
-            SignupField(stringResource(R.string.auth_staff_temporary_password), state.staffPassword, viewModel::updateStaffPassword, Icons.Default.Lock, null, R.string.auth_hint_password, isPassword = true)
+            SignupField(stringResource(R.string.auth_full_name), state.staffName, viewModel::updateStaffName, Icons.Default.Person, null, stringResource(R.string.auth_hint_full_name))
+            SignupField(stringResource(R.string.auth_email_label), state.staffEmail, viewModel::updateStaffEmail, Icons.Default.Email, null, stringResource(R.string.auth_hint_email), keyboardType = KeyboardType.Email)
+            SignupField(stringResource(R.string.auth_staff_temporary_password), state.staffPassword, viewModel::updateStaffPassword, Icons.Default.Lock, null, stringResource(R.string.auth_hint_password), isPassword = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(
                     StaffRole.STORE_MANAGER to R.string.auth_staff_role_manager,
@@ -564,6 +615,23 @@ internal fun StaffSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
                     ) {
                         Text(stringResource(label), color = colorResource(R.color.text_primary))
                     }
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_staff_permissions_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colorResource(R.color.text_primary),
+                )
+                signupPermissionOptions().forEach { option ->
+                    SignupPermissionToggleRow(
+                        icon = option.icon,
+                        label = stringResource(option.labelRes),
+                        selected = option.selected(state.staffPermissions),
+                        onClick = {
+                            viewModel.updateStaffPermissions(option.toggle(state.staffPermissions))
+                        },
+                    )
                 }
             }
             AuthErrorMessage(state.staffError)
@@ -618,6 +686,114 @@ internal fun StaffSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
     }
 }
 
+private data class SignupPermissionOption(
+    val icon: ImageVector,
+    @StringRes val labelRes: Int,
+    val selected: (StaffPermissions) -> Boolean,
+    val toggle: (StaffPermissions) -> StaffPermissions,
+)
+
+@Composable
+private fun SignupPermissionToggleRow(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) colorResource(R.color.brand_green).copy(alpha = 0.08f) else colorResource(R.color.app_background))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) Brush.linearGradient(listOf(colorResource(R.color.brand_gold), colorResource(R.color.brand_tan)))
+                    else Brush.linearGradient(listOf(colorResource(R.color.surface_white), colorResource(R.color.surface_white)))
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) Color.White else colorResource(R.color.brand_green),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            color = colorResource(R.color.text_primary),
+        )
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) colorResource(R.color.brand_gold)
+                    else colorResource(R.color.text_hint).copy(alpha = 0.18f)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
+}
+
+private fun signupPermissionOptions(): List<SignupPermissionOption> = listOf(
+    SignupPermissionOption(
+        icon = Icons.Default.Visibility,
+        labelRes = R.string.merchant_staff_permission_analytics,
+        selected = { it.viewAnalytics },
+        toggle = { it.copy(viewAnalytics = !it.viewAnalytics) },
+    ),
+    SignupPermissionOption(
+        icon = Icons.Default.Business,
+        labelRes = R.string.merchant_staff_permission_programs,
+        selected = { it.managePrograms },
+        toggle = { it.copy(managePrograms = !it.managePrograms) },
+    ),
+    SignupPermissionOption(
+        icon = Icons.Default.CheckCircle,
+        labelRes = R.string.merchant_staff_permission_transactions,
+        selected = { it.processTransactions },
+        toggle = { it.copy(processTransactions = !it.processTransactions) },
+    ),
+    SignupPermissionOption(
+        icon = Icons.Default.Person,
+        labelRes = R.string.merchant_staff_permission_customers,
+        selected = { it.manageCustomers },
+        toggle = { it.copy(manageCustomers = !it.manageCustomers) },
+    ),
+    SignupPermissionOption(
+        icon = Icons.Default.PersonAdd,
+        labelRes = R.string.merchant_staff_permission_staff,
+        selected = { it.manageStaff },
+        toggle = { it.copy(manageStaff = !it.manageStaff) },
+    ),
+    SignupPermissionOption(
+        icon = Icons.Default.Settings,
+        labelRes = R.string.merchant_staff_permission_settings,
+        selected = { it.viewSettings },
+        toggle = { it.copy(viewSettings = !it.viewSettings) },
+    ),
+)
+
 @Composable
 internal fun ExistingEmailDialog(
     onDismiss: () -> Unit,
@@ -636,7 +812,8 @@ internal fun ExistingEmailDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
-                .clickable(enabled = false) {}
+                .clickable(enabled = false) {},
+            colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
         ) {
             Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AuthHeroIcon(icon = { Icon(Icons.Default.Email, null, tint = Color.White, modifier = Modifier.size(32.dp)) })

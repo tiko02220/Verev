@@ -3,7 +3,8 @@ package com.vector.verevcodex.presentation.auth.signup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.domain.model.common.StaffRole
-import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
+import com.vector.verevcodex.domain.model.common.defaultPermissions
+import com.vector.verevcodex.domain.model.common.summary
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
 import com.vector.verevcodex.domain.model.auth.BusinessRegistration
 import com.vector.verevcodex.domain.model.auth.SecuritySetup
@@ -72,7 +73,16 @@ class SignupViewModel @Inject constructor(
     fun updateStaffName(value: String) = update { copy(staffName = value, staffError = null) }
     fun updateStaffEmail(value: String) = update { copy(staffEmail = value, staffError = null) }
     fun updateStaffPassword(value: String) = update { copy(staffPassword = value, staffError = null) }
-    fun updateStaffRole(role: StaffRole) = update { copy(staffRole = role) }
+    fun updateStaffRole(role: StaffRole) = update {
+        copy(
+            staffRole = role,
+            staffPermissions = role.defaultPermissions(),
+            staffError = null,
+        )
+    }
+    fun updateStaffPermissions(permissions: com.vector.verevcodex.domain.model.common.StaffPermissions) = update {
+        copy(staffPermissions = permissions, staffError = null)
+    }
 
     fun back() {
         update {
@@ -180,24 +190,18 @@ class SignupViewModel @Inject constructor(
 
     fun addStaffMember() {
         val state = uiState.value
-        if (state.staffName.isBlank() || state.staffEmail.isBlank() || state.staffPassword.length < 8) {
+        val draftMember = validateAndBuildDraftMember(state) ?: run {
             update { copy(staffError = "staff_incomplete") }
             return
         }
-        val permissionsSummary = state.staffRole.defaultPermissionsSummary()
         update {
             copy(
-                staffMembers = staffMembers + StaffOnboardingMember(
-                    fullName = staffName.trim(),
-                    email = staffEmail.trim().lowercase(),
-                    password = staffPassword,
-                    role = staffRole,
-                    permissionsSummary = permissionsSummary,
-                ),
+                staffMembers = staffMembers + draftMember,
                 staffName = "",
                 staffEmail = "",
                 staffPassword = "",
                 staffRole = StaffRole.STAFF,
+                staffPermissions = StaffRole.STAFF.defaultPermissions(),
                 staffError = null,
             )
         }
@@ -206,19 +210,41 @@ class SignupViewModel @Inject constructor(
     fun completeStaffSetup() {
         val state = uiState.value
         val storeId = state.storeId ?: return
-        if (state.staffMembers.isEmpty()) {
+        val currentDraft = when {
+            state.staffName.isBlank() && state.staffEmail.isBlank() && state.staffPassword.isBlank() -> null
+            else -> validateAndBuildDraftMember(state) ?: run {
+                update { copy(staffError = "staff_incomplete") }
+                return
+            }
+        }
+        val membersToPersist = state.staffMembers + listOfNotNull(currentDraft)
+        if (membersToPersist.isEmpty()) {
             completeOnboardingAndEnterApp()
             return
         }
         viewModelScope.launch {
             update { copy(isLoading = true) }
-            addStaffMembersUseCase(storeId, state.staffMembers)
+            addStaffMembersUseCase(storeId, membersToPersist)
                 .onSuccess {
                     update { copy(isLoading = false) }
                     completeOnboardingAndEnterApp()
                 }
                 .onFailure { update { copy(isLoading = false, staffError = it.message ?: "staff_failed") } }
         }
+    }
+
+    private fun validateAndBuildDraftMember(state: SignupUiState): StaffOnboardingMember? {
+        if (state.staffName.isBlank() || state.staffEmail.isBlank() || state.staffPassword.length < 8) {
+            return null
+        }
+        return StaffOnboardingMember(
+            fullName = state.staffName.trim(),
+            email = state.staffEmail.trim().lowercase(),
+            password = state.staffPassword,
+            role = state.staffRole,
+            permissionsSummary = state.staffPermissions.summary(),
+            permissions = state.staffPermissions,
+        )
     }
 
     private fun completeOnboardingAndEnterApp() {
@@ -277,6 +303,7 @@ data class SignupUiState(
     val staffEmail: String = "",
     val staffPassword: String = "",
     val staffRole: StaffRole = StaffRole.STAFF,
+    val staffPermissions: com.vector.verevcodex.domain.model.common.StaffPermissions = StaffRole.STAFF.defaultPermissions(),
     val staffError: String? = null,
     val pinError: String? = null,
     val errors: Map<String, String> = emptyMap(),

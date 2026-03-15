@@ -6,8 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
+import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
-import com.vector.verevcodex.domain.model.common.defaultPermissionsSummary
+import com.vector.verevcodex.domain.model.common.summary
 import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
@@ -55,7 +56,14 @@ class BranchStaffConfigViewModel @Inject constructor(
         }
     }
 
-    fun addMember(fullName: String, email: String, password: String, role: StaffRole) {
+    fun addMember(
+        fullName: String,
+        email: String,
+        phoneNumber: String,
+        password: String,
+        role: StaffRole,
+        permissions: StaffPermissions,
+    ) {
         val branchStoreId = storeId
         if (branchStoreId.isNullOrBlank()) {
             publishError(R.string.merchant_branch_staff_missing_store)
@@ -73,9 +81,11 @@ class BranchStaffConfigViewModel @Inject constructor(
                         StaffOnboardingMember(
                             fullName = fullName.trim(),
                             email = email.trim().lowercase(),
+                            phoneNumber = phoneNumber.trim(),
                             password = password,
                             role = role,
-                            permissionsSummary = role.defaultPermissionsSummary(),
+                            permissionsSummary = permissions.summary(),
+                            permissions = permissions,
                         )
                     ),
                 ).fold(

@@ -14,6 +14,7 @@ data class TransactionEntity(
     val pointsRedeemed: Int,
     val timestamp: String,
     val metadata: String,
+    val countsAsVisit: Boolean,
 )
 
 @Entity(tableName = "transaction_items")
@@ -97,11 +98,16 @@ data class CampaignEntity(
     val storeId: String,
     val name: String,
     val description: String,
+    val imageUri: String,
     val startDate: String,
     val endDate: String,
     val promotionType: String,
     val promotionValue: Double,
+    val minimumPurchaseAmount: Double,
+    val usageLimit: Int,
     val promoCode: String?,
+    val visibility: String,
+    val boostLevel: String?,
     val paymentFlowEnabled: Boolean,
     val active: Boolean,
 )

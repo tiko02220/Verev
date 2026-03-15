@@ -703,7 +703,7 @@ fun MerchantAppNavHost(
                     onOpenPasswordSecurity = { navController.navigate(Screen.PasswordSecurity.route) },
                     onOpenEmailNotifications = { navController.navigate(Screen.EmailNotifications.route) },
                     onOpenBusinessDetails = { navController.navigate(Screen.BusinessDetails.route) },
-                    onOpenPrograms = { navController.navigate(Screen.LoyaltyPrograms.route) },
+                    onOpenPromotions = { navController.navigate(Screen.Promotions.route) },
                     onOpenStaff = { navController.navigate(Screen.Staff.route) },
                     onOpenReports = { navController.navigate(Screen.Reports.route) },
                     onOpenPayments = { navController.navigate(Screen.PaymentMethods.route) },

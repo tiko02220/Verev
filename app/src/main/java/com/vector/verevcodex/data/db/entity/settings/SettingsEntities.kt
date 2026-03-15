@@ -9,6 +9,7 @@ data class BrandingSettingsEntity(
     val selectedPaletteId: String,
     val themeMode: String,
     val accentColor: String,
+    val logoUri: String,
 )
 
 @Entity(tableName = "subscription_plans")

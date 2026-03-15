@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,6 +25,7 @@ import com.vector.verevcodex.presentation.auth.common.AuthBackRow
 import com.vector.verevcodex.presentation.auth.common.AuthCenteredSection
 import com.vector.verevcodex.presentation.auth.common.AuthGradientScreenScaffold
 import com.vector.verevcodex.presentation.auth.common.showBiometricPrompt
+import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
 
 @Composable
 fun SignupScreen(
@@ -37,7 +40,8 @@ fun SignupScreen(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val activity = context as? FragmentActivity
-    var industryExpanded by remember { mutableStateOf(false) }
+    var industrySheetInstance by remember { mutableIntStateOf(0) }
+    var showIndustrySheet by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
@@ -85,9 +89,9 @@ fun SignupScreen(
                     -> SignupFormCard(
                         state = state,
                         viewModel = viewModel,
-                        industries = industries,
-                        industryExpanded = industryExpanded,
-                        onIndustryExpandedChange = { industryExpanded = it },
+                        onOpenIndustrySheet = {
+                            showIndustrySheet = true
+                        },
                         focusManager = focusManager,
                         passwordVisible = passwordVisible,
                         onPasswordVisibleChange = { passwordVisible = !passwordVisible },
@@ -113,8 +117,22 @@ fun SignupScreen(
             ExistingEmailDialog(
                 onDismiss = viewModel::dismissExistingEmailDialog,
                 onLogin = onLoginRequested,
-                onRecoverPassword = onForgotPasswordRequested,
-            )
+                onRecoverPassword = onForgotPasswordRequested)
+        }
+
+        if (showIndustrySheet) {
+            AppBottomSheetDialog(
+                onDismissRequest = { showIndustrySheet = false },
+                allowSwipeToDismiss = true) { dismiss, _ ->
+                IndustrySelectionSheet(
+                    industries = industries,
+                    selectedIndustry = state.industry,
+                    onIndustrySelected = { industry ->
+                        viewModel.updateIndustry(industry)
+                        dismiss()
+                    },
+                )
+            }
         }
     }
 }

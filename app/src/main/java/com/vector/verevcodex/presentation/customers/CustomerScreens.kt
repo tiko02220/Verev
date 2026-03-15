@@ -1,14 +1,18 @@
 package com.vector.verevcodex.presentation.customers
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,7 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.common.state.UiState
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
-import com.vector.verevcodex.presentation.merchant.common.displayName
+import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 fun CustomerListScreen(
@@ -36,12 +41,18 @@ fun CustomerListScreen(
     CustomerFeatureScaffold(
         title = stringResource(R.string.merchant_customers_title),
         subtitle = stringResource(R.string.merchant_customers_subtitle, state.totalCustomers),
+        headerStyle = CustomerFeatureHeaderStyle.PLAIN,
+        showTitle = false,
         headerContent = {
             CustomersHeaderPanel(
-                totalCount = state.totalCustomers,
-                storeName = state.selectedStoreName,
+                title = stringResource(R.string.merchant_customers_title),
+                subtitle = stringResource(R.string.merchant_customers_subtitle, state.totalCustomers),
+                totalCount = state.filteredCustomers.size,
+                totalVisits = state.filteredVisits,
+                totalRevenue = state.filteredRevenue,
                 query = state.searchQuery,
                 selectedTier = state.selectedTier,
+                hasActiveTierProgram = state.hasActiveTierProgram,
                 onQueryChange = viewModel::onSearchQueryChanged,
                 onTierSelected = viewModel::onTierSelected,
             )
@@ -123,7 +134,11 @@ fun CustomerProfileScreen(
     var showEditContact by rememberSaveable { mutableStateOf(false) }
     var showEditCrm by rememberSaveable { mutableStateOf(false) }
     var showAdjustPoints by rememberSaveable { mutableStateOf(false) }
+    var showAddTransactionSheet by rememberSaveable { mutableStateOf(false) }
+    var showTagsSheet by rememberSaveable { mutableStateOf(false) }
     var selectedTab by rememberSaveable { mutableStateOf(CustomerProfileTab.OVERVIEW) }
+    val hasActiveTierProgram = state.storePrograms.any { it.active && it.configuration.tierTrackingEnabled }
+    val availablePointsPrograms = state.storePrograms.eligibleActivePrograms()
 
     if (showEditContact && customer != null) {
         EditCustomerContactDialog(
@@ -150,12 +165,40 @@ fun CustomerProfileScreen(
     }
 
     if (showAdjustPoints) {
-        AdjustCustomerPointsDialog(
+        CustomerAdjustPointsSheet(
+            currentPoints = customer?.currentPoints ?: 0,
+            currentVisits = state.scopedVisits,
+            availablePrograms = availablePointsPrograms,
             isSaving = state.isSaving,
             onDismiss = { showAdjustPoints = false },
-            onSave = { delta, reason ->
-                viewModel.adjustPoints(delta, reason)
+            onSave = { delta, reason, programId ->
+                viewModel.adjustPoints(delta, reason, programId)
                 showAdjustPoints = false
+            },
+        )
+    }
+
+    if (showAddTransactionSheet && customer != null) {
+        CustomerTransactionSheet(
+            availablePrograms = availablePointsPrograms,
+            isSaving = state.isSaving,
+            onDismiss = { showAddTransactionSheet = false },
+            onSave = { amount, description, programId ->
+                viewModel.recordManualTransaction(false, amount, description, programId)
+                showAddTransactionSheet = false
+            },
+        )
+    }
+
+    if (showTagsSheet) {
+        CustomerTagsSheet(
+            currentTags = state.relation?.tags.orEmpty(),
+            suggestedTags = state.suggestedTags,
+            isSaving = state.isSaving,
+            onDismiss = { showTagsSheet = false },
+            onSave = { tags ->
+                viewModel.updateTags(tags)
+                showTagsSheet = false
             },
         )
     }
@@ -171,113 +214,180 @@ fun CustomerProfileScreen(
         title = customer?.displayName().orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile) },
         subtitle = customer?.email.orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile_missing_subtitle) },
         onBack = onBack,
+        headerStyle = CustomerFeatureHeaderStyle.GRADIENT,
+        showTitle = false,
+        backLabel = stringResource(R.string.auth_back),
+        wrapBodyInSheet = false,
         headerContent = {
             customer?.let {
-                CustomerProfileHero(customer = it, relation = state.relation)
+                CustomerProfileHero(
+                    customer = it,
+                    relation = state.relation,
+                    scopedLastVisit = state.scopedLastVisit,
+                    showTierBadge = hasActiveTierProgram,
+                    onEditTags = { showTagsSheet = true },
+                )
+            }
+            if (customer != null) {
+                CustomerProfileTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
             }
         },
         body = {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 20.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 28.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                when {
-                    state.isMissingCustomer -> {
-                        item {
-                            MerchantEmptyStateCard(
-                                title = stringResource(R.string.merchant_customer_profile_missing_title),
-                                subtitle = stringResource(R.string.merchant_customer_profile_missing_subtitle),
-                                icon = Icons.Default.Person,
-                            )
-                        }
-                    }
-                    customer == null -> {
-                        item {
-                            MerchantEmptyStateCard(
-                                title = stringResource(R.string.merchant_customers_loading_title),
-                                subtitle = stringResource(R.string.merchant_customers_loading_subtitle),
-                                icon = Icons.Default.Person,
-                            )
-                        }
-                    }
-                    else -> {
-                        state.feedbackMessageRes?.let { messageRes ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 20.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    when {
+                        state.isMissingCustomer -> {
                             item {
-                                CustomerBodySection {
-                                    androidx.compose.material3.Text(
-                                        text = stringResource(messageRes),
-                                        color = com.vector.verevcodex.presentation.theme.VerevColors.Forest,
-                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
+                                MerchantEmptyStateCard(
+                                    title = stringResource(R.string.merchant_customer_profile_missing_title),
+                                    subtitle = stringResource(R.string.merchant_customer_profile_missing_subtitle),
+                                    icon = Icons.Default.Person,
+                                )
                             }
                         }
-                        item { CustomerProfileTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it }) }
-                        when (selectedTab) {
-                            CustomerProfileTab.OVERVIEW -> {
-                                item { CustomerProfileTierProgressSection(customer = customer, transactions = state.transactions) }
-                                item { CustomerProfileContactSection(customer = customer, onEditContact = { showEditContact = true }) }
-                                if (state.transactions.isEmpty()) {
-                                    item {
-                                        MerchantEmptyStateCard(
-                                            title = stringResource(R.string.merchant_customer_transactions_empty_title),
-                                            subtitle = stringResource(R.string.merchant_customer_transactions_empty_subtitle),
-                                            icon = Icons.Default.CreditCard,
-                                        )
-                                    }
-                                } else {
-                                    item { CustomerProfileTransactionSection(state.transactions, onOpenTransaction) }
-                                }
+                        customer == null -> {
+                            item {
+                                MerchantEmptyStateCard(
+                                    title = stringResource(R.string.merchant_customers_loading_title),
+                                    subtitle = stringResource(R.string.merchant_customers_loading_subtitle),
+                                    icon = Icons.Default.Person,
+                                )
                             }
-                            CustomerProfileTab.CRM -> {
+                        }
+                        else -> {
+                            state.feedbackMessageRes?.let { messageRes ->
                                 item {
-                                    CustomerCrmSection(
-                                        relation = state.relation,
-                                        onEditCrm = { showEditCrm = true },
-                                    )
-                                }
-                            }
-                            CustomerProfileTab.BONUSES -> {
-                                item {
-                                    CustomerBonusManagementSection(
-                                        customer = customer,
-                                        relation = state.relation,
-                                        ledgerEntries = state.ledgerEntries,
-                                        bonusActions = state.bonusActions,
-                                        rewards = state.storeRewards,
-                                        programs = state.storePrograms,
-                                        campaigns = state.storeCampaigns,
-                                        isSaving = state.isSaving,
-                                        onAdjustPoints = { showAdjustPoints = true },
-                                        onRedeemReward = viewModel::redeemReward,
-                                        onRedeemCoupon = viewModel::redeemCoupon,
-                                        onMarkDiscountApplied = viewModel::markDiscountApplied,
-                                        onRecordTierBenefit = viewModel::recordTierBenefit,
-                                    )
-                                }
-                            }
-                            CustomerProfileTab.ACTIVITY -> {
-                                if (state.activities.isNotEmpty()) {
-                                    item { CustomerActivitySection(state.activities, onOpenTransaction) }
-                                }
-                            }
-                            CustomerProfileTab.ACCESS -> {
-                                if (state.credentials.isNotEmpty()) {
-                                    item {
-                                        CustomerProfileCredentialSection(
-                                            credentials = state.credentials,
-                                            onManageCredentials = { onManageCredentials(customer.id) },
+                                    CustomerBodySection {
+                                        androidx.compose.material3.Text(
+                                            text = stringResource(messageRes),
+                                            color = com.vector.verevcodex.presentation.theme.VerevColors.Forest,
+                                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                                         )
                                     }
                                 }
                             }
+                            when (selectedTab) {
+                                CustomerProfileTab.OVERVIEW -> {
+                                    item {
+                                        CustomerProfileBalanceSection(
+                                            customer = customer,
+                                            scopedVisits = state.scopedVisits,
+                                            scopedSpent = state.scopedSpent,
+                                            progress = state.tierProgress,
+                                            nextTierThreshold = state.nextTierThreshold,
+                                            showTierProgress = hasActiveTierProgram,
+                                            onOpenBonusManager = {
+                                                if (availablePointsPrograms.isEmpty()) {
+                                                    viewModel.showProgramRequiredFeedback()
+                                                } else {
+                                                    showAdjustPoints = true
+                                                }
+                                            },
+                                            onOpenTransactions = {
+                                                if (availablePointsPrograms.isEmpty()) {
+                                                    viewModel.showProgramRequiredFeedback()
+                                                } else {
+                                                    showAddTransactionSheet = true
+                                                }
+                                            },
+                                        )
+                                    }
+                                    item { CustomerProfileStatsGrid(state.scopedVisits, state.scopedSpent) }
+                                    item {
+                                        CustomerProfileContactSection(
+                                            customer = customer,
+                                            activeStoreName = state.activeStoreName,
+                                            activeStoreAddress = state.activeStoreAddress,
+                                            onEditContact = { showEditContact = true },
+                                        )
+                                    }
+                                    item { CustomerProfileNotesPreviewSection(state.relation, onEditNotes = { showEditCrm = true }) }
+                                    if (state.activities.isNotEmpty()) {
+                                        item {
+                                            CustomerProfileActivityPreviewSection(
+                                                activities = state.activities,
+                                                onOpenActivity = { selectedTab = CustomerProfileTab.ACTIVITY },
+                                            )
+                                        }
+                                    }
+                                }
+                                CustomerProfileTab.TRANSACTIONS -> {
+                                    if (state.transactions.isEmpty()) {
+                                        item {
+                                            MerchantEmptyStateCard(
+                                                title = stringResource(R.string.merchant_customer_transactions_empty_title),
+                                                subtitle = stringResource(R.string.merchant_customer_transactions_empty_subtitle),
+                                                icon = Icons.Default.CreditCard,
+                                            )
+                                        }
+                                    } else {
+                                        item { CustomerProfileTransactionSection(state.transactions, onOpenTransaction) }
+                                    }
+                                }
+                                CustomerProfileTab.ACTIVITY -> {
+                                    if (state.activities.isNotEmpty()) {
+                                        item { CustomerActivitySection(state.activities, onOpenTransaction) }
+                                    } else {
+                                        item {
+                                            MerchantEmptyStateCard(
+                                                title = stringResource(R.string.merchant_customer_activity_empty_title),
+                                                subtitle = stringResource(R.string.merchant_customer_activity_empty_subtitle),
+                                                icon = Icons.Default.Person,
+                                            )
+                                        }
+                                    }
+                                }
+                                CustomerProfileTab.ACCESS -> {
+                                    if (state.credentials.isNotEmpty()) {
+                                        item {
+                                            CustomerProfileCredentialSection(
+                                                credentials = state.credentials,
+                                                onManageCredentials = { onManageCredentials(customer.id) },
+                                            )
+                                        }
+                                    } else {
+                                        item {
+                                            MerchantEmptyStateCard(
+                                                title = stringResource(R.string.merchant_customer_access_empty_title),
+                                                subtitle = stringResource(R.string.merchant_customer_access_empty_subtitle),
+                                                icon = Icons.Default.CreditCard,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    }
+                }
+                if (customer != null && selectedTab != CustomerProfileTab.ACCESS) {
+                    FloatingActionButton(
+                        onClick = {
+                            if (availablePointsPrograms.isEmpty()) {
+                                viewModel.showProgramRequiredFeedback()
+                            } else {
+                                showAddTransactionSheet = true
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 24.dp, bottom = contentPadding.calculateBottomPadding() + 18.dp),
+                        containerColor = VerevColors.Gold,
+                        contentColor = VerevColors.Forest,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.merchant_customer_add_transaction),
+                        )
                     }
                 }
             }
@@ -298,6 +408,11 @@ fun CustomerTransactionDetailScreen(
         subtitle = transaction?.metadata?.ifBlank { stringResource(R.string.merchant_transaction_item_fallback) }
             ?: stringResource(R.string.merchant_customer_transactions_empty_subtitle),
         onBack = onBack,
+        headerStyle = CustomerFeatureHeaderStyle.GRADIENT,
+        showTitle = false,
+        headerContent = {
+            transaction?.let { CustomerTransactionDetailHero(it) }
+        },
         body = {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

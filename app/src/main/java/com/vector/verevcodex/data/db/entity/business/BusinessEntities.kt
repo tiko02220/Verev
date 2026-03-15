@@ -47,4 +47,10 @@ data class StaffMemberEntity(
     val role: String,
     val active: Boolean,
     val permissionsSummary: String,
+    val canViewAnalytics: Boolean,
+    val canManagePrograms: Boolean,
+    val canProcessTransactions: Boolean,
+    val canManageCustomers: Boolean,
+    val canManageStaff: Boolean,
+    val canViewSettings: Boolean,
 )

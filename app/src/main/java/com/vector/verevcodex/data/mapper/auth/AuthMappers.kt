@@ -11,6 +11,7 @@ fun AuthAccountEntity.toDomain() = AuthUser(
     fullName = fullName,
     email = email,
     phoneNumber = phoneNumber,
+    profilePhotoUri = profilePhotoUri,
     role = StaffRole.valueOf(role),
     active = active,
 )

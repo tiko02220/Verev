@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,12 +23,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.NoteAlt
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.Stars
@@ -42,8 +50,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -71,6 +79,7 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.displayName
+import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatRelativeDateTime
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -82,24 +91,44 @@ internal fun CustomerCrmSection(
     onEditCrm: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        MerchantSectionTitle(text = stringResource(R.string.merchant_customer_crm_section))
+        CustomerSectionHeader(
+            title = stringResource(R.string.merchant_customer_crm_section),
+            actionIcon = Icons.Default.Edit,
+            onAction = onEditCrm,
+        )
         CustomerBodySection {
-            CustomerCrmRow(
-                icon = Icons.Default.NoteAlt,
-                title = stringResource(R.string.merchant_customer_notes_label),
-                value = relation?.notes?.ifBlank { stringResource(R.string.merchant_customer_notes_empty) }
-                    ?: stringResource(R.string.merchant_customer_notes_empty),
-            )
-            relation?.tags?.takeIf { it.isNotEmpty() }?.let { tags ->
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_customer_notes_label),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(VerevColors.AppBackground.copy(alpha = 0.8f))
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                ) {
                     Text(
-                        text = stringResource(R.string.merchant_customer_tags_label),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = VerevColors.Forest,
-                        fontWeight = FontWeight.SemiBold,
+                        text = relation?.notes?.ifBlank { stringResource(R.string.merchant_customer_notes_empty) }
+                            ?: stringResource(R.string.merchant_customer_notes_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.74f),
                     )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_customer_tags_label),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (relation?.tags?.isNotEmpty() == true) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        tags.forEach { tag ->
+                        relation.tags.forEach { tag ->
                             MerchantStatusPill(
                                 text = tag,
                                 backgroundColor = VerevColors.Forest.copy(alpha = 0.08f),
@@ -107,20 +136,13 @@ internal fun CustomerCrmSection(
                             )
                         }
                     }
+                } else {
+                    CustomerCrmRow(
+                        icon = Icons.Default.LocalOffer,
+                        title = stringResource(R.string.merchant_customer_tags_label),
+                        value = stringResource(R.string.merchant_customer_tags_empty),
+                    )
                 }
-            } ?: CustomerCrmRow(
-                icon = Icons.Default.LocalOffer,
-                title = stringResource(R.string.merchant_customer_tags_label),
-                value = stringResource(R.string.merchant_customer_tags_empty),
-            )
-            OutlinedButton(
-                onClick = onEditCrm,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Default.Edit, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.merchant_customer_edit_crm))
             }
         }
     }
@@ -188,9 +210,17 @@ internal fun CustomerBonusManagementSection(
     val tierProgram = programs.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
     val couponProgram = programs.firstOrNull { it.active && it.configuration.couponEnabled }
     val discountCampaigns = campaigns.filter {
-        it.active && (it.promotionType == PromotionType.PERCENT_DISCOUNT || it.promotionType == PromotionType.FIXED_DISCOUNT)
+        it.active &&
+            !java.time.LocalDate.now().isBefore(it.startDate) &&
+            !java.time.LocalDate.now().isAfter(it.endDate) &&
+            (it.promotionType == PromotionType.PERCENT_DISCOUNT || it.promotionType == PromotionType.FIXED_DISCOUNT)
     }
-    val promoCodeCampaigns = campaigns.filter { it.active && !it.promoCode.isNullOrBlank() }
+    val promoCodeCampaigns = campaigns.filter {
+        it.active &&
+            !java.time.LocalDate.now().isBefore(it.startDate) &&
+            !java.time.LocalDate.now().isAfter(it.endDate) &&
+            !it.promoCode.isNullOrBlank()
+    }
     val redeemableRewards = rewards.filter { customer.currentPoints >= it.pointsRequired }
     val rewardToRedeem = rewards.firstOrNull { it.id == rewardToRedeemId }
     val couponProgramToRedeem = programs.firstOrNull { it.id == couponProgramToRedeemId && it.configuration.couponEnabled }
@@ -303,31 +333,114 @@ internal fun CustomerBonusManagementSection(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        MerchantSectionTitle(text = stringResource(R.string.merchant_customer_bonus_management_title))
-        CustomerBodySection {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricChip(
-                    label = stringResource(R.string.merchant_metric_points),
-                    value = customer.currentPoints.toString(),
-                    modifier = Modifier.weight(1f),
-                )
-                MetricChip(
-                    label = stringResource(R.string.merchant_customer_bonus_metric_tier),
-                    value = customer.loyaltyTier.displayName(),
-                    modifier = Modifier.weight(1f),
-                )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(VerevColors.Forest),
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(R.string.merchant_customer_bonus_management_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = VerevColors.White,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = customer.displayName(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = VerevColors.White.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CustomerBonusSection.entries.forEach { section ->
+                        BonusSectionTab(
+                            label = stringResource(section.labelRes),
+                            icon = section.icon(),
+                            selected = selectedSection == section,
+                            onClick = { selectedSection = section },
+                        )
+                    }
+                }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CustomerBonusSection.entries.forEach { section ->
-                    MerchantFilterChip(
-                        text = stringResource(section.labelRes),
-                        selected = selectedSection == section,
-                        onClick = { selectedSection = section },
+        }
+
+        CustomerBodySection {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            listOf(VerevColors.Gold, VerevColors.Moss),
+                        )
                     )
+                    .padding(18.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(
+                        text = stringResource(R.string.merchant_customer_bonus_management_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VerevColors.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        BonusHeroMetric(
+                            label = stringResource(R.string.merchant_metric_points),
+                            value = customer.currentPoints.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        BonusHeroMetric(
+                            label = stringResource(R.string.merchant_customer_bonus_metric_tier),
+                            value = customer.loyaltyTier.displayName(),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
             when (selectedSection) {
                 CustomerBonusSection.POINTS -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(VerevColors.AppBackground.copy(alpha = 0.9f))
+                            .padding(18.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = stringResource(R.string.merchant_customer_bonus_current_balance_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = VerevColors.Forest.copy(alpha = 0.6f),
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                Text(
+                                    text = formatCompactCount(customer.currentPoints),
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = VerevColors.Forest,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = "pts",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = VerevColors.Forest.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                    }
                     BonusManagementActionCard(
                         icon = Icons.Default.Stars,
                         title = stringResource(R.string.merchant_customer_adjust_points),
@@ -458,15 +571,15 @@ internal fun CustomerBonusManagementSection(
                                 stringResource(
                                     R.string.merchant_customer_bonus_coupon_ready_summary,
                                     couponRule.pointsCost,
-                                    couponRule.discountAmount.toInt(),
-                                    couponRule.minimumSpendAmount.toInt(),
+                                    formatWholeCurrency(couponRule.discountAmount),
+                                    formatWholeCurrency(couponRule.minimumSpendAmount),
                                 )
                             } else {
                                 stringResource(
                                     R.string.merchant_customer_bonus_coupon_program_summary,
                                     couponRule.pointsCost,
-                                    couponRule.discountAmount.toInt(),
-                                    couponRule.minimumSpendAmount.toInt(),
+                                    formatWholeCurrency(couponRule.discountAmount),
+                                    formatWholeCurrency(couponRule.minimumSpendAmount),
                                 )
                             },
                             actionLabel = if (canRedeemCoupon) {
@@ -499,15 +612,14 @@ internal fun CustomerBonusManagementSection(
                     }
                 }
                 CustomerBonusSection.TIER -> {
-                    BonusManagementActionCard(
-                        icon = Icons.Default.EmojiEvents,
-                        title = stringResource(R.string.merchant_customer_bonus_tier_title),
-                        subtitle = relation?.notes?.takeIf { it.isNotBlank() }
-                            ?: stringResource(R.string.merchant_customer_bonus_tier_subtitle),
-                        actionLabel = stringResource(R.string.merchant_customer_bonus_tier_record_confirm),
-                        onAction = onRecordTierBenefit,
-                    )
                     if (tierProgram != null) {
+                        BonusManagementActionCard(
+                            icon = Icons.Default.EmojiEvents,
+                            title = stringResource(R.string.merchant_customer_bonus_tier_title),
+                            subtitle = stringResource(R.string.merchant_customer_bonus_tier_subtitle),
+                            actionLabel = stringResource(R.string.merchant_customer_bonus_tier_record_confirm),
+                            onAction = onRecordTierBenefit,
+                        )
                         CustomerCrmRow(
                             icon = Icons.Default.EmojiEvents,
                             title = stringResource(R.string.merchant_customer_bonus_tier_current, customer.loyaltyTier.displayName()),
@@ -532,6 +644,13 @@ internal fun CustomerBonusManagementSection(
                                 tierProgram.configuration.tierRule.goldThreshold,
                                 tierProgram.configuration.tierRule.vipThreshold,
                             ),
+                        )
+                    } else {
+                        CustomerCrmRow(
+                            icon = Icons.Default.EmojiEvents,
+                            title = stringResource(R.string.merchant_customer_bonus_tier_title),
+                            value = stringResource(R.string.merchant_customer_bonus_tier_unavailable),
+                            subtitle = relation?.notes?.takeIf { it.isNotBlank() },
                         )
                     }
                     tierActions.forEach { action ->
@@ -563,22 +682,20 @@ internal fun CustomerActivitySection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         MerchantSectionTitle(text = stringResource(R.string.merchant_customer_activity_section))
-        CustomerBodySection {
-            activities.take(8).forEachIndexed { index, activity ->
-                CustomerActivityTimelineRow(
-                    activity = activity,
-                    onClick = activity.transactionId?.let { id -> { onOpenTransaction(id) } },
-                )
-                if (index < minOf(activities.lastIndex, 7)) {
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
+        activities.take(8).forEachIndexed { index, activity ->
+            CustomerActivityCard(
+                activity = activity,
+                onClick = activity.transactionId?.let { id -> { onOpenTransaction(id) } },
+            )
+            if (index < minOf(activities.lastIndex, 7)) Spacer(Modifier.height(6.dp))
         }
     }
 }
 
 @Composable
 internal fun CustomerTransactionDetailSection(transaction: Transaction) {
+    val netPoints = transaction.pointsEarned - transaction.pointsRedeemed
+    val lineItems = transaction.items
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         CustomerBodySection {
             Text(
@@ -599,8 +716,9 @@ internal fun CustomerTransactionDetailSection(transaction: Transaction) {
                 MetricChip(
                     label = stringResource(R.string.merchant_metric_points),
                     value = buildString {
-                        append(if (transaction.pointsEarned - transaction.pointsRedeemed >= 0) "+" else "")
-                        append(transaction.pointsEarned - transaction.pointsRedeemed)
+                        append(if (netPoints >= 0) "+" else "")
+                        append(netPoints)
+                        append(" pts")
                     },
                     modifier = Modifier.weight(1f),
                 )
@@ -611,12 +729,15 @@ internal fun CustomerTransactionDetailSection(transaction: Transaction) {
             ) {
                 MetricChip(
                     label = stringResource(R.string.merchant_customer_transaction_items_count),
-                    value = transaction.items.sumOf { it.quantity }.toString(),
+                    value = lineItems.sumOf { it.quantity }.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 MetricChip(
                     label = stringResource(R.string.merchant_customer_transaction_redeemed_points),
-                    value = transaction.pointsRedeemed.toString(),
+                    value = buildString {
+                        append(transaction.pointsRedeemed)
+                        append(" pts")
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -634,22 +755,55 @@ internal fun CustomerTransactionDetailSection(transaction: Transaction) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             MerchantSectionTitle(text = stringResource(R.string.merchant_customer_transaction_items))
             CustomerBodySection {
-                transaction.items.forEachIndexed { index, item ->
+                if (lineItems.isEmpty()) {
                     CustomerCrmRow(
                         icon = Icons.Default.LocalOffer,
-                        title = item.name,
-                        value = stringResource(
-                            R.string.merchant_customer_transaction_item_summary,
-                            item.quantity,
-                            formatWholeCurrency(item.unitPrice),
-                        ),
+                        title = stringResource(R.string.merchant_customer_transaction_items_empty_title),
+                        value = stringResource(R.string.merchant_customer_transaction_items_empty_subtitle),
                     )
-                    if (index < transaction.items.lastIndex) {
-                        Spacer(Modifier.height(6.dp))
+                } else {
+                    lineItems.forEachIndexed { index, item ->
+                        CustomerCrmRow(
+                            icon = Icons.Default.LocalOffer,
+                            title = item.name,
+                            value = formatWholeCurrency(item.quantity * item.unitPrice),
+                            subtitle = stringResource(
+                                R.string.merchant_customer_transaction_item_detailed_summary,
+                                item.quantity,
+                                formatWholeCurrency(item.unitPrice),
+                            ),
+                        )
+                        if (index < lineItems.lastIndex) {
+                            Spacer(Modifier.height(6.dp))
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun CustomerTransactionDetailHero(transaction: Transaction) {
+    val netPoints = transaction.pointsEarned - transaction.pointsRedeemed
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        BonusHeroMetric(
+            label = stringResource(R.string.merchant_transaction_amount),
+            value = formatWholeCurrency(transaction.amount),
+            modifier = Modifier.weight(1f),
+        )
+        BonusHeroMetric(
+            label = stringResource(R.string.merchant_metric_points),
+            value = buildString {
+                append(if (netPoints >= 0) "+" else "")
+                append(netPoints)
+                append(" pts")
+            },
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -664,18 +818,63 @@ internal fun EditCustomerContactDialog(
     var lastName by remember(customer.id) { mutableStateOf(customer.lastName) }
     var phone by remember(customer.id) { mutableStateOf(customer.phoneNumber) }
     var email by remember(customer.id) { mutableStateOf(customer.email) }
+    val validation = remember(firstName, email) {
+        CustomerDialogValidation.validateContact(firstName, email)
+    }
 
     CustomerEditDialog(
         title = stringResource(R.string.merchant_customer_edit_contact_title),
+        subtitle = stringResource(R.string.merchant_customer_edit_contact_subtitle),
         isSaving = isSaving,
         onDismiss = onDismiss,
-        onConfirm = { onSave(firstName, lastName, phone, email) },
+        confirmEnabled = !validation.hasErrors,
+        onConfirm = { onSave(firstName.trim(), lastName.trim(), phone.trim(), email.trim()) },
         confirmLabel = stringResource(R.string.merchant_customer_save_changes),
         content = {
-            OutlinedTextField(value = firstName, onValueChange = { firstName = it.replace("\n", "") }, label = { Text(stringResource(R.string.merchant_add_customer_first_name)) }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = lastName, onValueChange = { lastName = it.replace("\n", "") }, label = { Text(stringResource(R.string.merchant_add_customer_last_name)) }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = phone, onValueChange = { phone = it.replace("\n", "") }, label = { Text(stringResource(R.string.merchant_add_customer_phone)) }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = email, onValueChange = { email = it.replace("\n", "") }, label = { Text(stringResource(R.string.merchant_add_customer_email)) }, modifier = Modifier.fillMaxWidth())
+            CustomerDialogSectionTitle(
+                icon = Icons.Default.Edit,
+                title = stringResource(R.string.merchant_customer_dialog_identity_title),
+            )
+            OutlinedTextField(
+                value = firstName,
+                onValueChange = { firstName = it.replace("\n", "") },
+                label = { Text(stringResource(R.string.merchant_add_customer_first_name)) },
+                supportingText = {
+                    if (validation.firstNameError) {
+                        Text(stringResource(R.string.merchant_customer_error_first_name_required))
+                    }
+                },
+                isError = validation.firstNameError,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = lastName,
+                onValueChange = { lastName = it.replace("\n", "") },
+                label = { Text(stringResource(R.string.merchant_add_customer_last_name)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            CustomerDialogSectionTitle(
+                icon = Icons.Default.Mail,
+                title = stringResource(R.string.merchant_customer_dialog_contact_title),
+            )
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it.replace("\n", "") },
+                label = { Text(stringResource(R.string.merchant_add_customer_phone)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it.replace("\n", "") },
+                label = { Text(stringResource(R.string.merchant_add_customer_email)) },
+                supportingText = {
+                    if (validation.emailError) {
+                        Text(stringResource(R.string.merchant_customer_error_email_invalid))
+                    }
+                },
+                isError = validation.emailError,
+                modifier = Modifier.fillMaxWidth(),
+            )
         },
     )
 }
@@ -692,22 +891,31 @@ internal fun EditCustomerCrmDialog(
 
     CustomerEditDialog(
         title = stringResource(R.string.merchant_customer_edit_crm_title),
+        subtitle = stringResource(R.string.merchant_customer_edit_crm_subtitle),
         isSaving = isSaving,
         onDismiss = onDismiss,
         onConfirm = {
             onSave(
-                notes,
-                tagsInput.split(",").map { it.trim() }.filter { it.isNotBlank() },
+                notes.trim(),
+                tagsInput.split(",").map { it.trim() }.filter { it.isNotBlank() }.distinct(),
             )
         },
         confirmLabel = stringResource(R.string.merchant_customer_save_changes),
         content = {
+            CustomerDialogSectionTitle(
+                icon = Icons.Default.NoteAlt,
+                title = stringResource(R.string.merchant_customer_dialog_notes_title),
+            )
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
                 label = { Text(stringResource(R.string.merchant_customer_notes_label)) },
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
+            )
+            CustomerDialogSectionTitle(
+                icon = Icons.Default.LocalOffer,
+                title = stringResource(R.string.merchant_customer_dialog_tags_title),
             )
             OutlinedTextField(
                 value = tagsInput,
@@ -728,24 +936,45 @@ internal fun AdjustCustomerPointsDialog(
 ) {
     var delta by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
+    val validation = remember(delta, reason) {
+        CustomerDialogValidation.validatePointAdjustment(delta, reason)
+    }
 
     CustomerEditDialog(
         title = stringResource(R.string.merchant_customer_adjust_points_title),
+        subtitle = stringResource(R.string.merchant_customer_adjust_points_subtitle),
         isSaving = isSaving,
         onDismiss = onDismiss,
-        onConfirm = { onSave(delta.toIntOrNull() ?: 0, reason) },
+        confirmEnabled = !validation.hasErrors,
+        onConfirm = { onSave(validation.parsedDelta ?: 0, reason.trim()) },
         confirmLabel = stringResource(R.string.merchant_customer_adjust_points),
         content = {
+            CustomerDialogSectionTitle(
+                icon = Icons.Default.Stars,
+                title = stringResource(R.string.merchant_customer_dialog_points_title),
+            )
             OutlinedTextField(
                 value = delta,
                 onValueChange = { delta = it.filter { ch -> ch.isDigit() || ch == '-' } },
                 label = { Text(stringResource(R.string.merchant_customer_adjust_points_delta)) },
+                supportingText = {
+                    if (validation.deltaError) {
+                        Text(stringResource(R.string.merchant_customer_error_points_delta_invalid))
+                    }
+                },
+                isError = validation.deltaError,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
                 label = { Text(stringResource(R.string.merchant_customer_adjust_points_reason)) },
+                supportingText = {
+                    if (validation.reasonError) {
+                        Text(stringResource(R.string.merchant_customer_error_reason_required))
+                    }
+                },
+                isError = validation.reasonError,
                 modifier = Modifier.fillMaxWidth(),
             )
         },
@@ -821,108 +1050,275 @@ private fun BonusManagementActionCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(VerevColors.AppBackground)
-            .padding(14.dp),
+            .clip(RoundedCornerShape(22.dp))
+            .background(VerevColors.AppBackground.copy(alpha = 0.72f))
+            .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .background(VerevColors.Forest.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
+                .background(VerevColors.White, RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, contentDescription = null, tint = VerevColors.Forest)
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.64f))
-        }
-        if (actionLabel != null && onAction != null) {
-            OutlinedButton(onClick = onAction, shape = RoundedCornerShape(14.dp)) {
-                Text(actionLabel)
+            if (actionLabel != null && onAction != null) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(VerevColors.Forest.copy(alpha = 0.1f))
+                        .clickable(onClick = onAction)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = actionLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun CustomerActivityTimelineRow(
+private fun BonusHeroMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .background(VerevColors.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.White.copy(alpha = 0.74f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = VerevColors.White,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun BonusSectionTab(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (selected) VerevColors.Gold else VerevColors.White.copy(alpha = 0.14f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (selected) VerevColors.Forest else VerevColors.White,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (selected) VerevColors.Forest else VerevColors.White,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun CustomerActivityCard(
     activity: CustomerActivity,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(VerevColors.AppBackground.copy(alpha = 0.72f))
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color.White)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(12.dp),
+            .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(VerevColors.Forest.copy(alpha = 0.1f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(activity.icon(), contentDescription = null, tint = VerevColors.Forest)
-            }
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(36.dp)
-                    .background(VerevColors.Forest.copy(alpha = 0.12f)),
-            )
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        listOf(
+                            VerevColors.Gold.copy(alpha = 0.16f),
+                            VerevColors.Moss.copy(alpha = 0.14f),
+                        ),
+                    ),
+                    CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(activity.icon(), contentDescription = null, tint = VerevColors.Forest)
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(activity.title, style = MaterialTheme.typography.titleSmall, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
             Text(activity.description, style = MaterialTheme.typography.bodyMedium, color = VerevColors.Forest.copy(alpha = 0.75f))
             Text(activity.subtitle(), style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.54f))
         }
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = VerevColors.Forest.copy(alpha = 0.35f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
+}
+
+private fun CustomerBonusSection.icon(): ImageVector = when (this) {
+    CustomerBonusSection.POINTS -> Icons.AutoMirrored.Filled.TrendingUp
+    CustomerBonusSection.REWARDS -> Icons.Default.CardGiftcard
+    CustomerBonusSection.DISCOUNTS -> Icons.Default.LocalOffer
+    CustomerBonusSection.COUPONS -> Icons.Default.LocalOffer
+    CustomerBonusSection.TIER -> Icons.Default.EmojiEvents
 }
 
 @Composable
 private fun CustomerEditDialog(
     title: String,
+    subtitle: String,
     confirmLabel: String,
     isSaving: Boolean,
+    confirmEnabled: Boolean = true,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = stringResource(R.string.merchant_customer_modal_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = VerevColors.Forest.copy(alpha = 0.6f),
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding(),
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            shadowElevation = 12.dp,
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = title,
+                            color = VerevColors.Forest,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = VerevColors.Forest.copy(alpha = 0.6f),
+                        )
+                    }
+                    IconButton(onClick = onDismiss, enabled = !isSaving) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = VerevColors.Forest,
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    content = content,
                 )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text(stringResource(R.string.auth_cancel))
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        enabled = !isSaving && confirmEnabled,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = VerevColors.Gold,
+                            contentColor = VerevColors.Forest,
+                        ),
+                    ) {
+                        Text(confirmLabel, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                content = content,
+        }
+    }
+}
+
+@Composable
+private fun CustomerDialogSectionTitle(
+    icon: ImageVector,
+    title: String,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(VerevColors.Forest.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(16.dp),
             )
-        },
-        confirmButton = {
-            Button(onClick = onConfirm, enabled = !isSaving) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss, enabled = !isSaving) {
-                Text(stringResource(R.string.auth_cancel))
-            }
-        },
-    )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
 }

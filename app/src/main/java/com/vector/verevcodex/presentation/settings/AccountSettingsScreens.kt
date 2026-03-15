@@ -1,43 +1,92 @@
 package com.vector.verevcodex.presentation.settings
 
+import android.content.Intent
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons.AutoMirrored
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.MainActivity
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.theme.VerevColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PersonalInformationScreen(
@@ -46,63 +95,128 @@ fun PersonalInformationScreen(
     viewModel: PersonalInformationViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = context as? MainActivity
+    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            viewModel.updateProfilePhotoUri(uri.toString())
+        }
+    }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_settings_personal_information),
-                subtitle = stringResource(R.string.merchant_settings_personal_information_subtitle),
-                icon = Icons.Default.Person,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.messageRes?.let { messageRes ->
-            item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
-        }
-        state.errorRes?.let { errorRes ->
-            item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_personal_information)) {
-                MerchantFormField(
-                    value = state.fullName,
-                    onValueChange = viewModel::updateFullName,
-                    label = stringResource(R.string.auth_full_name),
-                    leadingIcon = Icons.Default.Badge,
+    Column(modifier = Modifier.fillMaxSize()) {
+        SettingsCompactHeader(
+            title = stringResource(R.string.merchant_settings_personal_information),
+            subtitle = stringResource(R.string.merchant_settings_personal_information_subtitle),
+            onBack = onBack,
+            actionLabel = if (state.isEditing) null else stringResource(R.string.merchant_settings_edit_action),
+            onAction = if (state.isEditing) null else viewModel::startEditing,
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            state.messageRes?.let { messageRes ->
+                item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
+            }
+            state.errorRes?.let { errorRes ->
+                item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
+            }
+            item {
+                PersonalInformationProfileCard(
+                    fullName = state.fullName,
+                    email = state.email,
+                    profilePhotoUri = state.profilePhotoUri,
+                    isEditing = state.isEditing,
+                    onUploadPhoto = {
+                        activity?.suppressRelockForTransientSystemUi()
+                        if (!state.isEditing) {
+                            viewModel.startEditing()
+                        }
+                        photoPickerLauncher.launch(arrayOf("image/*"))
+                    },
                 )
-                MerchantFormField(
-                    value = state.email,
-                    onValueChange = viewModel::updateEmail,
-                    label = stringResource(R.string.auth_email_label),
-                    leadingIcon = Icons.Default.AlternateEmail,
-                )
-                MerchantFormField(
-                    value = state.phoneNumber,
-                    onValueChange = viewModel::updatePhoneNumber,
-                    label = stringResource(R.string.auth_phone),
-                    leadingIcon = Icons.Default.Phone,
-                )
-                Button(
-                    onClick = viewModel::save,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isSaving,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Forest, contentColor = Color.White),
-                ) {
-                    Text(
-                        text = if (state.isSaving) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_save_changes),
-                        fontWeight = FontWeight.SemiBold,
-                    )
+            }
+            if (state.isEditing) {
+                item {
+                    SettingsDetailSection(title = stringResource(R.string.merchant_settings_personal_information_basic_title)) {
+                        MerchantFormField(
+                            value = state.fullName,
+                            onValueChange = viewModel::updateFullName,
+                            label = stringResource(R.string.auth_full_name),
+                            leadingIcon = Icons.Default.Badge,
+                        )
+                        MerchantFormField(
+                            value = state.email,
+                            onValueChange = viewModel::updateEmail,
+                            label = stringResource(R.string.auth_email_label),
+                            leadingIcon = Icons.Default.AlternateEmail,
+                        )
+                        MerchantFormField(
+                            value = state.phoneNumber,
+                            onValueChange = viewModel::updatePhoneNumber,
+                            label = stringResource(R.string.auth_phone),
+                            leadingIcon = Icons.Default.Phone,
+                        )
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = {
+                                viewModel.cancelEditing()
+                                viewModel.dismissMessage()
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F4F1), contentColor = VerevColors.Forest),
+                        ) {
+                            Text(stringResource(R.string.auth_cancel), fontWeight = FontWeight.Medium)
+                        }
+                        Button(
+                            onClick = viewModel::save,
+                            modifier = Modifier.weight(1f),
+                            enabled = !state.isSaving,
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
+                        ) {
+                            Text(
+                                text = if (state.isSaving) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_save_changes),
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    SettingsDetailSection(title = stringResource(R.string.merchant_settings_personal_information_basic_title)) {
+                        SettingsProfileInfoRow(
+                            icon = Icons.Default.Person,
+                            label = stringResource(R.string.auth_full_name),
+                            value = state.fullName,
+                        )
+                        SettingsProfileInfoRow(
+                            icon = Icons.Default.Email,
+                            label = stringResource(R.string.auth_email_label),
+                            value = state.email,
+                        )
+                        SettingsProfileInfoRow(
+                            icon = Icons.Default.Phone,
+                            label = stringResource(R.string.auth_phone),
+                            value = state.phoneNumber,
+                        )
+                    }
                 }
             }
         }
@@ -116,63 +230,61 @@ fun PasswordSecurityScreen(
     viewModel: PasswordSecurityViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showCurrentPassword by rememberSaveable { mutableStateOf(false) }
+    var showNewPassword by rememberSaveable { mutableStateOf(false) }
+    var showConfirmPassword by rememberSaveable { mutableStateOf(false) }
+    var showPinEditor by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsInnerScaffold(
+        title = stringResource(R.string.merchant_settings_password_security),
+        subtitle = stringResource(R.string.merchant_settings_password_security_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_settings_password_security),
-                subtitle = stringResource(R.string.merchant_settings_password_security_subtitle),
-                icon = Icons.Default.Shield,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.messageRes?.let { messageRes ->
-            item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
-        }
         state.errorRes?.let { errorRes ->
             item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
         }
         item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_password_section_title)) {
-                Text(
-                    text = state.email,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.Forest.copy(alpha = 0.64f),
-                )
-                MerchantFormField(
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_password_card_title),
+                subtitle = stringResource(R.string.merchant_settings_password_card_subtitle),
+                icon = Icons.Default.Lock,
+                accent = VerevColors.Forest,
+            ) {
+                SettingsSecureField(
                     value = state.currentPassword,
                     onValueChange = viewModel::updateCurrentPassword,
                     label = stringResource(R.string.merchant_settings_current_password),
                     leadingIcon = Icons.Default.Lock,
+                    visible = showCurrentPassword,
+                    onToggleVisibility = { showCurrentPassword = !showCurrentPassword },
                 )
-                MerchantFormField(
+                SettingsSecureField(
                     value = state.newPassword,
                     onValueChange = viewModel::updateNewPassword,
                     label = stringResource(R.string.auth_new_password_label),
                     leadingIcon = Icons.Default.Password,
+                    visible = showNewPassword,
+                    onToggleVisibility = { showNewPassword = !showNewPassword },
+                    supportingText = stringResource(R.string.merchant_settings_password_requirements),
                 )
-                MerchantFormField(
+                SettingsSecureField(
                     value = state.confirmPassword,
                     onValueChange = viewModel::updateConfirmPassword,
                     label = stringResource(R.string.auth_confirm_password_label),
                     leadingIcon = Icons.Default.Password,
+                    visible = showConfirmPassword,
+                    onToggleVisibility = { showConfirmPassword = !showConfirmPassword },
                 )
                 Button(
                     onClick = viewModel::savePassword,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isSavingPassword,
+                    enabled = !state.isSavingPassword &&
+                        state.currentPassword.isNotBlank() &&
+                        state.newPassword.length >= 8 &&
+                        state.newPassword == state.confirmPassword,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Forest, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
                 ) {
                     Text(
                         text = if (state.isSavingPassword) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_update_password),
@@ -182,53 +294,100 @@ fun PasswordSecurityScreen(
             }
         }
         item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_quick_access_section_title)) {
-                if (state.hasQuickPin) {
-                    MerchantFormField(
-                        value = state.currentPin,
-                        onValueChange = viewModel::updateCurrentPin,
-                        label = stringResource(R.string.merchant_settings_current_pin),
-                        leadingIcon = Icons.Default.Pin,
-                    )
-                }
-                MerchantFormField(
-                    value = state.newPin,
-                    onValueChange = viewModel::updateNewPin,
-                    label = stringResource(R.string.merchant_settings_new_pin),
-                    leadingIcon = Icons.Default.Pin,
-                )
-                MerchantFormField(
-                    value = state.confirmPin,
-                    onValueChange = viewModel::updateConfirmPin,
-                    label = stringResource(R.string.merchant_settings_confirm_new_pin),
-                    leadingIcon = Icons.Default.Pin,
-                )
-                Button(
-                    onClick = viewModel::saveQuickPin,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isSavingPin,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
-                ) {
-                    Text(
-                        text = if (state.isSavingPin) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_update_quick_pin),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                SettingsDetailRow(
-                    label = stringResource(R.string.merchant_settings_biometric_login),
-                    value = if (state.biometricEnabled) {
-                        stringResource(R.string.merchant_settings_enabled)
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_security_options_title),
+                subtitle = stringResource(R.string.merchant_settings_security_options_subtitle),
+                icon = Icons.Default.Shield,
+                accent = VerevColors.Gold,
+            ) {
+                SettingsSecurityOptionRow(
+                    icon = Icons.Default.Pin,
+                    accent = VerevColors.Moss,
+                    title = stringResource(R.string.merchant_settings_quick_pin_title),
+                    subtitle = stringResource(R.string.merchant_settings_quick_pin_subtitle),
+                    actionLabel = if (showPinEditor) {
+                        stringResource(R.string.merchant_close)
+                    } else if (state.hasQuickPin) {
+                        stringResource(R.string.merchant_settings_edit_action)
                     } else {
-                        stringResource(R.string.merchant_settings_disabled)
+                        stringResource(R.string.merchant_settings_set_quick_pin)
                     },
+                    onAction = { showPinEditor = !showPinEditor },
+                )
+                if (showPinEditor) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (state.hasQuickPin) {
+                            MerchantFormField(
+                                value = state.currentPin,
+                                onValueChange = viewModel::updateCurrentPin,
+                                label = stringResource(R.string.merchant_settings_current_pin),
+                                leadingIcon = Icons.Default.Pin,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            )
+                        }
+                        MerchantFormField(
+                            value = state.newPin,
+                            onValueChange = viewModel::updateNewPin,
+                            label = stringResource(R.string.merchant_settings_new_pin),
+                            leadingIcon = Icons.Default.Pin,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        )
+                        MerchantFormField(
+                            value = state.confirmPin,
+                            onValueChange = viewModel::updateConfirmPin,
+                            label = stringResource(R.string.merchant_settings_confirm_new_pin),
+                            leadingIcon = Icons.Default.Pin,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        )
+                        Button(
+                            onClick = viewModel::saveQuickPin,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isSavingPin &&
+                                (!state.hasQuickPin || state.currentPin.length == 4) &&
+                                state.newPin.length == 4 &&
+                                state.newPin == state.confirmPin,
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
+                        ) {
+                            Text(
+                                text = if (state.isSavingPin) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_update_quick_pin),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+                SettingsSecurityOptionRow(
+                    icon = Icons.Default.Fingerprint,
+                    accent = VerevColors.Gold,
+                    title = stringResource(R.string.merchant_settings_biometric_login),
+                    subtitle = stringResource(R.string.merchant_settings_biometric_subtitle),
+                    actionLabel = null,
+                    onAction = null,
                     trailing = {
-                        Switch(
+                        SettingsInlineToggle(
                             checked = state.biometricEnabled,
                             onCheckedChange = viewModel::toggleBiometric,
                             enabled = !state.isSavingBiometric,
+                            accent = VerevColors.Gold,
                         )
                     },
+                )
+            }
+        }
+        item {
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_active_sessions_title),
+                subtitle = stringResource(R.string.merchant_settings_active_sessions_subtitle),
+                icon = Icons.Default.Devices,
+                accent = VerevColors.Forest,
+            ) {
+                SettingsSessionRow(
+                    icon = Icons.Default.Devices,
+                    title = stringResource(R.string.merchant_settings_current_device),
+                    location = stringResource(R.string.merchant_settings_current_device_location),
+                    lastActive = stringResource(R.string.merchant_settings_active_now),
+                    statusLabel = stringResource(R.string.merchant_settings_session_current),
+                    current = true,
                 )
             }
         }
@@ -244,33 +403,29 @@ fun EmailNotificationsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings = state.settings
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    SettingsInnerScaffold(
+        title = stringResource(R.string.merchant_settings_notifications_title),
+        subtitle = stringResource(R.string.merchant_settings_notifications_screen_subtitle),
+        onBack = onBack,
+        contentPadding = contentPadding,
     ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_settings_email_notifications),
-                subtitle = stringResource(R.string.merchant_settings_email_notifications_subtitle),
-                icon = Icons.Default.Email,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.messageRes?.let { messageRes ->
-            item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
-        }
         state.errorRes?.let { errorRes ->
             item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
         }
         item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_email_notifications)) {
+            SettingsNotificationHero(
+                emailEnabled = settings.emailEnabled,
+                pushEnabled = settings.pushEnabled,
+                soundEnabled = settings.soundEnabled,
+            )
+        }
+        item {
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_master_controls_title),
+                subtitle = stringResource(R.string.merchant_settings_master_controls_subtitle),
+                icon = Icons.Default.NotificationsActive,
+                accent = VerevColors.Forest,
+            ) {
                 SettingsToggleRow(
                     title = stringResource(R.string.merchant_settings_notify_email_master),
                     subtitle = stringResource(R.string.merchant_settings_notify_email_master_subtitle),
@@ -301,7 +456,18 @@ fun EmailNotificationsScreen(
             }
         }
         item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_email_preferences_title)) {
+            SettingsSectionIntro(
+                title = stringResource(R.string.merchant_settings_email_preferences_title),
+                subtitle = stringResource(R.string.merchant_settings_email_preferences_design_subtitle),
+            )
+        }
+        item {
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_email_preferences_title),
+                subtitle = stringResource(R.string.merchant_settings_notify_email_master_subtitle),
+                icon = Icons.Default.Email,
+                accent = VerevColors.Gold,
+            ) {
                 SettingsToggleRow(
                     title = stringResource(R.string.merchant_settings_notify_transaction_emails),
                     subtitle = stringResource(R.string.merchant_settings_notify_transaction_emails_subtitle),
@@ -341,7 +507,18 @@ fun EmailNotificationsScreen(
             }
         }
         item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_settings_push_notifications_title)) {
+            SettingsSectionIntro(
+                title = stringResource(R.string.merchant_settings_push_notifications_title),
+                subtitle = stringResource(R.string.merchant_settings_push_notifications_design_subtitle),
+            )
+        }
+        item {
+            SettingsFeatureCard(
+                title = stringResource(R.string.merchant_settings_push_notifications_title),
+                subtitle = stringResource(R.string.merchant_settings_notify_push_master_subtitle),
+                icon = Icons.Default.NotificationsActive,
+                accent = VerevColors.Moss,
+            ) {
                 SettingsToggleRow(
                     title = stringResource(R.string.merchant_settings_notify_new_customer),
                     subtitle = stringResource(R.string.merchant_settings_notify_new_customer_subtitle),
@@ -403,7 +580,7 @@ fun EmailNotificationsScreen(
                 onClick = viewModel::save,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = state.hasChanges && !state.isSaving && !state.isLoading,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = VerevColors.Gold,
                     contentColor = Color.White,
@@ -412,11 +589,7 @@ fun EmailNotificationsScreen(
                 ),
             ) {
                 Text(
-                    text = if (state.isSaving) {
-                        stringResource(R.string.auth_loading)
-                    } else {
-                        stringResource(R.string.merchant_settings_save_preferences)
-                    },
+                    text = if (state.isSaving) stringResource(R.string.auth_loading) else stringResource(R.string.merchant_settings_save_preferences),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -438,85 +611,6 @@ fun EmailNotificationsScreen(
                     color = VerevColors.Forest.copy(alpha = 0.64f),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsMessageCard(
-    title: String,
-    accent: Color,
-) {
-    MerchantPrimaryCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = accent,
-            fontWeight = FontWeight.Medium,
-        )
-    }
-}
-
-@Composable
-private fun SettingsToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean,
-    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    accent: Color = VerevColors.Forest,
-) {
-    MerchantPrimaryCard(contentPadding = PaddingValues(16.dp)) {
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            ) {
-                if (leadingIcon != null) {
-                    androidx.compose.foundation.layout.Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = accent.copy(alpha = 0.12f),
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                            ),
-                        contentAlignment = androidx.compose.ui.Alignment.Center,
-                    ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = leadingIcon,
-                            contentDescription = null,
-                            tint = accent,
-                        )
-                    }
-                }
-                androidx.compose.foundation.layout.Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = VerevColors.Forest,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.64f),
-                    )
-                }
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-            )
         }
     }
 }

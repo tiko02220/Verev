@@ -22,6 +22,7 @@ internal fun BrandingSettingsEntity.toDomain(store: StoreEntity?) = BrandingSett
     primaryColor = store?.primaryColor ?: BusinessSettingsDefaults.defaultPrimaryColor,
     secondaryColor = store?.secondaryColor ?: BusinessSettingsDefaults.defaultSecondaryColor,
     accentColor = accentColor,
+    logoUri = logoUri,
 )
 
 internal fun SubscriptionPlanEntity.toDomain() = SubscriptionPlan(

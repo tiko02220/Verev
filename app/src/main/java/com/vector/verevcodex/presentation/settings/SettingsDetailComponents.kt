@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,6 +49,134 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.theme.VerevColors
+
+@Composable
+internal fun SettingsCompactHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+            .background(Brush.horizontalGradient(listOf(VerevColors.Forest, VerevColors.Moss)))
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onBack),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+                Text(
+                    text = stringResource(R.string.auth_back),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            if (actionLabel != null && onAction != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(VerevColors.Gold)
+                        .clickable(onClick = onAction)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = actionLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SettingsLargeGradientHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: List<Color> = listOf(VerevColors.Forest, VerevColors.Moss),
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+            .background(Brush.linearGradient(colors))
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .clickable(onClick = onBack)
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(30.dp),
+            )
+            Text(
+                text = stringResource(R.string.auth_back),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f),
+            )
+        }
+    }
+}
 
 @Composable
 internal fun SettingsBackRow(

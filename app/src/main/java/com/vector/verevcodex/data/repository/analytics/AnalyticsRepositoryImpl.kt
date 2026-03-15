@@ -74,6 +74,10 @@ class AnalyticsRepositoryImpl @Inject constructor(
         val previousWindow = range.previousWindowBefore(today)
         val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
         val previousTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end)
+        val rangeVisitTransactions = rangeTransactions.visitTransactions()
+        val previousVisitTransactions = previousTransactions.visitTransactions()
+        val currentVisitors = rangeVisitTransactions.map(Transaction::customerId).toSet()
+        val previousVisitors = previousVisitTransactions.map(Transaction::customerId).toSet()
         val scopedPromotions = promotions.filter { it.endDate >= rangeWindow.start && it.startDate <= rangeWindow.end }
         val totalRevenue = rangeTransactions.sumOf { it.amount }
         val previousRevenue = previousTransactions.sumOf { it.amount }
@@ -85,22 +89,22 @@ class AnalyticsRepositoryImpl @Inject constructor(
             scopeStoreId = storeId,
             totalCustomers = customers.distinctBy(Customer::id).size,
             newCustomers = newCustomersInRange,
-            visitsToday = transactions.count { it.timestamp.toLocalDate() == today },
-            visitsInRange = rangeTransactions.size,
+            visitsToday = transactions.count { it.countsAsVisit && it.timestamp.toLocalDate() == today },
+            visitsInRange = rangeVisitTransactions.size,
             totalRevenue = totalRevenue,
             averagePurchaseValue = rangeTransactions.averageAmount(),
             rewardRedemptionRate = rangeTransactions.redemptionRate(),
             averagePromotionRoi = scopedPromotions.averagePromotionRoi(rangeTransactions),
             activePromotions = scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) },
-            retentionRate = customers.retentionRate(),
+            retentionRate = retentionRateForWindow(currentVisitors, previousVisitors),
             revenueGrowthRate = growthRate(totalRevenue, previousRevenue),
             customerGrowthRate = growthRate(newCustomersInRange.toDouble(), previousNewCustomers.toDouble()),
             topCustomerName = customers.maxByOrNull(Customer::totalSpent)?.displayName().orEmpty(),
             topPromotionName = topPromotionName(scopedPromotions, rangeTransactions),
             revenueTrend = buildPeriodRevenueTrend(rangeTransactions, range),
-            visitTrend = buildPeriodVisitTrend(rangeTransactions, range),
+            visitTrend = buildPeriodVisitTrend(rangeVisitTransactions, range),
             newCustomerTrend = buildNewCustomerTrend(customers, range),
-            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeTransactions, range),
+            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeVisitTransactions, range),
         )
     }
 
@@ -115,8 +119,34 @@ class AnalyticsRepositoryImpl @Inject constructor(
         val rangeWindow = range.windowEndingOn(today)
         val previousWindow = range.previousWindowBefore(today)
         val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
-        val currentVisitors = rangeTransactions.map(Transaction::customerId).toSet()
-        val previousVisitors = transactions.inDateRange(previousWindow.start, previousWindow.end).map(Transaction::customerId).toSet()
+        val rangeVisitTransactions = rangeTransactions.visitTransactions()
+        val previousVisitTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end).visitTransactions()
+        val currentVisitors = rangeVisitTransactions.map(Transaction::customerId).toSet()
+        val previousVisitors = previousVisitTransactions.map(Transaction::customerId).toSet()
+        val customerSpendInRange = rangeTransactions.customerSpendMap()
+        val highValueThreshold = highValueThreshold(customerSpendInRange.values.toList())
+        val returningCustomerIds = currentVisitors.filterTo(mutableSetOf()) { customerId ->
+            customers.firstOrNull { it.id == customerId }?.enrolledDate?.isBefore(rangeWindow.start) == true
+        }
+        val inactiveCustomerIds = customers.asSequence()
+            .filter { it.enrolledDate <= rangeWindow.end }
+            .filter { customer ->
+                customer.lastVisit == null || customer.lastVisit.toLocalDate().isBefore(rangeWindow.start)
+            }
+            .map(Customer::id)
+            .toSet()
+        val retainedCustomerIds = currentVisitors.intersect(previousVisitors)
+        val topCustomers = customers.mapNotNull { customer ->
+            val spendInRange = customerSpendInRange[customer.id] ?: return@mapNotNull null
+            TopCustomerAnalytics(
+                customerId = customer.id,
+                customerName = customer.displayName(),
+                totalSpent = spendInRange,
+                totalVisits = rangeVisitTransactions.count { it.customerId == customer.id },
+                loyaltyTier = customer.loyaltyTier,
+            )
+        }.sortedByDescending(TopCustomerAnalytics::totalSpent)
+            .take(5)
         val hasTierAnalytics = programs.any { it.active && it.configuration.tierTrackingEnabled }
 
         CustomerAnalyticsDrillDown(
@@ -124,31 +154,24 @@ class AnalyticsRepositoryImpl @Inject constructor(
             hasTierAnalytics = hasTierAnalytics,
             totalCustomers = customers.size,
             newCustomers = customers.count { it.enrolledDate in rangeWindow.start..rangeWindow.end },
-            returningCustomers = customers.count { it.totalVisits > 1 },
-            retainedCustomers = customers.count { it.totalVisits >= 5 },
-            inactiveCustomers = customers.count { it.lastVisit == null || it.lastVisit.toLocalDate().isBefore(today.minusDays(45)) },
-            highValueCustomers = customers.count { it.totalSpent >= highValueThreshold(customers) },
+            returningCustomers = returningCustomerIds.size,
+            retainedCustomers = retainedCustomerIds.size,
+            inactiveCustomers = inactiveCustomerIds.size,
+            highValueCustomers = customerSpendInRange.count { (_, spend) -> spend >= highValueThreshold },
             averageLifetimeValue = customers.averageLifetimeValue(),
-            topCustomers = customers.sortedByDescending(Customer::totalSpent)
-                .take(5)
-                .map { customer ->
-                    TopCustomerAnalytics(
-                        customerId = customer.id,
-                        customerName = customer.displayName(),
-                        totalSpent = customer.totalSpent,
-                        totalVisits = customer.totalVisits,
-                        loyaltyTier = customer.loyaltyTier,
-                    )
-                },
+            topCustomers = topCustomers,
             tierBreakdown = if (hasTierAnalytics) customerTierSegments(customers) else emptyList(),
             segmentBreakdown = listOf(
-                AnalyticsSegment("High value", customers.count { it.totalSpent >= highValueThreshold(customers) }),
-                AnalyticsSegment("At risk", customers.count { it.lastVisit == null || it.lastVisit.toLocalDate().isBefore(today.minusDays(30)) }),
-                AnalyticsSegment("Inactive", customers.count { it.lastVisit == null || it.lastVisit.toLocalDate().isBefore(today.minusDays(45)) }),
-                AnalyticsSegment("Returning", customers.count { it.totalVisits > 1 }),
+                AnalyticsSegment("High value", customerSpendInRange.count { (_, spend) -> spend >= highValueThreshold }),
+                AnalyticsSegment("At risk", customers.count { customer ->
+                    customer.enrolledDate <= rangeWindow.end &&
+                        (customer.lastVisit == null || customer.lastVisit.toLocalDate().isBefore(rangeWindow.end.minusDays(30)))
+                }),
+                AnalyticsSegment("Inactive", inactiveCustomerIds.size),
+                AnalyticsSegment("Returning", returningCustomerIds.size),
             ).filter { it.value > 0 },
             newCustomerTrend = buildNewCustomerTrend(customers, range),
-            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeTransactions, range),
+            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeVisitTransactions, range),
             retentionTrend = buildRetentionTrend(range, currentVisitors, previousVisitors),
         )
     }
@@ -186,7 +209,7 @@ class AnalyticsRepositoryImpl @Inject constructor(
         val rangeWindow = range.windowEndingOn(today)
         val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
         val scopedPromotions = promotions.filter { it.endDate >= rangeWindow.start && it.startDate <= rangeWindow.end }
-        val topPromotions = scopedPromotions.map { promotion ->
+        val allPromotionPerformance = scopedPromotions.map { promotion ->
             val usageCount = estimatePromotionUsage(promotion, rangeTransactions)
             val revenueImpact = estimatePromotionRevenueImpact(promotion, rangeTransactions)
             val roiScore = if (promotion.promotionValue <= 0.0) revenueImpact else revenueImpact / (promotion.promotionValue * usageCount.coerceAtLeast(1))
@@ -200,7 +223,8 @@ class AnalyticsRepositoryImpl @Inject constructor(
                 revenueImpact = revenueImpact,
                 roiScore = roiScore,
             )
-        }.sortedByDescending(PromotionPerformance::roiScore).take(6)
+        }.sortedByDescending(PromotionPerformance::roiScore)
+        val topPromotions = allPromotionPerformance.take(6)
 
         PromotionAnalyticsDrillDown(
             storeId = storeId,
@@ -209,7 +233,7 @@ class AnalyticsRepositoryImpl @Inject constructor(
             scheduledPromotions = scopedPromotions.count { today.isBefore(it.startDate) },
             expiredPromotions = scopedPromotions.count { today.isAfter(it.endDate) },
             paymentPromotions = scopedPromotions.count { it.paymentFlowEnabled },
-            averageRoiScore = topPromotions.map(PromotionPerformance::roiScore).average().takeIf { !it.isNaN() } ?: 0.0,
+            averageRoiScore = allPromotionPerformance.map(PromotionPerformance::roiScore).average().takeIf { !it.isNaN() } ?: 0.0,
             typeBreakdown = scopedPromotions.groupBy { it.promotionType }
                 .map { (type, items) -> AnalyticsSegment(type.name.humanize(), items.size) }
                 .sortedByDescending(AnalyticsSegment::value),
@@ -217,7 +241,6 @@ class AnalyticsRepositoryImpl @Inject constructor(
                 AnalyticsSegment("Active", scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) }),
                 AnalyticsSegment("Scheduled", scopedPromotions.count { today.isBefore(it.startDate) }),
                 AnalyticsSegment("Expired", scopedPromotions.count { today.isAfter(it.endDate) }),
-                AnalyticsSegment("Payment", scopedPromotions.count { it.paymentFlowEnabled }),
             ).filter { it.value > 0 },
             topPromotions = topPromotions,
         )
@@ -226,16 +249,18 @@ class AnalyticsRepositoryImpl @Inject constructor(
     override fun observeProgramAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<ProgramAnalyticsDrillDown> = combine(
         loyaltyRepository.observePrograms(storeId),
         transactionRepository.observeTransactions(storeId),
-    ) { programs, transactions ->
+        database.customerDao().observeCustomers(storeId),
+    ) { programs, transactions, customerEntities ->
         val today = LocalDate.now()
         val rangeTransactions = transactions.inDateRange(range.startDateFrom(today), today)
+        val customers = customerEntities.map { it.toDomain() }
         val activePrograms = programs.count { it.active }
         val participants = rangeTransactions.map(Transaction::customerId).distinct().size
         ProgramAnalyticsDrillDown(
             storeId = storeId,
             totalPrograms = programs.size,
             activePrograms = activePrograms,
-            memberParticipationRate = if (rangeTransactions.isEmpty()) 0.0 else participants.toDouble() / rangeTransactions.size.coerceAtLeast(1),
+            memberParticipationRate = if (customers.isEmpty()) 0.0 else participants.toDouble() / customers.size,
             redemptionEfficiency = if (rangeTransactions.sumOf { it.pointsEarned } == 0) 0.0 else rangeTransactions.sumOf { it.pointsRedeemed }.toDouble() / rangeTransactions.sumOf { it.pointsEarned },
             typeBreakdown = programs.groupBy { it.type }
                 .map { (type, items) -> AnalyticsSegment(type.name.humanize(), items.size) }
@@ -358,17 +383,20 @@ private fun AnalyticsTimeRange.previousWindowBefore(endDate: LocalDate): Analyti
 private fun List<Transaction>.inDateRange(start: LocalDate, end: LocalDate): List<Transaction> =
     filter { it.timestamp.toLocalDate() in start..end }
 
+private fun List<Transaction>.visitTransactions(): List<Transaction> =
+    filter(Transaction::countsAsVisit)
+
 private fun List<Transaction>.averageAmount(): Double =
     takeIf { it.isNotEmpty() }?.sumOf(Transaction::amount)?.div(size) ?: 0.0
 
 private fun List<Transaction>.redemptionRate(): Double =
     if (isEmpty()) 0.0 else count { it.pointsRedeemed > 0 }.toDouble() / size
 
-private fun List<Customer>.retentionRate(): Double =
-    if (isEmpty()) 0.0 else count { it.totalVisits >= 3 }.toDouble() / size
-
 private fun List<Customer>.averageLifetimeValue(): Double =
     if (isEmpty()) 0.0 else sumOf(Customer::totalSpent) / size
+
+private fun retentionRateForWindow(currentVisitors: Set<String>, previousVisitors: Set<String>): Double =
+    if (previousVisitors.isEmpty()) 0.0 else currentVisitors.intersect(previousVisitors).size.toDouble() / previousVisitors.size
 
 private fun growthRate(current: Double, previous: Double): Double = when {
     current == 0.0 && previous == 0.0 -> 0.0
@@ -493,11 +521,16 @@ private fun buildTimeBucketTrend(transactions: List<Transaction>): List<Analytic
 }
 
 private fun revenueSourceBreakdown(transactions: List<Transaction>): List<AnalyticsSegment> {
-    val promotionRevenue = transactions.filter { it.metadata.contains("promotion", ignoreCase = true) || it.metadata.contains("campaign", ignoreCase = true) }
-        .sumOf(Transaction::amount)
-    val loyaltyRevenue = transactions.filter { it.pointsRedeemed > 0 || it.pointsEarned > 0 }
-        .sumOf(Transaction::amount)
-    val directRevenue = (transactions.sumOf(Transaction::amount) - promotionRevenue - loyaltyRevenue).coerceAtLeast(0.0)
+    val categorized = transactions.groupBy { transaction ->
+        when {
+            transaction.metadata.contains("promotion", ignoreCase = true) || transaction.metadata.contains("campaign", ignoreCase = true) -> "Promotion sales"
+            transaction.pointsRedeemed > 0 || transaction.pointsEarned > 0 -> "Loyalty sales"
+            else -> "Direct sales"
+        }
+    }
+    val directRevenue = categorized["Direct sales"].orEmpty().sumOf(Transaction::amount)
+    val promotionRevenue = categorized["Promotion sales"].orEmpty().sumOf(Transaction::amount)
+    val loyaltyRevenue = categorized["Loyalty sales"].orEmpty().sumOf(Transaction::amount)
     return listOf(
         AnalyticsSegment("Direct sales", directRevenue.roundToInt()),
         AnalyticsSegment("Promotion sales", promotionRevenue.roundToInt()),
@@ -510,8 +543,8 @@ private fun customerTierSegments(customers: List<Customer>): List<AnalyticsSegme
         .map { (tier, items) -> AnalyticsSegment(tier, items.size) }
         .sortedByDescending(AnalyticsSegment::value)
 
-private fun highValueThreshold(customers: List<Customer>): Double =
-    customers.map(Customer::totalSpent).average().takeIf { !it.isNaN() && it > 0.0 } ?: 100.0
+private fun highValueThreshold(spendValues: List<Double>): Double =
+    spendValues.average().takeIf { !it.isNaN() && it > 0.0 } ?: 100.0
 
 private fun topPromotionName(promotions: List<Campaign>, transactions: List<Transaction>): String =
     promotions.maxByOrNull { estimatePromotionUsage(it, transactions) }?.name.orEmpty()
@@ -538,7 +571,7 @@ private fun rewardUsageBreakdown(transactions: List<Transaction>): List<Analytic
     AnalyticsSegment("Points issued", transactions.sumOf(Transaction::pointsEarned)),
     AnalyticsSegment("Points redeemed", transactions.sumOf(Transaction::pointsRedeemed)),
     AnalyticsSegment("Reward redemptions", transactions.count { it.pointsRedeemed > 0 }),
-    AnalyticsSegment("Check-ins", transactions.count()),
+    AnalyticsSegment("Check-ins", transactions.count { it.metadata.contains("visit_check_in", ignoreCase = true) }),
 ).filter { it.value > 0 }
 
 private fun estimateProgramMemberCount(program: RewardProgram, transactions: List<Transaction>): Int = when (program.type) {
@@ -607,3 +640,6 @@ private fun LoyaltyTier.displayName(): String = when (this) {
 private fun String.humanize(): String = lowercase().replace('_', ' ').replaceFirstChar(Char::titlecase)
 
 private fun Customer.displayName(): String = listOf(firstName, lastName).joinToString(" ").trim()
+
+private fun List<Transaction>.customerSpendMap(): Map<String, Double> =
+    groupingBy(Transaction::customerId).fold(0.0) { total, transaction -> total + transaction.amount }

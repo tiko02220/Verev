@@ -39,10 +39,10 @@ object SeedData {
     )
 
     val staff = listOf(
-        StaffMemberEntity("33333333-3333-3333-3333-333333333331", stores[0].id, "Aram", "Hakobyan", "aram@bean.local", "+37493000001", "OWNER", true, "All stores, all permissions"),
-        StaffMemberEntity("33333333-3333-3333-3333-333333333332", stores[0].id, "Mariam", "Petrosyan", "mariam@bean.local", "+37493000002", "STORE_MANAGER", true, "Store analytics, campaigns, staff"),
-        StaffMemberEntity("33333333-3333-3333-3333-333333333333", stores[0].id, "Narek", "Sahakyan", "narek@bean.local", "+37493000003", "CASHIER", true, "Scan cards, create transactions"),
-        StaffMemberEntity("33333333-3333-3333-3333-333333333334", stores[1].id, "Lilit", "Avetisyan", "lilit@luna.local", "+37493000004", "STORE_MANAGER", true, "Programs, rewards, customers"),
+        StaffMemberEntity("33333333-3333-3333-3333-333333333331", stores[0].id, "Aram", "Hakobyan", "aram@bean.local", "+37493000001", "OWNER", true, "Analytics, Programs, Transactions, Customers, Staff, Settings", true, true, true, true, true, true),
+        StaffMemberEntity("33333333-3333-3333-3333-333333333332", stores[0].id, "Mariam", "Petrosyan", "mariam@bean.local", "+37493000002", "STORE_MANAGER", true, "Analytics, Programs, Transactions, Customers", true, true, true, true, false, false),
+        StaffMemberEntity("33333333-3333-3333-3333-333333333333", stores[0].id, "Narek", "Sahakyan", "narek@bean.local", "+37493000003", "CASHIER", true, "Transactions", false, false, true, false, false, false),
+        StaffMemberEntity("33333333-3333-3333-3333-333333333334", stores[1].id, "Lilit", "Avetisyan", "lilit@luna.local", "+37493000004", "STORE_MANAGER", true, "Analytics, Programs, Transactions, Customers", true, true, true, true, false, false),
     )
 
     val customers = listOf(
@@ -330,11 +330,16 @@ object SeedData {
             stores[0].id,
             "Double Points Weekend",
             "Weekend multiplier for coffee purchases",
+            "",
             LocalDate.now().minusDays(3).toString(),
             LocalDate.now().plusDays(12).toString(),
             "POINTS_MULTIPLIER",
             2.0,
+            0.0,
+            0,
             "WEEKEND2X",
+            "BUSINESS_ONLY",
+            null,
             false,
             true,
         ),
@@ -343,11 +348,16 @@ object SeedData {
             stores[1].id,
             "VIP Birthday Glow",
             "Birthday bonus for VIP salon members",
+            "",
             LocalDate.now().minusDays(10).toString(),
             LocalDate.now().plusDays(20).toString(),
             "BONUS_POINTS",
             120.0,
+            0.0,
+            0,
             "BIRTHDAYVIP",
+            "BUSINESS_ONLY",
+            null,
             false,
             true,
         ),
@@ -356,11 +366,16 @@ object SeedData {
             stores[0].id,
             "Lunch Combo Discount",
             "Flat discount at checkout for lunch combos",
+            "",
             LocalDate.now().minusDays(1).toString(),
             LocalDate.now().plusDays(14).toString(),
             "FIXED_DISCOUNT",
             1500.0,
+            10000.0,
+            100,
             "LUNCH1500",
+            "BUSINESS_ONLY",
+            null,
             true,
             true,
         ),
@@ -369,11 +384,16 @@ object SeedData {
             stores[1].id,
             "Color Service Flash Sale",
             "Percentage discount on color services this week",
+            "",
             LocalDate.now().plusDays(2).toString(),
             LocalDate.now().plusDays(9).toString(),
             "PERCENT_DISCOUNT",
             12.0,
+            0.0,
+            0,
             "COLOR12",
+            "BUSINESS_ONLY",
+            null,
             true,
             true,
         ),
@@ -387,9 +407,9 @@ object SeedData {
     )
 
     val transactions = listOf(
-        TransactionEntity("aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1", customers[0].id, stores[0].id, staff[2].id, 12500.0, 125, 0, LocalDateTime.now().minusHours(5).toString(), "Latte + pastry"),
-        TransactionEntity("aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaa2", customers[1].id, stores[0].id, staff[2].id, 8400.0, 84, 20, LocalDateTime.now().minusDays(1).toString(), "Flat white + beans"),
-        TransactionEntity("aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaa3", customers[2].id, stores[1].id, staff[3].id, 25500.0, 90, 0, LocalDateTime.now().minusDays(2).toString(), "Hair color service"),
+        TransactionEntity("aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaa1", customers[0].id, stores[0].id, staff[2].id, 12500.0, 125, 0, LocalDateTime.now().minusHours(5).toString(), "Latte + pastry", true),
+        TransactionEntity("aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaa2", customers[1].id, stores[0].id, staff[2].id, 8400.0, 84, 20, LocalDateTime.now().minusDays(1).toString(), "Flat white + beans", true),
+        TransactionEntity("aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaa3", customers[2].id, stores[1].id, staff[3].id, 25500.0, 90, 0, LocalDateTime.now().minusDays(2).toString(), "Hair color service", true),
     )
 
     val transactionItems = listOf(
@@ -412,15 +432,15 @@ object SeedData {
     )
 
     val authAccounts = listOf(
-        AuthAccountEntity("auth-owner-1", owner.id, "Test Owner", "owner@verevcrm.local", owner.phoneNumber, "12345678", "OWNER", true),
-        AuthAccountEntity("auth-manager-1", staff[1].id, "Mariam Petrosyan", "manager@gmail.com", staff[1].phoneNumber, "12345678", "STORE_MANAGER", true),
-        AuthAccountEntity("auth-staff-1", staff[2].id, "Narek Sahakyan", "staff@gmail.com", staff[2].phoneNumber, "12345678", "STAFF", true),
+        AuthAccountEntity("auth-owner-1", owner.id, "Test Owner", "owner@verevcrm.local", owner.phoneNumber, "", "12345678", "OWNER", true, true, true, true, true, true, true),
+        AuthAccountEntity("auth-manager-1", staff[1].id, "Mariam Petrosyan", "manager@gmail.com", staff[1].phoneNumber, "", "12345678", "STORE_MANAGER", true, true, true, true, true, false, false),
+        AuthAccountEntity("auth-staff-1", staff[2].id, "Narek Sahakyan", "staff@gmail.com", staff[2].phoneNumber, "", "12345678", "STAFF", true, false, false, true, false, false, false),
     )
 
     val brandingSettings = listOf(
-        BrandingSettingsEntity(stores[0].id, "golden_hour", "LIGHT", "#BB8A52"),
-        BrandingSettingsEntity(stores[1].id, "forest_mark", "AUTO", "#FFBA00"),
-        BrandingSettingsEntity(stores[2].id, "espresso", "LIGHT", "#FFBA00"),
+        BrandingSettingsEntity(stores[0].id, "golden_hour", "LIGHT", "#BB8A52", ""),
+        BrandingSettingsEntity(stores[1].id, "forest_mark", "AUTO", "#FFBA00", ""),
+        BrandingSettingsEntity(stores[2].id, "espresso", "LIGHT", "#FFBA00", ""),
     )
 
     val subscriptionPlans = listOf(
