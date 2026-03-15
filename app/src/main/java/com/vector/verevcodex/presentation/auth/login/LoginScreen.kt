@@ -23,10 +23,10 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.auth.common.AuthCenteredSection
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
+import com.vector.verevcodex.presentation.auth.common.AuthFormField
 import com.vector.verevcodex.presentation.auth.common.AuthGradientScreenScaffold
 import com.vector.verevcodex.presentation.auth.common.AuthPrimaryButton
 import com.vector.verevcodex.presentation.auth.common.authErrorRes
@@ -82,7 +83,11 @@ fun LoginScreen(
         }
         Spacer(Modifier.height(8.dp))
         AuthCenteredSection {
-            Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
+            Card(
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+            ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -95,15 +100,13 @@ fun LoginScreen(
                         text = stringResource(R.string.auth_sign_in_dashboard),
                         color = colorResource(R.color.text_secondary),
                     )
-                    OutlinedTextField(
+                    AuthFormField(
                         value = state.email,
-                        onValueChange = { viewModel.updateEmail(it.replace("\n", "")) },
-                        label = { Text(stringResource(R.string.auth_email_label)) },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        onValueChange = viewModel::updateEmail,
+                        label = stringResource(R.string.auth_email_label),
+                        placeholder = stringResource(R.string.auth_hint_email),
+                        leadingIcon = Icons.Default.Email,
                         isError = state.emailError != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Next,
@@ -111,11 +114,12 @@ fun LoginScreen(
                         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     )
                     AuthErrorMessage(state.emailError)
-                    OutlinedTextField(
+                    AuthFormField(
                         value = state.password,
-                        onValueChange = { viewModel.updatePassword(it.replace("\n", "")) },
-                        label = { Text(stringResource(R.string.auth_password_label)) },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        onValueChange = viewModel::updatePassword,
+                        label = stringResource(R.string.auth_password_label),
+                        placeholder = stringResource(R.string.auth_hint_password),
+                        leadingIcon = Icons.Default.Lock,
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
@@ -125,10 +129,7 @@ fun LoginScreen(
                             }
                         },
                         isError = state.passwordError != null,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done,
