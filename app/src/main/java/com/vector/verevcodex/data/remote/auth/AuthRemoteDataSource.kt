@@ -211,13 +211,11 @@ class AuthRemoteDataSource @Inject constructor(
 
     suspend fun changeQuickPin(currentPin: String, newPin: String): Result<Unit> = runCatching {
         val req = ChangeQuickPinRequestDto(currentPin = currentPin, newPin = newPin)
-        api.changeQuickPin(req)
-
+        api.changeQuickPin(req).unwrap { Unit }
     }
 
     suspend fun updateBiometric(enabled: Boolean): Result<Unit> = runCatching {
-        api.updateBiometric(UpdateBiometricPreferenceRequestDto(enabled = enabled))
-
+        api.updateBiometric(UpdateBiometricPreferenceRequestDto(enabled = enabled)).unwrap { Unit }
     }
 
     suspend fun updateSelectedStore(storeId: String): Result<Unit> = runCatching {
@@ -225,28 +223,27 @@ class AuthRemoteDataSource @Inject constructor(
     }
 
     suspend fun requestPasswordResetByEmail(email: String): Result<Unit> = runCatching {
-        api.passwordResetRequestByEmail(EmailPasswordResetRequestDto(email = email, channel = "EMAIL"))
-
+        api.passwordResetRequestByEmail(EmailPasswordResetRequestDto(email = email, channel = "EMAIL")).unwrap { Unit }
     }
 
     suspend fun requestQuickPinResetByEmail(email: String): Result<Unit> = runCatching {
-        api.quickPinResetRequestByEmail(EmailQuickPinResetRequestDto(email = email, channel = "EMAIL"))
+        api.quickPinResetRequestByEmail(EmailQuickPinResetRequestDto(email = email, channel = "EMAIL")).unwrap { Unit }
     }
 
     suspend fun verifyPasswordResetByEmail(email: String, code: String): Result<Unit> = runCatching {
-        api.passwordResetVerifyByEmail(EmailPasswordResetVerifyRequestDto(email = email, code = code))
+        api.passwordResetVerifyByEmail(EmailPasswordResetVerifyRequestDto(email = email, code = code)).unwrap { Unit }
     }
 
     suspend fun verifyQuickPinResetByEmail(email: String, code: String): Result<Unit> = runCatching {
-        api.quickPinResetVerifyByEmail(EmailQuickPinResetVerifyRequestDto(email = email, code = code))
+        api.quickPinResetVerifyByEmail(EmailQuickPinResetVerifyRequestDto(email = email, code = code)).unwrap { Unit }
     }
 
     suspend fun confirmPasswordResetByEmail(email: String, newPassword: String): Result<Unit> = runCatching {
-        api.passwordResetConfirmByEmail(EmailPasswordResetConfirmRequestDto(email = email, newPassword = newPassword))
+        api.passwordResetConfirmByEmail(EmailPasswordResetConfirmRequestDto(email = email, newPassword = newPassword)).unwrap { Unit }
     }
 
     suspend fun confirmQuickPinResetByEmail(email: String, newPin: String): Result<Unit> = runCatching {
-        api.quickPinResetConfirmByEmail(EmailQuickPinResetConfirmRequestDto(email = email, newPin = newPin))
+        api.quickPinResetConfirmByEmail(EmailQuickPinResetConfirmRequestDto(email = email, newPin = newPin)).unwrap { Unit }
     }
 
 }
