@@ -56,6 +56,9 @@ internal object CustomerActivityTimelineBuilder {
                             CustomerBonusActionType.TIER_BENEFIT_RECORDED -> CustomerActivityType.TIER_BENEFIT_RECORDED
                             CustomerBonusActionType.MANUAL_VISITS_ADDED,
                             CustomerBonusActionType.MANUAL_VISITS_REMOVED -> CustomerActivityType.VISIT_ADJUSTMENT
+                            CustomerBonusActionType.MANUAL_POINTS_ADDED,
+                            CustomerBonusActionType.MANUAL_POINTS_REMOVED -> CustomerActivityType.POINTS_ADJUSTMENT
+                            else -> CustomerActivityType.NOTE_UPDATED
                         },
                         title = action.title,
                         description = action.details,

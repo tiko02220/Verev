@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
 import kotlinx.coroutines.delay
 
@@ -44,123 +46,139 @@ fun TransactionEntryScreen(
 
     val fieldErrors = state.fieldErrors.mapValues { (_, value) -> stringResource(value) }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(VerevColors.AppBackground),
     ) {
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, VerevColors.Moss)))
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .fillMaxSize()
+                .background(VerevColors.AppBackground),
         ) {
-            TransactionHeaderSection(
-                title = stringResource(R.string.merchant_transaction_title),
-                subtitle = stringResource(R.string.merchant_transaction_subtitle, state.selectedStoreName.ifBlank { stringResource(R.string.merchant_transaction_context_pending) }),
-                storeName = state.selectedStoreName,
-                cashierName = state.cashierName,
-                onBack = onBack,
-            )
-        }
-
-        androidx.compose.material3.Surface(
-            modifier = Modifier.weight(1f),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            color = VerevColors.AppBackground,
-        ) {
-            LazyColumn(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding()
-                    .navigationBarsPadding(),
-                state = listState,
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 18.dp,
-                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                    .fillMaxWidth()
+                    .background(Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, VerevColors.Moss)))
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
             ) {
-
-        state.errorRes?.let { errorRes ->
-            item {
-                CheckoutFeedbackCard(
-                    text = stringResource(errorRes),
-                    positive = false,
+                TransactionHeaderSection(
+                    title = stringResource(R.string.merchant_transaction_title),
+                    subtitle = stringResource(R.string.merchant_transaction_subtitle, state.selectedStoreName.ifBlank { stringResource(R.string.merchant_transaction_context_pending) }),
+                    storeName = state.selectedStoreName,
+                    cashierName = state.cashierName,
+                    onBack = onBack,
                 )
             }
-        }
 
-        state.successRes?.let { successRes ->
-            item {
-                CheckoutFeedbackCard(
-                    text = stringResource(successRes),
-                    positive = true,
-                )
-            }
-        }
+            androidx.compose.material3.Surface(
+                modifier = Modifier.weight(1f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+                color = VerevColors.AppBackground,
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .imePadding()
+                        .navigationBarsPadding(),
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 18.dp,
+                        bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
 
-        item {
-            CustomerSelectionCard(
-                query = state.customerQuery,
-                selectedCustomer = state.selectedCustomer,
-                customers = state.filteredCustomers,
-                customerError = fieldErrors[TRANSACTION_FIELD_CUSTOMER],
-                onQueryChanged = viewModel::updateCustomerQuery,
-                onCustomerSelected = viewModel::selectCustomer,
-                onClearSelectedCustomer = viewModel::clearSelectedCustomer,
-            )
-        }
-
-        item {
-            CheckoutLineItemsCard(
-                lineItems = state.lineItems,
-                fieldErrors = fieldErrors,
-                onAddLineItem = viewModel::addLineItem,
-                onRemoveLineItem = viewModel::removeLineItem,
-                onNameChanged = viewModel::updateLineItemName,
-                onQuantityChanged = viewModel::updateLineItemQuantity,
-                onPriceChanged = viewModel::updateLineItemUnitPrice,
-            )
-        }
-
-        item {
-            CheckoutPromotionCard(
-                promotions = state.availablePromotions,
-                selectedPromotionId = state.selectedPromotionId,
-                onPromotionSelected = viewModel::selectPromotion,
-            )
-        }
-
-        item {
-            CheckoutLoyaltyCard(
-                selectedCustomer = state.selectedCustomer,
-                applyRedemption = state.applyPointRedemption,
-                redeemPointsInput = state.redeemPointsInput,
-                totals = state.totals,
-                redeemError = fieldErrors[TRANSACTION_FIELD_REDEEM],
-                onToggleRedemption = viewModel::togglePointRedemption,
-                onRedeemPointsChanged = viewModel::updateRedeemPoints,
-            )
-        }
-
-        item {
-            CheckoutSummaryCard(
-                note = state.note,
-                onNoteChanged = viewModel::updateNote,
-                totals = state.totals,
-                isSubmitting = state.isSubmitting,
-                onSubmit = viewModel::submitCheckout,
-            )
-        }
-
+            state.successRes?.let { successRes ->
                 item {
-                    RecentTransactionsCard(records = state.recentTransactions)
+                    CheckoutFeedbackCard(
+                        text = stringResource(successRes),
+                        positive = true,
+                    )
                 }
             }
+
+            item {
+                CustomerSelectionCard(
+                    query = state.customerQuery,
+                    selectedCustomer = state.selectedCustomer,
+                    customers = state.filteredCustomers,
+                    customerError = fieldErrors[TRANSACTION_FIELD_CUSTOMER],
+                    onQueryChanged = viewModel::updateCustomerQuery,
+                    onCustomerSelected = viewModel::selectCustomer,
+                    onClearSelectedCustomer = viewModel::clearSelectedCustomer,
+                )
+            }
+
+            item {
+                CheckoutLineItemsCard(
+                    lineItems = state.lineItems,
+                    fieldErrors = fieldErrors,
+                    onAddLineItem = viewModel::addLineItem,
+                    onRemoveLineItem = viewModel::removeLineItem,
+                    onNameChanged = viewModel::updateLineItemName,
+                    onQuantityChanged = viewModel::updateLineItemQuantity,
+                    onPriceChanged = viewModel::updateLineItemUnitPrice,
+                )
+            }
+
+            item {
+                CheckoutPromotionCard(
+                    promotions = state.availablePromotions,
+                    selectedPromotionId = state.selectedPromotionId,
+                    onPromotionSelected = viewModel::selectPromotion,
+                )
+            }
+
+            item {
+                CheckoutLoyaltyCard(
+                    selectedCustomer = state.selectedCustomer,
+                    applyRedemption = state.applyPointRedemption,
+                    redeemPointsInput = state.redeemPointsInput,
+                    totals = state.totals,
+                    redeemError = fieldErrors[TRANSACTION_FIELD_REDEEM],
+                    onToggleRedemption = viewModel::togglePointRedemption,
+                    onRedeemPointsChanged = viewModel::updateRedeemPoints,
+                )
+            }
+
+            item {
+                CheckoutSummaryCard(
+                    note = state.note,
+                    onNoteChanged = viewModel::updateNote,
+                    totals = state.totals,
+                    isSubmitting = state.isSubmitting,
+                    onSubmit = viewModel::submitCheckout,
+                )
+            }
+
+                    item {
+                        RecentTransactionsCard(records = state.recentTransactions)
+                    }
+                }
+            } 
+        }
+        MerchantLoadingOverlay(
+            isVisible = state.isLoading || state.isSubmitting,
+            title = if (state.isSubmitting) {
+                stringResource(R.string.merchant_loader_checkout_processing_title)
+            } else {
+                stringResource(R.string.merchant_loader_checkout_loading_title)
+            },
+            subtitle = if (state.isSubmitting) {
+                stringResource(R.string.merchant_loader_checkout_processing_subtitle)
+            } else {
+                stringResource(R.string.merchant_loader_checkout_loading_subtitle)
+            },
+        )
+        state.errorRes?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::clearFeedback,
+            )
         }
     }
 }

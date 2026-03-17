@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.data.remote.auth.ApiException
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
 import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
@@ -49,6 +50,7 @@ class BranchStaffConfigViewModel @Inject constructor(
                     storeName = store?.name.orEmpty(),
                     members = members,
                     errorRes = _uiState.value.errorRes,
+                    errorMessage = _uiState.value.errorMessage,
                     messageRes = _uiState.value.messageRes,
                     isSaving = _uiState.value.isSaving,
                 )
@@ -98,7 +100,8 @@ class BranchStaffConfigViewModel @Inject constructor(
                     onFailure = {
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
-                            errorRes = R.string.merchant_staff_error_generic,
+                            errorRes = if (it.toStaffErrorMessage() == null) R.string.merchant_staff_error_generic else null,
+                            errorMessage = it.toStaffErrorMessage(),
                         )
                     },
                 )
@@ -106,7 +109,19 @@ class BranchStaffConfigViewModel @Inject constructor(
         }
     }
 
-    private fun publishError(@StringRes errorRes: Int) {
-        _uiState.value = _uiState.value.copy(errorRes = errorRes)
+    fun dismissFeedback() {
+        _uiState.value = _uiState.value.copy(errorRes = null, errorMessage = null, messageRes = null)
     }
+
+    private fun publishError(@StringRes errorRes: Int) {
+        _uiState.value = _uiState.value.copy(errorRes = errorRes, errorMessage = null)
+    }
+}
+
+private fun Throwable.toStaffErrorMessage(): String? {
+    val message = when (this) {
+        is ApiException -> message
+        else -> message
+    }?.trim().orEmpty()
+    return message.takeIf { it.isNotBlank() && !it.startsWith("HTTP ", ignoreCase = true) }
 }

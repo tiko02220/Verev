@@ -50,6 +50,7 @@ import com.vector.verevcodex.domain.usecase.staff.UpdateStaffMemberUseCase
 import com.vector.verevcodex.domain.usecase.customer.AdjustCustomerPointsUseCase
 import com.vector.verevcodex.domain.usecase.customer.AdjustCustomerVisitsUseCase
 import com.vector.verevcodex.domain.usecase.customer.CreateCustomerUseCase
+import com.vector.verevcodex.domain.usecase.customer.RecordCustomerCheckInUseCase
 import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.CreateProgramUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.CreateRewardUseCase
@@ -211,6 +212,7 @@ object UseCaseModule {
     @Provides fun provideUpsertCustomerCredentialUseCase(repository: CustomerRepository) = UpsertCustomerCredentialUseCase(repository)
     @Provides fun provideAdjustCustomerPointsUseCase(repository: CustomerRepository) = AdjustCustomerPointsUseCase(repository)
     @Provides fun provideAdjustCustomerVisitsUseCase(repository: CustomerRepository) = AdjustCustomerVisitsUseCase(repository)
+    @Provides fun provideRecordCustomerCheckInUseCase(repository: CustomerRepository) = RecordCustomerCheckInUseCase(repository)
     @Provides fun provideRecordCustomerBonusActionUseCase(repository: CustomerRepository) = RecordCustomerBonusActionUseCase(repository)
     @Provides fun provideObserveScanPreferencesUseCase(repository: ScanPreferencesRepository) = ObserveScanPreferencesUseCase(repository)
     @Provides fun provideSaveScanPreferenceUseCase(repository: ScanPreferencesRepository) = SaveScanPreferenceUseCase(repository)

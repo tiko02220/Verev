@@ -83,6 +83,7 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.MainActivity
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.theme.VerevColors
 import kotlinx.coroutines.Dispatchers
@@ -129,9 +130,6 @@ fun PersonalInformationScreen(
         ) {
             state.messageRes?.let { messageRes ->
                 item { SettingsMessageCard(title = stringResource(messageRes), accent = VerevColors.Moss) }
-            }
-            state.errorRes?.let { errorRes ->
-                item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
             }
             item {
                 PersonalInformationProfileCard(
@@ -221,6 +219,12 @@ fun PersonalInformationScreen(
             }
         }
     }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::dismissMessage,
+        )
+    }
 }
 
 @Composable
@@ -241,9 +245,6 @@ fun PasswordSecurityScreen(
         onBack = onBack,
         contentPadding = contentPadding,
     ) {
-        state.errorRes?.let { errorRes ->
-            item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
-        }
         item {
             SettingsFeatureCard(
                 title = stringResource(R.string.merchant_settings_password_card_title),
@@ -392,6 +393,12 @@ fun PasswordSecurityScreen(
             }
         }
     }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::dismissMessage,
+        )
+    }
 }
 
 @Composable
@@ -409,9 +416,6 @@ fun EmailNotificationsScreen(
         onBack = onBack,
         contentPadding = contentPadding,
     ) {
-        state.errorRes?.let { errorRes ->
-            item { SettingsMessageCard(title = stringResource(errorRes), accent = Color(0xFFDC2626)) }
-        }
         item {
             SettingsNotificationHero(
                 emailEnabled = settings.emailEnabled,
@@ -612,5 +616,11 @@ fun EmailNotificationsScreen(
                 )
             }
         }
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::dismissMessage,
+        )
     }
 }

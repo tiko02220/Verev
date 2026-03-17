@@ -266,7 +266,6 @@ internal fun StaffAddMemberSheet(
     permissions: StaffPermissions,
     isSaving: Boolean,
     isEditing: Boolean,
-    errorText: String?,
     onFullNameChanged: (String) -> Unit,
     onEmailChanged: (String) -> Unit,
     onPhoneNumberChanged: (String) -> Unit,
@@ -277,7 +276,7 @@ internal fun StaffAddMemberSheet(
     onSave: () -> Unit,
 ) {
     AppBottomSheetDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         modifier = Modifier
             .fillMaxHeight(0.92f)
             .navigationBarsPadding(),
@@ -305,7 +304,7 @@ internal fun StaffAddMemberSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .background(VerevColors.Forest.copy(alpha = 0.06f), CircleShape)
-                        .clickable(onClick = dismiss),
+                        .clickable(enabled = !isSaving, onClick = dismiss),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -366,7 +365,11 @@ internal fun StaffAddMemberSheet(
                         RoleSelectionCard(
                             role = roleOption,
                             selected = role == roleOption,
-                            onClick = { onRoleSelected(roleOption) },
+                            onClick = {
+                                if (!isSaving) {
+                                    onRoleSelected(roleOption)
+                                }
+                            },
                         )
                     }
                 }
@@ -379,18 +382,12 @@ internal fun StaffAddMemberSheet(
                             label = stringResource(option.labelRes),
                             selected = option.selected(permissions),
                             onClick = {
-                                onPermissionsChanged(option.toggle(permissions))
+                                if (!isSaving) {
+                                    onPermissionsChanged(option.toggle(permissions))
+                                }
                             },
                         )
                     }
-                }
-
-                errorText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFB91C1C),
-                    )
                 }
 
                 Row(
@@ -407,7 +404,7 @@ internal fun StaffAddMemberSheet(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = dismiss)
+                                .clickable(enabled = !isSaving, onClick = dismiss)
                                 .padding(vertical = 16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -433,7 +430,11 @@ internal fun StaffAddMemberSheet(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = stringResource(if (isEditing) R.string.merchant_staff_save_changes else R.string.merchant_staff_save_member),
+                                text = if (isSaving) {
+                                    stringResource(R.string.auth_loading)
+                                } else {
+                                    stringResource(if (isEditing) R.string.merchant_staff_save_changes else R.string.merchant_staff_save_member)
+                                },
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Medium,

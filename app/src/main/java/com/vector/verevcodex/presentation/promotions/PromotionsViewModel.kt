@@ -232,6 +232,10 @@ class PromotionsViewModel @Inject constructor(
         }
     }
 
+    fun dismissFeedback() {
+        _uiState.value = _uiState.value.copy(messageRes = null, errorRes = null)
+    }
+
     private fun updateEditor(transform: PromotionEditorState.() -> PromotionEditorState) {
         val current = _uiState.value.editorState ?: return
         _uiState.value = _uiState.value.copy(editorState = current.transform(), editorFieldErrors = emptyMap(), errorRes = null)

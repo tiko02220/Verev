@@ -90,6 +90,11 @@ class AdjustCustomerVisitsUseCase(private val repository: CustomerRepository) {
     suspend operator fun invoke(customerId: String, delta: Int, reason: String) = repository.adjustVisits(customerId, delta, reason)
 }
 
+class RecordCustomerCheckInUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(customerId: String, storeId: String, rewardPoints: Int) =
+        repository.recordCheckIn(customerId, storeId, rewardPoints)
+}
+
 class RecordCustomerBonusActionUseCase(private val repository: CustomerRepository) {
     suspend operator fun invoke(
         customerId: String,

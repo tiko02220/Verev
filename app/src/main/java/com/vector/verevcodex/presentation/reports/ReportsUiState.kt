@@ -9,5 +9,7 @@ data class ReportsUiState(
     val autoSettings: ReportAutoSettings = ReportAutoSettings(),
     val latestExport: ReportExport? = null,
     val isExporting: Boolean = false,
+    val isSavingAutoSettings: Boolean = false,
+    val messageRes: Int? = null,
     val error: String? = null,
 )

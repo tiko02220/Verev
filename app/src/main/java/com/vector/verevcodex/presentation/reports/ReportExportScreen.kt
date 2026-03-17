@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.reports
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +48,9 @@ import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportExport
 import com.vector.verevcodex.domain.model.reports.ReportFormat
 import com.vector.verevcodex.presentation.merchant.common.MerchantActionCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.settings.SettingsBackRow
 import com.vector.verevcodex.presentation.settings.SettingsDetailRow
@@ -93,117 +96,134 @@ fun ReportExportScreen(
         saveReportLauncher.launch(createSaveReportIntent(report))
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 24.dp,
-            bottom = contentPadding.calculateBottomPadding() + 104.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            SettingsBackRow(onBack = onBack)
-        }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_reports_title),
-                subtitle = stringResource(R.string.merchant_reports_subtitle),
-                icon = Icons.Default.Description,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        item {
-            ExportTargetCard(
-                selectedStoreName = uiState.selectedStoreName,
-                includeAllStores = uiState.autoSettings.includeAllStores,
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                MerchantActionCard(
-                    title = stringResource(R.string.merchant_reports_docx_title),
-                    subtitle = stringResource(R.string.merchant_reports_docx_subtitle),
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 24.dp,
+                bottom = contentPadding.calculateBottomPadding() + 104.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                SettingsBackRow(onBack = onBack)
+            }
+            item {
+                SettingsHeroCard(
+                    title = stringResource(R.string.merchant_reports_title),
+                    subtitle = stringResource(R.string.merchant_reports_subtitle),
                     icon = Icons.Default.Description,
-                    colors = listOf(VerevColors.Gold, VerevColors.Tan),
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.export(ReportFormat.DOCX) },
-                )
-                MerchantActionCard(
-                    title = stringResource(R.string.merchant_reports_excel_title),
-                    subtitle = stringResource(R.string.merchant_reports_excel_subtitle),
-                    icon = Icons.Default.Payments,
-                    colors = listOf(VerevColors.Moss, VerevColors.Forest),
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.export(ReportFormat.XLSX) },
+                    colors = listOf(VerevColors.Forest, VerevColors.Moss),
                 )
             }
-        }
-        item {
-            AutoReportSettingsCard(
-                enabled = uiState.autoSettings.enabled,
-                frequency = uiState.autoSettings.frequency,
-                format = uiState.autoSettings.format,
-                includeAllStores = uiState.autoSettings.includeAllStores,
-                onEnabledChanged = viewModel::setAutoReportsEnabled,
-                onFrequencyChanged = viewModel::setAutoReportFrequency,
-                onFormatChanged = viewModel::setPreferredFormat,
-                onIncludeAllStoresChanged = viewModel::setIncludeAllStores,
-            )
-        }
-        if (uiState.isExporting) {
             item {
-                ExportingCard()
+                ExportTargetCard(
+                    selectedStoreName = uiState.selectedStoreName,
+                    includeAllStores = uiState.autoSettings.includeAllStores,
+                )
             }
-        }
-        uiState.error?.let { errorMessage ->
             item {
-                MerchantPrimaryCard {
-                    Text(
-                        text = stringResource(R.string.merchant_reports_error_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colorResource(R.color.error_red),
-                        fontWeight = FontWeight.SemiBold,
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    MerchantActionCard(
+                        title = stringResource(R.string.merchant_reports_docx_title),
+                        subtitle = stringResource(R.string.merchant_reports_docx_subtitle),
+                        icon = Icons.Default.Description,
+                        colors = listOf(VerevColors.Gold, VerevColors.Tan),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.export(ReportFormat.DOCX) },
                     )
-                    Text(
-                        text = errorMessage.ifBlank { stringResource(R.string.merchant_reports_error_generic) },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.72f),
+                    MerchantActionCard(
+                        title = stringResource(R.string.merchant_reports_excel_title),
+                        subtitle = stringResource(R.string.merchant_reports_excel_subtitle),
+                        icon = Icons.Default.Payments,
+                        colors = listOf(VerevColors.Moss, VerevColors.Forest),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.export(ReportFormat.XLSX) },
+                    )
+                    MerchantActionCard(
+                        title = stringResource(R.string.merchant_reports_pdf_title),
+                        subtitle = stringResource(R.string.merchant_reports_pdf_subtitle),
+                        icon = Icons.Default.Description,
+                        colors = listOf(VerevColors.ForestBright, VerevColors.Forest),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.export(ReportFormat.PDF) },
                     )
                 }
             }
-        }
-        saveFeedbackRes?.let { feedbackRes ->
             item {
-                MerchantPrimaryCard {
-                    Text(
-                        text = stringResource(feedbackRes),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (feedbackRes == R.string.merchant_reports_saved_success) {
-                            VerevColors.Forest
-                        } else {
-                            VerevColors.ErrorText
+                AutoReportSettingsCard(
+                    enabled = uiState.autoSettings.enabled,
+                    frequency = uiState.autoSettings.frequency,
+                    format = uiState.autoSettings.format,
+                    includeAllStores = uiState.autoSettings.includeAllStores,
+                    onEnabledChanged = viewModel::setAutoReportsEnabled,
+                    onFrequencyChanged = viewModel::setAutoReportFrequency,
+                    onFormatChanged = viewModel::setPreferredFormat,
+                    onIncludeAllStoresChanged = viewModel::setIncludeAllStores,
+                )
+            }
+            if (uiState.isExporting) {
+                item {
+                    ExportingCard()
+                }
+            }
+            saveFeedbackRes?.let { feedbackRes ->
+                item {
+                    MerchantPrimaryCard {
+                        Text(
+                            text = stringResource(feedbackRes),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (feedbackRes == R.string.merchant_reports_saved_success) {
+                                VerevColors.Forest
+                            } else {
+                                VerevColors.ErrorText
+                            },
+                        )
+                    }
+                }
+            }
+            uiState.latestExport?.let { report ->
+                item {
+                    LatestExportCard(
+                        report = report,
+                        onOpen = { openReport(context, report) },
+                        onShare = { shareReport(context, report) },
+                        onSave = {
+                            pendingSaveReport = report
+                            saveReportLauncher.launch(createSaveReportIntent(report))
                         },
                     )
                 }
             }
         }
-        uiState.latestExport?.let { report ->
-            item {
-                LatestExportCard(
-                    report = report,
-                    onOpen = { openReport(context, report) },
-                    onShare = { shareReport(context, report) },
-                    onSave = {
-                        pendingSaveReport = report
-                        saveReportLauncher.launch(createSaveReportIntent(report))
-                    },
-                )
-            }
+        MerchantLoadingOverlay(
+            isVisible = uiState.isExporting || uiState.isSavingAutoSettings,
+            title = stringResource(
+                if (uiState.isExporting) {
+                    R.string.merchant_loader_report_title
+                } else {
+                    R.string.merchant_loader_report_settings_title
+                }
+            ),
+            subtitle = stringResource(
+                if (uiState.isExporting) {
+                    R.string.merchant_loader_report_subtitle
+                } else {
+                    R.string.merchant_loader_report_settings_subtitle
+                }
+            ),
+        )
+        uiState.error?.let { errorMessage ->
+            MerchantErrorDialog(
+                title = stringResource(R.string.merchant_reports_error_title),
+                message = errorMessage.ifBlank { stringResource(R.string.merchant_reports_auto_settings_error) },
+                onDismiss = viewModel::clearError,
+            )
         }
     }
 }
@@ -375,13 +395,23 @@ private fun LatestExportCard(
             label = stringResource(R.string.merchant_reports_generated_label),
             value = report.generatedAt.format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")),
         )
+        report.storageLocation?.let { location ->
+            SettingsDetailRow(
+                label = stringResource(R.string.merchant_reports_storage_location_label),
+                value = location,
+            )
+        }
         Text(
             text = report.summary,
             style = MaterialTheme.typography.bodyMedium,
             color = VerevColors.Forest.copy(alpha = 0.68f),
         )
         Text(
-            text = stringResource(R.string.merchant_reports_storage_hint),
+            text = if (report.storageLocation != null) {
+                stringResource(R.string.merchant_reports_storage_hint_external)
+            } else {
+                stringResource(R.string.merchant_reports_storage_hint)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = VerevColors.Forest.copy(alpha = 0.6f),
         )

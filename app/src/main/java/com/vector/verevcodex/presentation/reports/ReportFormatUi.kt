@@ -11,6 +11,7 @@ import com.vector.verevcodex.domain.model.reports.ReportWeekday
 internal fun ReportFormat.titleRes(): Int = when (this) {
     ReportFormat.DOCX -> R.string.merchant_reports_docx_title
     ReportFormat.XLSX -> R.string.merchant_reports_excel_title
+    ReportFormat.PDF -> R.string.merchant_reports_pdf_title
 }
 
 @StringRes

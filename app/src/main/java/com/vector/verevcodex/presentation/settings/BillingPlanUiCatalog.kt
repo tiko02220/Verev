@@ -11,7 +11,7 @@ internal data class BillingPlanUiSpec(
 
 internal object BillingPlanUiCatalog {
     fun specFor(planIdOrName: String?): BillingPlanUiSpec = when (planIdOrName) {
-        "starter", "Starter" -> BillingPlanUiSpec(
+        "starter", "Starter", "BASIC", "Basic" -> BillingPlanUiSpec(
             nameRes = R.string.merchant_billing_plan_starter_name,
             summaryRes = R.string.merchant_billing_plan_starter_summary,
             featureResIds = listOf(
@@ -20,7 +20,16 @@ internal object BillingPlanUiCatalog {
                 R.string.merchant_billing_plan_starter_feature_3,
             ),
         )
-        "growth_plus", "Growth Plus" -> BillingPlanUiSpec(
+        "business_standard", "Business Standard", "PROFESSIONAL", "Professional" -> BillingPlanUiSpec(
+            nameRes = R.string.merchant_billing_plan_business_standard_name,
+            summaryRes = R.string.merchant_billing_plan_business_standard_summary,
+            featureResIds = listOf(
+                R.string.merchant_billing_plan_business_standard_feature_1,
+                R.string.merchant_billing_plan_business_standard_feature_2,
+                R.string.merchant_billing_plan_business_standard_feature_3,
+            ),
+        )
+        "growth_plus", "Growth Plus", "ENTERPRISE", "Enterprise" -> BillingPlanUiSpec(
             nameRes = R.string.merchant_billing_plan_growth_plus_name,
             summaryRes = R.string.merchant_billing_plan_growth_plus_summary,
             featureResIds = listOf(
@@ -30,12 +39,12 @@ internal object BillingPlanUiCatalog {
             ),
         )
         else -> BillingPlanUiSpec(
-            nameRes = R.string.merchant_billing_plan_business_standard_name,
-            summaryRes = R.string.merchant_billing_plan_business_standard_summary,
+            nameRes = R.string.merchant_billing_plan_starter_name,
+            summaryRes = R.string.merchant_billing_plan_starter_summary,
             featureResIds = listOf(
-                R.string.merchant_billing_plan_business_standard_feature_1,
-                R.string.merchant_billing_plan_business_standard_feature_2,
-                R.string.merchant_billing_plan_business_standard_feature_3,
+                R.string.merchant_billing_plan_starter_feature_1,
+                R.string.merchant_billing_plan_starter_feature_2,
+                R.string.merchant_billing_plan_starter_feature_3,
             ),
         )
     }

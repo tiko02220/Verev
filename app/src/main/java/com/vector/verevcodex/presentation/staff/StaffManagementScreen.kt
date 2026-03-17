@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.staff
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,15 +10,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vector.verevcodex.R
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.common.defaultPermissions
@@ -41,78 +46,80 @@ fun StaffManagementScreen(
     var permissions by rememberSaveable(stateSaver = StaffPermissionsSaver) {
         mutableStateOf(StaffRole.STAFF.defaultPermissions())
     }
+    val storeLabel = state.selectedStoreName.ifBlank { stringResource(R.string.merchant_business_location) }
+    val successFeedback = state.messageRes?.let(::resolveStaffSuccessFeedback)
 
-    LaunchedEffect(state.messageRes) {
-        if (state.messageRes != null) {
-            fullName = ""
-            email = ""
-            phoneNumber = ""
-            password = ""
-            role = StaffRole.STAFF
-            permissions = StaffRole.STAFF.defaultPermissions()
-            showEditor = false
-            editingStaffId = null
-            pendingDeleteStaffId = null
-            viewModel.dismissFeedback()
-        }
+    fun dismissSuccessFeedback() {
+        fullName = ""
+        email = ""
+        phoneNumber = ""
+        password = ""
+        role = StaffRole.STAFF
+        permissions = StaffRole.STAFF.defaultPermissions()
+        showEditor = false
+        editingStaffId = null
+        pendingDeleteStaffId = null
+        viewModel.dismissFeedback()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        StaffHeader(
-            memberCount = state.members.size,
-            onBack = onBack,
-        )
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 18.dp,
-                bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (state.members.isEmpty()) {
-                item { StaffEmptyState() }
-            } else {
-                items(state.members, key = { it.id }) { member ->
-                    StaffMemberCard(
-                        member = member,
-                        onEdit = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            StaffHeader(
+                memberCount = state.members.size,
+                onBack = onBack,
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 18.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (state.members.isEmpty()) {
+                    item { StaffEmptyState() }
+                } else {
+                    items(state.members, key = { it.id }) { member ->
+                        StaffMemberCard(
+                            member = member,
+                            onEdit = {
+                                viewModel.dismissFeedback()
+                                fullName = "${member.firstName} ${member.lastName}".trim()
+                                email = member.email
+                                phoneNumber = member.phoneNumber
+                                password = ""
+                                role = member.role
+                                permissions = member.permissions
+                                editingStaffId = member.id
+                                showEditor = true
+                            },
+                            onDelete = {
+                                viewModel.dismissFeedback()
+                                pendingDeleteStaffId = member.id
+                            },
+                        )
+                    }
+                }
+                item {
+                    StaffPrimaryAction(
+                        text = androidx.compose.ui.res.stringResource(com.vector.verevcodex.R.string.merchant_staff_add_member),
+                        onClick = {
                             viewModel.dismissFeedback()
-                            fullName = "${member.firstName} ${member.lastName}".trim()
-                            email = member.email
-                            phoneNumber = member.phoneNumber
+                            fullName = ""
+                            email = ""
+                            phoneNumber = ""
                             password = ""
-                            role = member.role
-                            permissions = member.permissions
-                            editingStaffId = member.id
+                            role = StaffRole.STAFF
+                            permissions = StaffRole.STAFF.defaultPermissions()
+                            editingStaffId = null
                             showEditor = true
-                        },
-                        onDelete = {
-                            viewModel.dismissFeedback()
-                            pendingDeleteStaffId = member.id
                         },
                     )
                 }
-            }
-            item {
-                StaffPrimaryAction(
-                    text = androidx.compose.ui.res.stringResource(com.vector.verevcodex.R.string.merchant_staff_add_member),
-                    onClick = {
-                        viewModel.dismissFeedback()
-                        fullName = ""
-                        email = ""
-                        phoneNumber = ""
-                        password = ""
-                        role = StaffRole.STAFF
-                        permissions = StaffRole.STAFF.defaultPermissions()
-                        editingStaffId = null
-                        showEditor = true
-                    },
-                )
             }
         }
     }
@@ -127,7 +134,6 @@ fun StaffManagementScreen(
             permissions = permissions,
             isSaving = state.isSaving,
             isEditing = editingStaffId != null,
-            errorText = state.errorRes?.let { androidx.compose.ui.res.stringResource(it) },
             onFullNameChanged = { fullName = it },
             onEmailChanged = { email = it },
             onPhoneNumberChanged = { phoneNumber = it },
@@ -163,6 +169,29 @@ fun StaffManagementScreen(
                     )
                 }
             },
+        )
+    }
+
+    MerchantLoadingOverlay(
+        isVisible = state.isSaving,
+        title = androidx.compose.ui.res.stringResource(com.vector.verevcodex.R.string.merchant_loader_staff_title),
+        subtitle = androidx.compose.ui.res.stringResource(com.vector.verevcodex.R.string.merchant_loader_staff_subtitle),
+    )
+
+    val errorMessage = state.errorMessage ?: state.errorRes?.let { stringResource(it) }
+    if (errorMessage != null) {
+        MerchantErrorDialog(
+            title = stringResource(R.string.merchant_error_dialog_title),
+            message = errorMessage,
+            onDismiss = viewModel::dismissFeedback,
+        )
+    }
+
+    successFeedback?.let { feedback ->
+        MerchantSuccessDialog(
+            title = stringResource(feedback.titleRes),
+            message = stringResource(feedback.messageRes, storeLabel),
+            onDismiss = ::dismissSuccessFeedback,
         )
     }
 

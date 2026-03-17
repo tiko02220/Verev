@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Allow HTTP (cleartext) so the app can reach the backend at http://YOUR_IP:8080 on a physical device or emulator -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

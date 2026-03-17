@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -33,69 +37,82 @@ fun PlanSelectionScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentPlanSpec = BillingPlanUiCatalog.specFor(state.currentPlanKey)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_plan_selection_title),
-                subtitle = stringResource(R.string.merchant_plan_selection_subtitle, stringResource(currentPlanSpec.nameRes)),
-                icon = Icons.Default.Subscriptions,
-                colors = listOf(VerevColors.Gold, VerevColors.Tan),
-            )
-        }
-        state.errorRes?.let { errorRes ->
-            item { SettingsDetailSection(title = stringResource(errorRes)) {} }
-        }
-        state.messageRes?.let { messageRes ->
-            item { SettingsDetailSection(title = stringResource(messageRes)) {} }
-        }
-        items(state.options, key = { it.id }) { plan ->
-            SettingsDetailSection(title = stringResource(plan.nameRes)) {
-                SettingsDetailRow(
-                    label = stringResource(R.string.merchant_payment_methods_plan_title),
-                    value = plan.priceLabel,
-                    trailing = {
-                        if (plan.isSelected) {
-                            SettingsSectionBadge(text = stringResource(R.string.merchant_current_location))
-                        }
-                    },
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item { SettingsBackRow(onBack = onBack) }
+            item {
+                SettingsHeroCard(
+                    title = stringResource(R.string.merchant_plan_selection_title),
+                    subtitle = stringResource(R.string.merchant_plan_selection_subtitle, stringResource(currentPlanSpec.nameRes)),
+                    icon = Icons.Default.Subscriptions,
+                    colors = listOf(VerevColors.Gold, VerevColors.Tan),
                 )
-                Text(
-                    text = stringResource(plan.summaryRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.Forest.copy(alpha = 0.72f),
-                )
-                plan.featureResIds.forEach { featureRes ->
-                    Text(
-                        text = "\u2022 ${stringResource(featureRes)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = VerevColors.Forest.copy(alpha = 0.68f),
+            }
+            items(state.options, key = { it.id }) { plan ->
+                SettingsDetailSection(title = stringResource(plan.nameRes)) {
+                    SettingsDetailRow(
+                        label = stringResource(R.string.merchant_payment_methods_plan_title),
+                        value = plan.priceLabel,
+                        trailing = {
+                            if (plan.isSelected) {
+                                SettingsSectionBadge(text = stringResource(R.string.merchant_current_location))
+                            }
+                        },
                     )
-                }
-                Button(
-                    onClick = { viewModel.selectPlan(plan.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !plan.isSelected && !state.isSaving,
-                ) {
                     Text(
-                        text = if (plan.isSelected) {
-                            stringResource(R.string.merchant_plan_selection_current)
-                        } else {
-                            stringResource(R.string.merchant_plan_selection_select)
-                        }
+                        text = stringResource(plan.summaryRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.72f),
                     )
+                    plan.featureResIds.forEach { featureRes ->
+                        Text(
+                            text = "\u2022 ${stringResource(featureRes)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VerevColors.Forest.copy(alpha = 0.68f),
+                        )
+                    }
+                    Button(
+                        onClick = { viewModel.selectPlan(plan.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !plan.isSelected && !state.isSaving,
+                    ) {
+                        Text(
+                            text = if (plan.isSelected) {
+                                stringResource(R.string.merchant_plan_selection_current)
+                            } else {
+                                stringResource(R.string.merchant_plan_selection_select)
+                            }
+                        )
+                    }
                 }
             }
         }
+        MerchantLoadingOverlay(
+            isVisible = state.isSaving,
+            title = stringResource(R.string.merchant_loader_plan_title),
+            subtitle = stringResource(R.string.merchant_loader_plan_subtitle),
+        )
+    }
+    state.messageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            onDismiss = viewModel::dismissMessage,
+        )
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::dismissMessage,
+        )
     }
 }
 
@@ -126,9 +143,6 @@ fun AllInvoicesScreen(
                 colors = listOf(VerevColors.Forest, VerevColors.Moss),
             )
         }
-        state.errorRes?.let { errorRes ->
-            item { SettingsDetailSection(title = stringResource(errorRes)) {} }
-        }
         items(state.invoices, key = { it.id }) { invoice ->
             SettingsDetailSection(title = invoice.title) {
                 SettingsMenuRow(
@@ -140,6 +154,12 @@ fun AllInvoicesScreen(
                 )
             }
         }
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = onBack,
+        )
     }
 }
 
@@ -170,9 +190,6 @@ fun InvoiceDetailScreen(
                 colors = listOf(VerevColors.Tan, VerevColors.Gold),
             )
         }
-        state.errorRes?.let { errorRes ->
-            item { SettingsDetailSection(title = stringResource(errorRes)) {} }
-        }
         state.invoice?.let { invoice ->
             item {
                 SettingsDetailSection(title = invoice.title) {
@@ -195,5 +212,11 @@ fun InvoiceDetailScreen(
                 }
             }
         }
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = onBack,
+        )
     }
 }

@@ -26,6 +26,7 @@ import com.vector.verevcodex.presentation.auth.common.AuthCenteredSection
 import com.vector.verevcodex.presentation.auth.common.AuthGradientScreenScaffold
 import com.vector.verevcodex.presentation.auth.common.showBiometricPrompt
 import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 
 @Composable
 fun SignupScreen(
@@ -134,5 +135,33 @@ fun SignupScreen(
                 )
             }
         }
+
+        MerchantLoadingOverlay(
+            isVisible = state.isLoading,
+            title = stringResource(
+                when (state.stage) {
+                    SignupFlowStage.BUSINESS,
+                    SignupFlowStage.ACCOUNT,
+                    -> R.string.auth_loader_register_title
+                    SignupFlowStage.PIN,
+                    SignupFlowStage.BIOMETRIC,
+                    -> R.string.auth_loader_security_title
+                    SignupFlowStage.STAFF_FORM -> R.string.auth_loader_staff_title
+                    SignupFlowStage.STAFF_PROMPT -> R.string.auth_loader_finish_title
+                }
+            ),
+            subtitle = stringResource(
+                when (state.stage) {
+                    SignupFlowStage.BUSINESS,
+                    SignupFlowStage.ACCOUNT,
+                    -> R.string.auth_loader_register_subtitle
+                    SignupFlowStage.PIN,
+                    SignupFlowStage.BIOMETRIC,
+                    -> R.string.auth_loader_security_subtitle
+                    SignupFlowStage.STAFF_FORM -> R.string.auth_loader_staff_subtitle
+                    SignupFlowStage.STAFF_PROMPT -> R.string.auth_loader_finish_subtitle
+                }
+            ),
+        )
     }
 }

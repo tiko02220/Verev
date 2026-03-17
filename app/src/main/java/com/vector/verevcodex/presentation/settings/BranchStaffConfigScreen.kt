@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +26,11 @@ import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.common.defaultPermissions
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.staff.StaffAddMemberSheet
+import com.vector.verevcodex.presentation.staff.resolveStaffSuccessFeedback
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -44,78 +49,71 @@ fun BranchStaffConfigScreen(
         mutableStateOf(StaffRole.STORE_MANAGER.defaultPermissions())
     }
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    val storeLabel = state.storeName.ifBlank { stringResource(R.string.merchant_business_location) }
+    val successFeedback = state.messageRes?.let(::resolveStaffSuccessFeedback)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { SettingsBackRow(onBack = onBack) }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_branch_staff_config_title),
-                subtitle = state.storeName.ifBlank { stringResource(R.string.merchant_branch_staff_config_subtitle) },
-                icon = Icons.Default.Groups,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.errorRes?.let { errorRes ->
+    fun dismissSuccessFeedback() {
+        fullName = ""
+        email = ""
+        phoneNumber = ""
+        password = ""
+        role = StaffRole.STORE_MANAGER
+        permissions = StaffRole.STORE_MANAGER.defaultPermissions()
+        showAddSheet = false
+        viewModel.dismissFeedback()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 16.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item { SettingsBackRow(onBack = onBack) }
             item {
-                SettingsDetailSection(title = stringResource(errorRes)) {
-                    Text(
-                        text = stringResource(R.string.merchant_branch_staff_config_error_support),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.68f),
-                    )
-                }
+                SettingsHeroCard(
+                    title = stringResource(R.string.merchant_branch_staff_config_title),
+                    subtitle = state.storeName.ifBlank { stringResource(R.string.merchant_branch_staff_config_subtitle) },
+                    icon = Icons.Default.Groups,
+                    colors = listOf(VerevColors.Forest, VerevColors.Moss),
+                )
             }
-        }
-        state.messageRes?.let { messageRes ->
             item {
-                SettingsDetailSection(title = stringResource(messageRes)) {
-                    Text(
-                        text = stringResource(R.string.merchant_branch_staff_config_message_support),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.68f),
-                    )
-                }
-            }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_branch_staff_members_title)) {
-                if (state.members.isEmpty()) {
-                    MerchantEmptyStateCard(
-                        title = stringResource(R.string.merchant_branch_staff_empty_title),
-                        subtitle = stringResource(R.string.merchant_branch_staff_empty_subtitle),
-                        icon = Icons.Default.Groups,
-                    )
-                } else {
-                    state.members.forEachIndexed { index, member ->
-                        SettingsMenuRow(
-                            title = "${member.firstName} ${member.lastName}".trim(),
-                            subtitle = member.email,
+                SettingsDetailSection(title = stringResource(R.string.merchant_branch_staff_members_title)) {
+                    if (state.members.isEmpty()) {
+                        MerchantEmptyStateCard(
+                            title = stringResource(R.string.merchant_branch_staff_empty_title),
+                            subtitle = stringResource(R.string.merchant_branch_staff_empty_subtitle),
                             icon = Icons.Default.Groups,
-                            trailingLabel = stringResource(member.role.permissionsSummaryRes()),
-                            onClick = {},
                         )
-                        if (index < state.members.lastIndex) {
-                            androidx.compose.material3.HorizontalDivider(
-                                color = VerevColors.Inactive.copy(alpha = 0.16f),
+                    } else {
+                        state.members.forEachIndexed { index, member ->
+                            SettingsMenuRow(
+                                title = "${member.firstName} ${member.lastName}".trim(),
+                                subtitle = member.email,
+                                icon = Icons.Default.Groups,
+                                trailingLabel = member.permissionsSummary.ifBlank { member.role.name.replace('_', ' ') },
+                                onClick = {},
                             )
+                            if (index < state.members.lastIndex) {
+                                androidx.compose.material3.HorizontalDivider(
+                                    color = VerevColors.Inactive.copy(alpha = 0.16f),
+                                )
+                            }
                         }
                     }
-                }
-                Button(
-                    onClick = { showAddSheet = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                ) {
-                    Text(stringResource(R.string.merchant_branch_staff_add_member))
+                    Button(
+                        onClick = { showAddSheet = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    ) {
+                        Text(stringResource(R.string.merchant_branch_staff_add_member))
+                    }
                 }
             }
         }
@@ -131,7 +129,6 @@ fun BranchStaffConfigScreen(
             permissions = permissions,
             isSaving = state.isSaving,
             isEditing = false,
-            errorText = state.errorRes?.let { stringResource(it) },
             onFullNameChanged = { fullName = it },
             onEmailChanged = { email = it },
             onPhoneNumberChanged = { phoneNumber = it },
@@ -144,14 +141,30 @@ fun BranchStaffConfigScreen(
             onDismiss = { showAddSheet = false },
             onSave = {
                 viewModel.addMember(fullName, email, phoneNumber, password, role, permissions)
-                fullName = ""
-                email = ""
-                phoneNumber = ""
-                password = ""
-                role = StaffRole.STORE_MANAGER
-                permissions = StaffRole.STORE_MANAGER.defaultPermissions()
-                showAddSheet = false
             },
+        )
+    }
+
+    MerchantLoadingOverlay(
+        isVisible = state.isSaving,
+        title = stringResource(R.string.merchant_loader_branch_staff_title),
+        subtitle = stringResource(R.string.merchant_loader_branch_staff_subtitle),
+    )
+
+    val errorMessage = state.errorMessage ?: state.errorRes?.let { stringResource(it) }
+    if (errorMessage != null) {
+        MerchantErrorDialog(
+            title = stringResource(R.string.merchant_error_dialog_title),
+            message = errorMessage,
+            onDismiss = viewModel::dismissFeedback,
+        )
+    }
+
+    successFeedback?.let { feedback ->
+        MerchantSuccessDialog(
+            title = stringResource(feedback.titleRes),
+            message = stringResource(feedback.messageRes, storeLabel),
+            onDismiss = ::dismissSuccessFeedback,
         )
     }
 }

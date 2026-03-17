@@ -209,6 +209,10 @@ class AddCustomerViewModel @Inject constructor(
         )
     }
 
+    fun dismissError() {
+        _uiState.value = _uiState.value.copy(errorRes = null)
+    }
+
     private fun publishError(@StringRes errorRes: Int) {
         _uiState.value = _uiState.value.copy(errorRes = errorRes)
     }

@@ -7,11 +7,17 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.db.DatabaseSeeder
+import com.vector.verevcodex.data.remote.api.auth.StoreViewDto
+import com.vector.verevcodex.data.remote.auth.AuthRemoteDataSource
+import com.vector.verevcodex.data.remote.auth.BackendAuthSyncData
+import com.vector.verevcodex.data.remote.auth.TokenStore
 import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
 import com.vector.verevcodex.data.preferences.authPreferenceStore
+import com.vector.verevcodex.data.preferences.merchantPreferenceStore
 import com.vector.verevcodex.data.db.entity.business.OwnerEntity
 import com.vector.verevcodex.data.db.entity.business.StoreEntity
 import com.vector.verevcodex.data.db.entity.auth.AuthAccountEntity
+import com.vector.verevcodex.data.mapper.auth.toEntity
 import com.vector.verevcodex.data.mapper.auth.toSession
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
@@ -24,6 +30,9 @@ import com.vector.verevcodex.domain.model.auth.SecurityConfig
 import com.vector.verevcodex.domain.model.auth.SecuritySetup
 import com.vector.verevcodex.domain.repository.auth.AuthRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,9 +49,12 @@ class AuthRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     @ApplicationContext context: Context,
     private val businessSettingsRepository: BusinessSettingsRepositoryImpl,
+    private val authRemote: AuthRemoteDataSource,
+    private val tokenStore: TokenStore,
     seeder: DatabaseSeeder,
 ) : AuthRepository {
     private val dataStore = context.authPreferenceStore
+    private val merchantPreferenceStore = context.merchantPreferenceStore
     private val currentAccountKey = stringPreferencesKey("current_account_id")
     private val resetEmailKey = stringPreferencesKey("pending_reset_email")
     private val resetCodeKey = stringPreferencesKey("pending_reset_code")
@@ -50,7 +62,21 @@ class AuthRepositoryImpl @Inject constructor(
     private val resetVerifiedEmailKey = stringPreferencesKey("pending_reset_verified_email")
 
     init {
-        runBlocking { seeder.seedIfNeeded() }
+        runBlocking {
+            seeder.seedIfNeeded()
+            if (tokenStore.hasTokens()) {
+                authRemote.me()
+                    .onSuccess { (session, syncData) ->
+                        syncSessionToLocal(session)
+                        syncOwnerAndStoreFromBackend(syncData)
+                        dataStore.edit { it[currentAccountKey] = session.user.id }
+                        syncBackendPreferences(session.user.id)
+                    }
+                    .onFailure {
+                        tokenStore.clearTokens()
+                    }
+            }
+        }
     }
 
     override fun observeSession(): Flow<AuthSession?> = dataStore.data
@@ -98,141 +124,112 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun login(email: String, password: String): Result<AuthSession> {
-        val account = database.authDao().findByEmail(email.trim().lowercase())
-            ?: return Result.failure(IllegalArgumentException("Invalid email or password"))
-        if (!account.active || account.password != password) {
-            return Result.failure(IllegalArgumentException("Invalid email or password"))
-        }
-        dataStore.edit { preferences ->
-            preferences[currentAccountKey] = account.id
-        }
-        return Result.success(account.toSession())
+        return authRemote.loginByEmail(email.trim(), password)
+            .fold(
+                onSuccess = { (session, syncData) ->
+                    syncSessionToLocal(session)
+                    syncOwnerAndStoreFromBackend(syncData)
+                    dataStore.edit { it[currentAccountKey] = session.user.id }
+                    syncBackendPreferences(session.user.id)
+                    Result.success(session)
+                },
+                onFailure = { Result.failure(friendlyAuthError(it)) },
+            )
     }
 
     override suspend fun registerBusiness(business: BusinessRegistration, account: AccountRegistration): Result<RegistrationResult> {
-        if (database.authDao().findByEmail(account.email.trim().lowercase()) != null) {
-            return Result.failure(IllegalArgumentException("Email already exists"))
-        }
-
-        val ownerId = UUID.randomUUID().toString()
-        val storeId = UUID.randomUUID().toString()
-        val authId = UUID.randomUUID().toString()
-        val nameParts = account.fullName.trim().split(" ", limit = 2)
-        val firstName = nameParts.firstOrNull().orEmpty()
-        val lastName = nameParts.getOrElse(1) { "" }
-
-        database.ownerDao().insertAll(
-            listOf(
-                OwnerEntity(
-                    id = ownerId,
-                    firstName = firstName,
-                    lastName = lastName,
-                    email = account.email.trim().lowercase(),
-                    phoneNumber = business.phoneNumber,
-                )
-            )
-        )
-        database.storeDao().insertAll(
-            listOf(
-                StoreEntity(
-                    id = storeId,
-                    ownerId = ownerId,
-                    name = business.businessName,
-                    address = "${business.address}, ${business.city} ${business.zipCode}",
-                    contactInfo = business.phoneNumber,
-                    category = business.industry,
-                    workingHours = "09:00 - 18:00",
-                    logoUrl = "",
-                    primaryColor = "#0C3B2E",
-                    secondaryColor = "#FFBA00",
-                    active = true,
-                )
-            )
-        )
-        val authAccount = AuthAccountEntity(
-            id = authId,
-            relatedEntityId = ownerId,
-            fullName = account.fullName.trim(),
-            email = account.email.trim().lowercase(),
-            phoneNumber = business.phoneNumber,
-            profilePhotoUri = "",
+        val address = "${business.address}, ${business.city} ${business.zipCode}"
+        return authRemote.signup(
+            organizationLegalName = business.businessName,
+            organizationDisplayName = business.businessName,
+            industry = business.industry,
+            phone = business.phoneNumber,
+            ownerEmail = account.email.trim().lowercase(),
+            ownerFullName = account.fullName.trim(),
+            ownerPhoneNumber = business.phoneNumber,
             password = account.password,
-            role = StaffRole.OWNER.name,
-            active = true,
-            canViewAnalytics = true,
-            canManagePrograms = true,
-            canProcessTransactions = true,
-            canManageCustomers = true,
-            canManageStaff = true,
-            canViewSettings = true,
+            storeName = business.businessName,
+            storeAddress = address,
+            storeContactInfo = business.phoneNumber,
+            storeCategory = business.industry,
+            storeWorkingHours = "09:00 - 18:00",
+        ).fold(
+            onSuccess = { (result, syncData) ->
+                syncSessionToLocal(result.session)
+                syncOwnerAndStoreFromBackend(syncData)
+                dataStore.edit { it[currentAccountKey] = result.session.user.id }
+                syncBackendPreferences(result.session.user.id)
+                businessSettingsRepository.createDefaultStoreSettings(
+                    storeId = result.defaultStoreId,
+                    ownerId = syncData.ownerId,
+                    primaryColor = syncData.defaultStore?.primaryColor ?: "#0C3B2E",
+                    secondaryColor = syncData.defaultStore?.secondaryColor ?: "#FFBA00",
+                )
+                Result.success(result)
+            },
+            onFailure = { Result.failure(friendlyAuthError(it)) },
         )
-        database.authDao().insert(authAccount)
-        businessSettingsRepository.createDefaultStoreSettings(
-            storeId = storeId,
-            ownerId = ownerId,
-            primaryColor = "#0C3B2E",
-            secondaryColor = "#FFBA00",
-        )
-        return Result.success(RegistrationResult(authAccount.toSession(), ownerId, storeId))
     }
 
     override suspend fun saveSecuritySetup(setup: SecuritySetup): Result<Unit> {
-        dataStore.edit { preferences ->
-            preferences[stringPreferencesKey("${setup.accountId}_quick_pin")] = setup.pin
-            preferences[booleanPreferencesKey("${setup.accountId}_biometric_enabled")] = setup.biometricEnabled
-        }
-        return Result.success(Unit)
+        return authRemote.setupSecurity(setup).fold(
+            onSuccess = {
+                it?.let { config ->
+                    dataStore.edit { prefs ->
+                        prefs[stringPreferencesKey("${config.accountId}_quick_pin")] = setup.pin
+                        prefs[booleanPreferencesKey("${config.accountId}_biometric_enabled")] = config.biometricEnabled
+                    }
+                }
+                Result.success(Unit)
+            },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     override suspend fun updateCurrentProfile(update: PersonalInformationUpdate): Result<Unit> {
-        val accountId = currentAccountId() ?: return Result.failure(IllegalArgumentException("No active session"))
-        val currentAccount = database.authDao().findById(accountId)
-            ?: return Result.failure(IllegalArgumentException("No active account"))
-        val normalizedEmail = update.email.trim().lowercase()
-        val existing = database.authDao().findByEmail(normalizedEmail)
-        if (existing != null && existing.id != currentAccount.id) {
-            return Result.failure(IllegalArgumentException("Email already exists"))
-        }
-        database.authDao().update(
-            currentAccount.copy(
-                fullName = update.fullName.trim(),
-                email = normalizedEmail,
-                phoneNumber = update.phoneNumber.trim(),
-                profilePhotoUri = update.profilePhotoUri.trim(),
+        return authRemote.updateMe(
+            PersonalInformationUpdate(
+                fullName = update.fullName,
+                email = update.email,
+                phoneNumber = update.phoneNumber,
+                profilePhotoUri = update.profilePhotoUri,
             )
+        ).fold(
+            onSuccess = { syncSessionToLocal(it); Result.success(Unit) },
+            onFailure = { Result.failure(it) },
         )
-        return Result.success(Unit)
     }
 
     override suspend fun changeCurrentPassword(currentPassword: String, newPassword: String): Result<Unit> {
-        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
-        if (account.password != currentPassword) {
-            return Result.failure(IllegalArgumentException("Current password is incorrect"))
-        }
-        database.authDao().update(account.copy(password = newPassword))
-        return Result.success(Unit)
+        return authRemote.changePassword(currentPassword, newPassword)
     }
 
     override suspend fun updateCurrentQuickPin(currentPin: String, newPin: String): Result<Unit> {
-        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
-        val preferences = dataStore.data.first()
-        val pinKey = stringPreferencesKey("${account.id}_quick_pin")
-        val storedPin = preferences[pinKey]
-        if (storedPin != null && storedPin != currentPin) {
-            return Result.failure(IllegalArgumentException("Current PIN is incorrect"))
-        }
-        dataStore.edit { mutablePreferences ->
-            mutablePreferences[pinKey] = newPin
-        }
-        return Result.success(Unit)
+        return authRemote.changeQuickPin(currentPin, newPin).fold(
+            onSuccess = {
+                dataStore.edit { prefs ->
+                    currentAccountId()?.let { id ->
+                        prefs[stringPreferencesKey("${id}_quick_pin")] = newPin
+                    }
+                }
+                Result.success(Unit)
+            },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     override suspend fun updateCurrentBiometricEnabled(enabled: Boolean): Result<Unit> {
-        val account = currentAccount() ?: return Result.failure(IllegalArgumentException("No active account"))
-        dataStore.edit { preferences ->
-            preferences[booleanPreferencesKey("${account.id}_biometric_enabled")] = enabled
-        }
-        return Result.success(Unit)
+        return authRemote.updateBiometric(enabled).fold(
+            onSuccess = {
+                dataStore.edit { prefs ->
+                    currentAccountId()?.let { id ->
+                        prefs[booleanPreferencesKey("${id}_biometric_enabled")] = enabled
+                    }
+                }
+                Result.success(Unit)
+            },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     override suspend fun updateEmailNotificationSettings(settings: EmailNotificationSettings): Result<Unit> {
@@ -262,70 +259,29 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun verifyQuickPin(pin: String): Boolean {
-        val preferences = dataStore.data.first()
-        val accountId = preferences[currentAccountKey] ?: return false
-        val storedPin = preferences[stringPreferencesKey("${accountId}_quick_pin")] ?: return false
-        return storedPin == pin
+        return authRemote.verifyQuickPin(pin).getOrElse { false }
     }
 
     override suspend fun sendPasswordResetCode(email: String): Result<Unit> {
-        val account = database.authDao().findByEmail(email.trim().lowercase())
-            ?: return Result.failure(IllegalArgumentException("Invalid email or password"))
-        val code = PasswordResetCodePolicy.generate()
-        val issuedAt = System.currentTimeMillis()
-        dataStore.edit { preferences ->
-            preferences[resetEmailKey] = account.email
-            preferences[resetCodeKey] = code
-            preferences[resetIssuedAtKey] = issuedAt
-            preferences.remove(resetVerifiedEmailKey)
-        }
-        return Result.success(Unit)
+        return authRemote.requestPasswordResetByEmail(email.trim().lowercase())
     }
 
     override suspend fun verifyPasswordResetCode(email: String, code: String): Result<Unit> {
-        val normalizedEmail = email.trim().lowercase()
-        val preferences = dataStore.data.first()
-        val storedEmail = preferences[resetEmailKey]
-        val storedCode = preferences[resetCodeKey]
-        val issuedAt = preferences[resetIssuedAtKey] ?: 0L
-        val isValid = storedEmail == normalizedEmail &&
-            storedCode == code &&
-            !PasswordResetCodePolicy.isExpired(issuedAt, System.currentTimeMillis())
-        return if (isValid) {
-            dataStore.edit { mutablePreferences ->
-                mutablePreferences[resetVerifiedEmailKey] = normalizedEmail
-            }
-            Result.success(Unit)
-        } else {
-            clearResetSession()
-            Result.failure(IllegalArgumentException("Invalid or expired code. Please try again."))
-        }
+        return authRemote.verifyPasswordResetByEmail(email.trim().lowercase(), code)
     }
 
     override suspend fun resetPassword(email: String, newPassword: String): Result<Unit> {
-        val normalizedEmail = email.trim().lowercase()
-        val account = database.authDao().findByEmail(normalizedEmail)
-            ?: return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        if (!hasVerifiedResetSession(normalizedEmail)) {
-            return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        }
-        database.authDao().update(account.copy(password = newPassword))
-        clearResetSession()
-        return Result.success(Unit)
+        return authRemote.confirmPasswordResetByEmail(email.trim().lowercase(), newPassword).fold(
+            onSuccess = { clearResetSession(); Result.success(Unit) },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     override suspend fun resetQuickPin(email: String, newPin: String): Result<Unit> {
-        val normalizedEmail = email.trim().lowercase()
-        val account = database.authDao().findByEmail(normalizedEmail)
-            ?: return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        if (!hasVerifiedResetSession(normalizedEmail)) {
-            return Result.failure(IllegalArgumentException("Failed to reset password. Please try again."))
-        }
-        dataStore.edit { preferences ->
-            preferences[stringPreferencesKey("${account.id}_quick_pin")] = newPin
-        }
-        clearResetSession()
-        return Result.success(Unit)
+        return authRemote.confirmQuickPinResetByEmail(email.trim().lowercase(), newPin).fold(
+            onSuccess = { clearResetSession(); Result.success(Unit) },
+            onFailure = { Result.failure(it) },
+        )
     }
 
     override suspend fun activateSession(accountId: String): Result<Unit> {
@@ -338,8 +294,65 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout() {
+        authRemote.logout()
         dataStore.edit { preferences ->
             preferences.remove(currentAccountKey)
+        }
+    }
+
+    private suspend fun syncSessionToLocal(session: AuthSession) {
+        database.authDao().insert(session.user.toEntity(password = ""))
+    }
+
+    private suspend fun syncOwnerAndStoreFromBackend(syncData: BackendAuthSyncData) {
+        val nameParts = syncData.ownerFullName.trim().split(" ", limit = 2)
+        val firstName = nameParts.firstOrNull().orEmpty()
+        val lastName = nameParts.getOrElse(1) { "" }
+        database.ownerDao().insertAll(
+            listOf(
+                OwnerEntity(
+                    id = syncData.ownerId,
+                    firstName = firstName,
+                    lastName = lastName,
+                    email = syncData.ownerEmail,
+                    phoneNumber = syncData.ownerPhone,
+                )
+            )
+        )
+        val stores = if (syncData.defaultStore != null) {
+            listOf(syncData.defaultStore.toStoreEntity(syncData.ownerId))
+        } else {
+            syncData.accessibleStoreIds.map { storeId ->
+                StoreEntity(
+                    id = storeId,
+                    ownerId = syncData.ownerId,
+                    name = syncData.organizationDisplayName,
+                    address = "",
+                    contactInfo = syncData.ownerPhone,
+                    category = "",
+                    workingHours = "",
+                    logoUrl = "",
+                    primaryColor = "#0C3B2E",
+                    secondaryColor = "#FFBA00",
+                    active = true,
+                )
+            }
+        }
+        if (stores.isNotEmpty()) database.storeDao().insertAll(stores)
+    }
+
+    private suspend fun syncBackendPreferences(accountId: String) {
+        val snapshot = authRemote.getPreferenceSnapshot().getOrNull() ?: return
+        dataStore.edit { prefs ->
+            prefs[booleanPreferencesKey("${accountId}_biometric_enabled")] = snapshot.biometricEnabled
+            if (!snapshot.quickPinConfigured) {
+                prefs.remove(stringPreferencesKey("${accountId}_quick_pin"))
+            }
+        }
+        snapshot.selectedStoreId?.let { selectedStoreId ->
+            merchantPreferenceStore.edit { prefs ->
+                prefs[stringPreferencesKey("${accountId}_selected_store_id")] = selectedStoreId
+            }
         }
     }
 
@@ -365,4 +378,32 @@ class AuthRepositoryImpl @Inject constructor(
             preferences.remove(resetVerifiedEmailKey)
         }
     }
+
+    /** Maps network/connection errors to a message that helps when login works in Swagger but not on device. */
+    private fun friendlyAuthError(e: Throwable): Exception {
+        val cause = e.cause ?: e
+        return when (cause) {
+            is ConnectException, is UnknownHostException, is SocketTimeoutException ->
+                Exception(
+                    "Cannot reach server. In local.properties set verev.backend.baseUrl to your computer's IP (e.g. http://192.168.1.x:8080), " +
+                        "ensure the phone is on the same Wi‑Fi as the backend, then rebuild the app.",
+                    cause,
+                )
+            else -> if (e is Exception) e else Exception(e.message, e)
+        }
+    }
+
+    private fun StoreViewDto.toStoreEntity(ownerId: String): StoreEntity = StoreEntity(
+        id = id.orEmpty(),
+        ownerId = ownerId,
+        name = name.orEmpty(),
+        address = address.orEmpty(),
+        contactInfo = contactInfo.orEmpty(),
+        category = category.orEmpty(),
+        workingHours = workingHours.orEmpty(),
+        logoUrl = logoUrl.orEmpty(),
+        primaryColor = primaryColor.orEmpty().ifEmpty { "#0C3B2E" },
+        secondaryColor = secondaryColor.orEmpty().ifEmpty { "#FFBA00" },
+        active = active ?: false,
+    )
 }

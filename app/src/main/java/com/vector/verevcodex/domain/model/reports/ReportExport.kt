@@ -9,4 +9,6 @@ data class ReportExport(
     val absolutePath: String,
     val mimeType: String,
     val generatedAt: LocalDateTime,
+    val storageLocation: String? = null,
+    val contentUri: String? = null,
 )

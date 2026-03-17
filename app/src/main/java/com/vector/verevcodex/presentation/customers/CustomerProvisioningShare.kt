@@ -85,7 +85,7 @@ internal fun shareProvisioningPayload(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
-    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.merchant_add_customer_share_chooser)))
+    context.startActivity(sendIntent)
 }
 
 internal fun emailProvisioningPayload(
@@ -101,7 +101,7 @@ internal fun emailProvisioningPayload(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
-    context.startActivity(Intent.createChooser(intent, context.getString(R.string.merchant_add_customer_share_email)))
+    context.startActivity(intent)
 }
 
 internal fun smsProvisioningPayload(
@@ -119,7 +119,7 @@ internal fun smsProvisioningPayload(
                 setPackage(smsPackage)
             }
         }
-        context.startActivity(Intent.createChooser(intent, context.getString(R.string.merchant_add_customer_share_sms)))
+        context.startActivity(intent)
     } else {
         context.startActivity(
             Intent(Intent.ACTION_SENDTO).apply {

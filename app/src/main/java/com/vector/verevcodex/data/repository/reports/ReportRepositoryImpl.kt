@@ -1,8 +1,11 @@
 package com.vector.verevcodex.data.repository.reports
 
+import android.content.ContentValues
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import com.vector.verevcodex.data.preferences.merchantPreferenceStore
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import com.vector.verevcodex.data.remote.reports.ReportsRemoteDataSource
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
 import com.vector.verevcodex.domain.model.reports.ReportExport
@@ -20,8 +23,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.map
-import java.time.LocalDateTime
 
 @Singleton
 class ReportRepositoryImpl @Inject constructor(
@@ -30,78 +34,63 @@ class ReportRepositoryImpl @Inject constructor(
     private val staffRepository: StaffRepository,
     private val loyaltyRepository: LoyaltyRepository,
     private val transactionRepository: TransactionRepository,
-    @ApplicationContext context: Context,
+    private val reportsRemote: ReportsRemoteDataSource,
+    @ApplicationContext private val context: Context,
 ) : ReportRepository {
-    private val dataStore = context.merchantPreferenceStore
-    private val reportsDir = context.filesDir.resolve("reports")
+    private val reportsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        ?.resolve("VerevReports")
+        ?: context.filesDir.resolve("reports")
+    private val reportSettingsRefreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    override fun observeAutoReportSettings(): Flow<ReportAutoSettings> = dataStore.data.map { preferences ->
-        ReportAutoSettings(
-            enabled = preferences[ReportPreferenceKeys.enabled] ?: false,
-            frequency = preferences[ReportPreferenceKeys.frequency]?.let(ReportAutoFrequency::valueOf) ?: ReportAutoFrequency.WEEKLY,
-            format = preferences[ReportPreferenceKeys.format]?.let(ReportFormat::valueOf) ?: ReportFormat.DOCX,
-            includeAllStores = preferences[ReportPreferenceKeys.includeAllStores] ?: false,
-            scheduledTime = preferences[ReportPreferenceKeys.scheduledTime] ?: "09:00",
-            scheduledWeekday = preferences[ReportPreferenceKeys.scheduledWeekday]?.let(ReportWeekday::valueOf) ?: ReportWeekday.MONDAY,
-            scheduledMonthDay = preferences[ReportPreferenceKeys.scheduledMonthDay] ?: 1,
-            recipientEmails = preferences[ReportPreferenceKeys.recipientEmails] ?: emptySet(),
-            includedSections = preferences[ReportPreferenceKeys.includedSections]
-                ?.mapNotNull { value -> ReportSection.entries.firstOrNull { it.name == value } }
-                ?.toSet()
-                ?.ifEmpty { ReportSection.entries.toSet() }
-                ?: ReportSection.entries.toSet(),
-        )
-    }
+    override fun observeAutoReportSettings(): Flow<ReportAutoSettings> =
+        reportSettingsRefreshRequests
+            .onStart { emit(Unit) }
+            .map { reportsRemote.getAutoSettings().getOrThrow() }
 
     override suspend fun saveAutoReportSettings(settings: ReportAutoSettings) {
-        dataStore.edit { preferences ->
-            preferences[ReportPreferenceKeys.enabled] = settings.enabled
-            preferences[ReportPreferenceKeys.frequency] = settings.frequency.name
-            preferences[ReportPreferenceKeys.format] = settings.format.name
-            preferences[ReportPreferenceKeys.includeAllStores] = settings.includeAllStores
-            preferences[ReportPreferenceKeys.scheduledTime] = settings.scheduledTime
-            preferences[ReportPreferenceKeys.scheduledWeekday] = settings.scheduledWeekday.name
-            preferences[ReportPreferenceKeys.scheduledMonthDay] = settings.scheduledMonthDay
-            preferences[ReportPreferenceKeys.recipientEmails] = settings.recipientEmails
-            preferences[ReportPreferenceKeys.includedSections] = settings.includedSections.map { it.name }.toSet()
+        val selectedStoreId = if (settings.includeAllStores) {
+            null
+        } else {
+            storeRepository.observeSelectedStore().first()?.id
+                ?: throw IllegalStateException("A store must be selected to save scoped auto report settings")
         }
+        reportsRemote.saveAutoSettings(settings, selectedStoreId).getOrThrow()
+        reportSettingsRefreshRequests.tryEmit(Unit)
     }
 
     override suspend fun exportBusinessReport(storeId: String?, format: ReportFormat): ReportExport {
-        val generatedAt = LocalDateTime.now()
-        val snapshot = buildSnapshot(storeId, generatedAt)
-        val document = BusinessReportDocumentFactory.create(snapshot)
-        val file = ReportFileWriter.write(
-            outputDir = reportsDir,
-            fileName = ReportFileMetadata.fileName(storeId, format, generatedAt),
-            format = format,
-            document = document,
-        )
+        val remote = reportsRemote.exportBusinessSummary(storeId, format).getOrThrow()
+        reportsDir.mkdirs()
+        val file = reportsDir.resolve(remote.fileName)
+        file.writeBytes(remote.bytes)
+
+        var contentUri: String? = null
+        var storageLocation: String? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, remote.fileName)
+                put(MediaStore.Downloads.MIME_TYPE, remote.mimeType)
+                put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/VerevReports")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(remote.bytes) }
+                contentUri = uri.toString()
+                storageLocation = "Downloads/VerevReports"
+            }
+        }
+        if (storageLocation == null && reportsDir.absolutePath.contains("Download")) {
+            storageLocation = "Download/VerevReports"
+        }
         return ReportExport(
             fileName = file.name,
             format = format,
-            summary = document.summary,
+            summary = "Business report generated from backend export",
             absolutePath = file.absolutePath,
-            mimeType = ReportFileMetadata.mimeType(format),
-            generatedAt = generatedAt,
-        )
-    }
-
-    private suspend fun buildSnapshot(storeId: String?, generatedAt: LocalDateTime): BusinessReportSnapshot {
-        val stores = storeRepository.observeStores().first()
-        val resolvedStoreName = stores.firstOrNull { store -> store.id == storeId }?.name ?: ReportText.allStores
-        return BusinessReportSnapshot(
-            resolvedStoreName = resolvedStoreName,
-            generatedAt = generatedAt,
-            business = analyticsRepository.observeBusinessAnalytics(storeId).first(),
-            customer = analyticsRepository.observeCustomerAnalytics(storeId).first(),
-            revenue = analyticsRepository.observeRevenueAnalytics(storeId).first(),
-            promotion = analyticsRepository.observePromotionAnalytics(storeId).first(),
-            program = analyticsRepository.observeProgramAnalytics(storeId).first(),
-            staffAnalytics = staffRepository.observeStaffAnalytics(storeId).first(),
-            transactions = transactionRepository.observeTransactions(storeId).first().take(10),
-            activePrograms = loyaltyRepository.observePrograms(storeId).first().count { it.active },
-            activePromotions = loyaltyRepository.observeCampaigns(storeId).first().count { it.active },
+            mimeType = remote.mimeType,
+            generatedAt = remote.generatedAt,
+            storageLocation = storageLocation,
+            contentUri = contentUri,
         )
     }
 }

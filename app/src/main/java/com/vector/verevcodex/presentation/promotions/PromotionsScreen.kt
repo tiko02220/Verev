@@ -31,6 +31,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 
 @Composable
 fun PromotionsScreen(
@@ -133,80 +136,103 @@ fun PromotionsScreen(
         averageRateLabel = formatPromotionRate(averageRate),
     )
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(VerevColors.AppBackground),
     ) {
-        if (selectedPromotion == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, VerevColors.Moss)))
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(VerevColors.AppBackground),
+        ) {
+            if (selectedPromotion == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Brush.linearGradient(listOf(VerevColors.ForestDeep, VerevColors.Forest, VerevColors.Moss)))
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                ) {
+                    PromotionsHeader(
+                        storeName = state.selectedStoreName.ifBlank { stringResource(com.vector.verevcodex.R.string.merchant_select_store) },
+                        stats = promotionsStats,
+                        onBack = onBack,
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = if (selectedPromotion == null) {
+                    androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+                } else {
+                    androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
+                },
+                color = VerevColors.AppBackground,
             ) {
-                PromotionsHeader(
-                    storeName = state.selectedStoreName.ifBlank { stringResource(com.vector.verevcodex.R.string.merchant_select_store) },
-                    stats = promotionsStats,
-                    onBack = onBack,
-                )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (selectedPromotion != null) Modifier.statusBarsPadding() else Modifier)
+                        .navigationBarsPadding(),
+                    contentPadding = PaddingValues(
+                        start = if (selectedPromotion == null) 16.dp else 0.dp,
+                        end = if (selectedPromotion == null) 16.dp else 0.dp,
+                        top = if (selectedPromotion == null) 18.dp else 0.dp,
+                        bottom = contentPadding.calculateBottomPadding() + if (selectedPromotion == null) 96.dp else 24.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(if (selectedPromotion == null) 18.dp else 14.dp),
+                ) {
+                    if (selectedPromotion != null) {
+                        item {
+                            PromotionDetailCard(
+                                promotion = selectedPromotion,
+                                performance = selectedPromotionPerformance ?: PromotionPerformanceSummary(),
+                                weeklyPerformance = selectedPromotionWeeklyPerformance,
+                                recentRedemptions = selectedPromotionRecentRedemptions,
+                                onOpenPayment = { viewModel.openNetworkPromotionPayment(selectedPromotion.id) },
+                                onEdit = { viewModel.openEditPromotion(selectedPromotion.id) },
+                                onDelete = { viewModel.requestDelete(selectedPromotion.id) },
+                                onBack = viewModel::closePromotionDetail,
+                            )
+                        }
+                        return@LazyColumn
+                    }
+
+                    item { PromotionsFilterRow(selectedFilter = state.selectedFilter, onSelected = viewModel::selectFilter) }
+                    item { PromotionsCreateButton(onCreate = { viewModel.openCreatePromotion() }) }
+
+                    if (filteredPromotions.isEmpty()) {
+                        item { PromotionsEmptyState() }
+                    } else {
+                        items(filteredPromotions, key = { it.id }) { promotion ->
+                            PromotionListCard(
+                                promotion = promotion,
+                                performance = performanceByPromotion[promotion.id] ?: PromotionPerformanceSummary(),
+                                onOpen = { viewModel.openPromotionDetail(promotion.id) },
+                            )
+                        }
+                    }
+                }
             }
         }
-
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = if (selectedPromotion == null) {
-                androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
-            } else {
-                androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
-            },
-            color = VerevColors.AppBackground,
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (selectedPromotion != null) Modifier.statusBarsPadding() else Modifier)
-                    .navigationBarsPadding(),
-                contentPadding = PaddingValues(
-                    start = if (selectedPromotion == null) 16.dp else 0.dp,
-                    end = if (selectedPromotion == null) 16.dp else 0.dp,
-                    top = if (selectedPromotion == null) 18.dp else 0.dp,
-                    bottom = contentPadding.calculateBottomPadding() + if (selectedPromotion == null) 96.dp else 24.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(if (selectedPromotion == null) 18.dp else 14.dp),
-            ) {
-                if (selectedPromotion != null) {
-                    item {
-                        PromotionDetailCard(
-                            promotion = selectedPromotion,
-                            performance = selectedPromotionPerformance ?: PromotionPerformanceSummary(),
-                            weeklyPerformance = selectedPromotionWeeklyPerformance,
-                            recentRedemptions = selectedPromotionRecentRedemptions,
-                            onOpenPayment = { viewModel.openNetworkPromotionPayment(selectedPromotion.id) },
-                            onEdit = { viewModel.openEditPromotion(selectedPromotion.id) },
-                            onDelete = { viewModel.requestDelete(selectedPromotion.id) },
-                            onBack = viewModel::closePromotionDetail,
-                        )
-                    }
-                    return@LazyColumn
-                }
-
-                item { PromotionsFilterRow(selectedFilter = state.selectedFilter, onSelected = viewModel::selectFilter) }
-                item { PromotionsCreateButton(onCreate = { viewModel.openCreatePromotion() }) }
-
-                if (filteredPromotions.isEmpty()) {
-                    item { PromotionsEmptyState() }
-                } else {
-                    items(filteredPromotions, key = { it.id }) { promotion ->
-                        PromotionListCard(
-                            promotion = promotion,
-                            performance = performanceByPromotion[promotion.id] ?: PromotionPerformanceSummary(),
-                            onOpen = { viewModel.openPromotionDetail(promotion.id) },
-                        )
-                    }
-                }
-            }
+        MerchantLoadingOverlay(
+            isVisible = state.isSubmitting,
+            title = stringResource(com.vector.verevcodex.R.string.merchant_loader_promotion_title),
+            subtitle = stringResource(com.vector.verevcodex.R.string.merchant_loader_promotion_subtitle),
+        )
+        state.messageRes?.let { messageRes ->
+            MerchantSuccessDialog(
+                message = stringResource(messageRes),
+                onDismiss = viewModel::dismissFeedback,
+            )
+        }
+        state.errorRes?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::dismissFeedback,
+            )
         }
     }
 }

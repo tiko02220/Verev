@@ -44,7 +44,9 @@ class CustomerViewModel @Inject constructor(
 
         combine(
             selectedStoreFlow,
-            observeCustomersUseCase(),
+            selectedStoreFlow.map { it?.id }.flatMapLatest { storeId ->
+                observeCustomersUseCase(storeId)
+            },
             selectedStoreFlow.map { it?.id }.flatMapLatest { storeId ->
                 if (storeId == null) kotlinx.coroutines.flow.flowOf(emptyList()) else observeCustomerRelationsByStoreUseCase(storeId)
             },

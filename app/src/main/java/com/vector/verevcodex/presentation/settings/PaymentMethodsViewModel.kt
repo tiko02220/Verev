@@ -52,13 +52,24 @@ class PaymentMethodsViewModel @Inject constructor(
                         observePaymentMethodsUseCase(store.ownerId),
                         observeInvoicesUseCase(store.ownerId),
                     ) { plan, methods, invoices ->
+                        val paymentMethods = methods
+                            .map { it.toUi() }
+                            .let { mapped ->
+                                if (mapped.size == 1 && mapped.none { it.isDefault }) {
+                                    mapped.map { it.copy(isDefault = true) }
+                                } else {
+                                    mapped
+                                }
+                            }
                         PaymentMethodsUiState(
                             planKey = plan.nameLabel(),
                             planPrice = plan.priceLabel(),
                             renewalLabel = plan.renewalLabel(),
-                            methods = methods.map { it.toUi() },
+                            methods = paymentMethods,
                             invoices = invoices.map { it.toUi() },
+                            isSaving = _uiState.value.isSaving,
                             messageRes = _uiState.value.messageRes,
+                            errorRes = _uiState.value.errorRes,
                         )
                     }
                 }
@@ -76,6 +87,7 @@ class PaymentMethodsViewModel @Inject constructor(
     ) {
         val ownerId = currentOwnerId ?: return
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, messageRes = null, errorRes = null)
             runCatching {
                 addPaymentMethodUseCase(
                     ownerId,
@@ -88,9 +100,17 @@ class PaymentMethodsViewModel @Inject constructor(
                     )
                 ).getOrThrow()
             }.onSuccess {
-                _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_card_added)
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = R.string.merchant_payment_methods_message_card_added,
+                    errorRes = null,
+                )
             }.onFailure {
-                _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_invalid_card)
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = null,
+                    errorRes = R.string.merchant_payment_methods_message_invalid_card,
+                )
             }
         }
     }
@@ -98,20 +118,48 @@ class PaymentMethodsViewModel @Inject constructor(
     fun makeDefault(methodId: String) {
         val ownerId = currentOwnerId ?: return
         viewModelScope.launch {
-            setDefaultPaymentMethodUseCase(ownerId, methodId)
-            _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_default_updated)
+            _uiState.value = _uiState.value.copy(isSaving = true, messageRes = null, errorRes = null)
+            runCatching {
+                setDefaultPaymentMethodUseCase(ownerId, methodId).getOrThrow()
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = R.string.merchant_payment_methods_message_default_updated,
+                    errorRes = null,
+                )
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = null,
+                    errorRes = R.string.merchant_payment_methods_error_action,
+                )
+            }
         }
     }
 
     fun removeMethod(methodId: String) {
         val ownerId = currentOwnerId ?: return
         viewModelScope.launch {
-            removePaymentMethodUseCase(ownerId, methodId)
-            _uiState.value = _uiState.value.copy(messageRes = R.string.merchant_payment_methods_message_removed)
+            _uiState.value = _uiState.value.copy(isSaving = true, messageRes = null, errorRes = null)
+            runCatching {
+                removePaymentMethodUseCase(ownerId, methodId).getOrThrow()
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = R.string.merchant_payment_methods_message_removed,
+                    errorRes = null,
+                )
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    messageRes = null,
+                    errorRes = R.string.merchant_payment_methods_error_action,
+                )
+            }
         }
     }
 
     fun dismissMessage() {
-        _uiState.value = _uiState.value.copy(messageRes = null)
+        _uiState.value = _uiState.value.copy(messageRes = null, errorRes = null)
     }
 }

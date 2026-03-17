@@ -58,7 +58,9 @@ class PlanSelectionViewModel @Inject constructor(
                                     isSelected = currentPlan?.name == option.id,
                                 )
                             },
+                            isSaving = _uiState.value.isSaving,
                             messageRes = _uiState.value.messageRes,
+                            errorRes = _uiState.value.errorRes,
                         )
                     }
                 }
@@ -85,6 +87,10 @@ class PlanSelectionViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    fun dismissMessage() {
+        _uiState.value = _uiState.value.copy(errorRes = null, messageRes = null)
     }
 }
 

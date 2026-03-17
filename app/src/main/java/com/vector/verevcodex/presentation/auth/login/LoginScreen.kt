@@ -60,6 +60,7 @@ import com.vector.verevcodex.presentation.auth.common.authErrorRes
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 
 @Composable
 fun LoginScreen(
@@ -76,141 +77,148 @@ fun LoginScreen(
         if (state.isAuthenticated) onLoggedIn()
     }
 
-    AuthGradientScreenScaffold(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Spacer(Modifier.height(32.dp))
-        AuthCenteredSection {
-            LoginBrandHeader()
-        }
-        Spacer(Modifier.height(8.dp))
-        AuthCenteredSection {
-            Card(
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+    Box(modifier = Modifier.fillMaxWidth()) {
+        AuthGradientScreenScaffold(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Spacer(Modifier.height(32.dp))
+            AuthCenteredSection {
+                LoginBrandHeader()
+            }
+            Spacer(Modifier.height(8.dp))
+            AuthCenteredSection {
+                Card(
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
                 ) {
-                    Text(
-                        text = stringResource(R.string.auth_welcome_back),
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.auth_sign_in_dashboard),
-                        color = colorResource(R.color.text_secondary),
-                    )
-                    AuthFormField(
-                        value = state.email,
-                        onValueChange = viewModel::updateEmail,
-                        label = stringResource(R.string.auth_email_label),
-                        placeholder = stringResource(R.string.auth_hint_email),
-                        leadingIcon = Icons.Default.Email,
-                        isError = state.emailError != null,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next,
-                        ),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                    )
-                    AuthErrorMessage(state.emailError)
-                    AuthFormField(
-                        value = state.password,
-                        onValueChange = viewModel::updatePassword,
-                        label = stringResource(R.string.auth_password_label),
-                        placeholder = stringResource(R.string.auth_hint_password),
-                        leadingIcon = Icons.Default.Lock,
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = null,
-                                )
-                            }
-                        },
-                        isError = state.passwordError != null,
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done,
-                        ),
-                        keyboardActions = KeyboardActions(onDone = {
-                            focusManager.clearFocus()
-                            viewModel.submit()
-                        }),
-                    )
-                    AuthErrorMessage(state.passwordError)
-                    Text(
-                        text = stringResource(R.string.auth_forgot_password),
-                        color = colorResource(R.color.brand_green),
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onForgotPassword)
-                            .padding(4.dp),
-                    )
-                    AuthPrimaryButton(
-                        text = stringResource(R.string.auth_sign_in),
-                        loading = state.isLoading,
-                        onClick = viewModel::submit,
-                    )
-                    authErrorRes(state.authError)?.let { errorRes ->
-                        Text(
-                            text = stringResource(errorRes),
-                            color = colorResource(R.color.error_red),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(colorResource(R.color.text_hint)))
                         Text(
-                            text = stringResource(R.string.auth_or),
+                            text = stringResource(R.string.auth_welcome_back),
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.auth_sign_in_dashboard),
                             color = colorResource(R.color.text_secondary),
-                            modifier = Modifier.padding(horizontal = 12.dp),
                         )
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(colorResource(R.color.text_hint)))
-                    }
-                    Text(
-                        text = stringResource(R.string.auth_no_account),
-                        color = colorResource(R.color.text_secondary),
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(colorResource(R.color.brand_green).copy(alpha = 0.06f))
-                            .border(
-                                width = 2.dp,
-                                color = colorResource(R.color.brand_green).copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(14.dp),
-                            )
-                            .clickable(onClick = onSignup)
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Business,
-                            contentDescription = null,
-                            tint = colorResource(R.color.brand_green),
-                            modifier = Modifier.size(20.dp),
+                        AuthFormField(
+                            value = state.email,
+                            onValueChange = viewModel::updateEmail,
+                            label = stringResource(R.string.auth_email_label),
+                            placeholder = stringResource(R.string.auth_hint_email),
+                            leadingIcon = Icons.Default.Email,
+                            isError = state.emailError != null,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next,
+                            ),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         )
-                        Spacer(Modifier.width(8.dp))
+                        AuthErrorMessage(state.emailError)
+                        AuthFormField(
+                            value = state.password,
+                            onValueChange = viewModel::updatePassword,
+                            label = stringResource(R.string.auth_password_label),
+                            placeholder = stringResource(R.string.auth_hint_password),
+                            leadingIcon = Icons.Default.Lock,
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = null,
+                                    )
+                                }
+                            },
+                            isError = state.passwordError != null,
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                viewModel.submit()
+                            }),
+                        )
+                        AuthErrorMessage(state.passwordError)
                         Text(
-                            text = stringResource(R.string.auth_register_business),
+                            text = stringResource(R.string.auth_forgot_password),
                             color = colorResource(R.color.brand_green),
-                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier
+                                .align(Alignment.End)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onForgotPassword)
+                                .padding(4.dp),
                         )
+                        AuthPrimaryButton(
+                            text = stringResource(R.string.auth_sign_in),
+                            loading = state.isLoading,
+                            onClick = viewModel::submit,
+                        )
+                        authErrorRes(state.authError)?.let { errorRes ->
+                            Text(
+                                text = stringResource(errorRes),
+                                color = colorResource(R.color.error_red),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Box(modifier = Modifier.weight(1f).height(1.dp).background(colorResource(R.color.text_hint)))
+                            Text(
+                                text = stringResource(R.string.auth_or),
+                                color = colorResource(R.color.text_secondary),
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            )
+                            Box(modifier = Modifier.weight(1f).height(1.dp).background(colorResource(R.color.text_hint)))
+                        }
+                        Text(
+                            text = stringResource(R.string.auth_no_account),
+                            color = colorResource(R.color.text_secondary),
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(colorResource(R.color.brand_green).copy(alpha = 0.06f))
+                                .border(
+                                    width = 2.dp,
+                                    color = colorResource(R.color.brand_green).copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(14.dp),
+                                )
+                                .clickable(onClick = onSignup)
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Business,
+                                contentDescription = null,
+                                tint = colorResource(R.color.brand_green),
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.auth_register_business),
+                                color = colorResource(R.color.brand_green),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(24.dp))
         }
-        Spacer(Modifier.height(24.dp))
+        MerchantLoadingOverlay(
+            isVisible = state.isLoading,
+            title = stringResource(R.string.auth_loader_login_title),
+            subtitle = stringResource(R.string.auth_loader_login_subtitle),
+        )
     }
 }
 

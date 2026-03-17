@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -2152,7 +2153,11 @@ internal fun AnalyticsAreaChartFromPoints(
     animationEpoch: Int = 0,
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val chartPoints = points.map { AnalyticsChartPoint(label = it.label, primary = it.value) }
+    val chartPoints = when {
+        points.isEmpty() -> List(7) { AnalyticsChartPoint(if (it == 3) "—" else "", 0f) }
+        points.size == 1 -> listOf(points[0].let { AnalyticsChartPoint(it.label, it.value) }, AnalyticsChartPoint("", 0f))
+        else -> points.map { AnalyticsChartPoint(label = it.label, primary = it.value) }
+    }
     val chartScale = remember(chartPoints) {
         analyticsChartScale(chartPoints.maxOfOrNull { it.primary } ?: 0f)
     }
@@ -2201,12 +2206,23 @@ internal fun AnalyticsAreaChartFromPoints(
                     val plotTop = analyticsPlotTop()
                     val plotBottom = analyticsPlotBottom()
                     val plotHeight = plotBottom - plotTop
+v                    val effectiveMax = chartPoints.maxOfOrNull { it.primary } ?: 0f
                     drawAnalyticsGrid(columnCount = chartPoints.size)
+                    if (effectiveMax == 0f) {
+                        val baselineY = plotTop + (plotHeight / 2f)
+                        drawLine(
+                            color = lineColor.copy(alpha = 0.2f),
+                            start = androidx.compose.ui.geometry.Offset(0f, baselineY),
+                            end = androidx.compose.ui.geometry.Offset(size.width, baselineY),
+                            strokeWidth = 2f,
+                        )
+                    }
                     val linePath = Path()
                     val fillPath = Path()
+                    val scale = if (effectiveMax > 0f) maxValue else 1f
                     chartPoints.forEachIndexed { index, point ->
                         val x = (bucketWidth * index) + (bucketWidth / 2f)
-                        val y = plotBottom - ((point.primary / maxValue) * plotHeight * animatedRevealProgress)
+                        val y = plotBottom - ((point.primary / scale) * plotHeight * animatedRevealProgress)
                         if (index == 0) {
                             linePath.moveTo(x, y)
                             fillPath.moveTo(x, plotBottom)
@@ -2234,7 +2250,7 @@ internal fun AnalyticsAreaChartFromPoints(
                     )
                     chartPoints.forEachIndexed { index, point ->
                         val x = (bucketWidth * index) + (bucketWidth / 2f)
-                        val y = plotBottom - ((point.primary / maxValue) * plotHeight * animatedRevealProgress)
+                        val y = plotBottom - ((point.primary / scale) * plotHeight * animatedRevealProgress)
                         drawCircle(
                             color = lineColor,
                             radius = 4.dp.toPx(),
@@ -2254,16 +2270,21 @@ internal fun AnalyticsAreaChartFromPoints(
             ) {
                 Spacer(modifier = Modifier.width(52.dp))
                 Row(modifier = Modifier.weight(1f)) {
+                    val labelStyle = if (chartPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
+                        else MaterialTheme.typography.labelSmall
                     chartPoints.forEach {
                         Box(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = it.label,
-                                style = MaterialTheme.typography.labelSmall,
+                                text = formatChartLabel(it.label),
+                                style = labelStyle,
                                 color = VerevColors.Forest.copy(alpha = 0.62f),
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -2282,8 +2303,11 @@ internal fun AnalyticsBarChartFromPoints(
     animationEpoch: Int = 0,
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val chartScale = remember(points) {
-        analyticsChartScale(points.maxOfOrNull { it.value } ?: 0f)
+    val displayPoints = points.ifEmpty {
+        List(7) { AnalyticsPoint(if (it == 3) "—" else "", 0f) }
+    }
+    val chartScale = remember(displayPoints) {
+        analyticsChartScale(displayPoints.maxOfOrNull { it.value } ?: 0f)
     }
     val maxValue = chartScale.maxValue
     val yAxisValues = remember(chartScale, valueFormatter) {
@@ -2295,7 +2319,7 @@ internal fun AnalyticsBarChartFromPoints(
         animationSpec = tween(durationMillis = 700),
         label = "analyticsBarReveal",
     )
-    LaunchedEffect(animationEpoch, points) {
+    LaunchedEffect(animationEpoch, displayPoints) {
         revealProgress = 0f
         delay(40)
         revealProgress = 1f
@@ -2330,7 +2354,7 @@ internal fun AnalyticsBarChartFromPoints(
                             .fillMaxWidth()
                             .height(chartHeight),
                     ) {
-                        drawAnalyticsGrid(columnCount = points.size)
+                        drawAnalyticsGrid(columnCount = displayPoints.size)
                     }
                     Row(
                         modifier = Modifier
@@ -2339,7 +2363,7 @@ internal fun AnalyticsBarChartFromPoints(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        points.forEach { point ->
+                        displayPoints.forEach { point ->
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
@@ -2365,16 +2389,21 @@ internal fun AnalyticsBarChartFromPoints(
             ) {
                 Spacer(modifier = Modifier.width(52.dp))
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    points.forEach { point ->
+                    val labelStyle = if (displayPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
+                        else MaterialTheme.typography.labelSmall
+                    displayPoints.forEach { point ->
                         Box(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = point.label,
-                                style = MaterialTheme.typography.labelSmall,
+                                text = formatChartLabel(point.label),
+                                style = labelStyle,
                                 color = VerevColors.Forest.copy(alpha = 0.62f),
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -2396,12 +2425,19 @@ internal fun AnalyticsGroupedBarChartFromPoints(
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
     val chartPoints = remember(primaryPoints, secondaryPoints) {
-        primaryPoints.mapIndexed { index, point ->
-            AnalyticsChartPoint(
-                label = point.label,
-                primary = point.value,
-                secondary = secondaryPoints.getOrNull(index)?.value ?: 0f,
-            )
+        val maxLen = maxOf(primaryPoints.size, secondaryPoints.size, 1)
+        if (maxLen == 0) {
+            List(7) { AnalyticsChartPoint(if (it == 3) "—" else "", 0f) }
+        } else {
+            (0 until maxLen).map { index ->
+                val p = primaryPoints.getOrNull(index)
+                val s = secondaryPoints.getOrNull(index)
+                AnalyticsChartPoint(
+                    label = p?.label ?: s?.label ?: "",
+                    primary = p?.value ?: 0f,
+                    secondary = s?.value ?: 0f,
+                )
+            }
         }
     }
     val chartScale = remember(chartPoints) {
@@ -2497,17 +2533,21 @@ internal fun AnalyticsGroupedBarChartFromPoints(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    val labelFontSize = if (chartPoints.size > 14) 8.sp else 10.sp
                     chartPoints.forEach { point ->
                         Box(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = point.label,
-                                fontSize = 10.sp,
-                                lineHeight = 12.sp,
+                                text = formatChartLabel(point.label),
+                                fontSize = labelFontSize,
+                                lineHeight = (labelFontSize.value + 2).sp,
                                 color = VerevColors.Forest.copy(alpha = 0.66f),
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -2637,4 +2677,17 @@ private fun AnalyticsTimeRange.labelRes(): Int = when (this) {
     AnalyticsTimeRange.MONTH -> R.string.merchant_range_month
     AnalyticsTimeRange.QUARTER -> R.string.merchant_range_quarter
     AnalyticsTimeRange.YEAR -> R.string.merchant_range_year
+}
+
+/** Formats chart labels: "2026-03-16" -> "03.16", "09:00" stays as-is, empty stays empty */
+private fun formatChartLabel(raw: String): String {
+    if (raw.isBlank()) return ""
+    val s = raw.take(10)
+    if (s.length == 10 && s[4] == '-' && s[7] == '-') {
+        return runCatching {
+            val date = java.time.LocalDate.parse(s)
+            "${date.monthValue.toString().padStart(2, '0')}.${date.dayOfMonth.toString().padStart(2, '0')}"
+        }.getOrElse { raw }
+    }
+    return raw
 }

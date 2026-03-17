@@ -35,6 +35,7 @@ android {
         buildConfigField("String", "GOOGLE_WALLET_LOYALTY_CLASS_ID", "\"${localProperty("google.wallet.loyaltyClassId")}\"")
         buildConfigField("String", "GOOGLE_WALLET_PROGRAM_NAME", "\"${localProperty("google.wallet.programName")}\"")
         buildConfigField("String", "GOOGLE_WALLET_ISSUER_NAME", "\"${localProperty("google.wallet.issuerName")}\"")
+        buildConfigField("String", "VEREV_BACKEND_BASE_URL", "\"${localProperty("verev.backend.baseUrl")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -111,6 +112,11 @@ dependencies {
     implementation(libs.google.zxing.core)
     implementation(libs.airbnb.lottie.compose)
     implementation(libs.hilt.android)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.gson)
 
     ksp(libs.androidx.room.compiler)
     ksp(libs.hilt.compiler)

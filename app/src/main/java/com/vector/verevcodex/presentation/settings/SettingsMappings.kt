@@ -60,9 +60,9 @@ internal fun SubscriptionPlan?.renewalLabel(): String =
     this?.renewalDate?.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) ?: "-"
 
 internal fun SubscriptionPlan?.nameLabel(): String = when (this?.name) {
-    "starter", LEGACY_PLAN_STARTER -> "starter"
-    "growth_plus", LEGACY_PLAN_GROWTH_PLUS -> "growth_plus"
-    "business_standard", LEGACY_PLAN_BUSINESS_STANDARD -> "business_standard"
+    "starter", LEGACY_PLAN_STARTER, "BASIC", "Basic" -> "starter"
+    "business_standard", LEGACY_PLAN_BUSINESS_STANDARD, "PROFESSIONAL", "Professional" -> "business_standard"
+    "growth_plus", LEGACY_PLAN_GROWTH_PLUS, "ENTERPRISE", "Enterprise" -> "growth_plus"
     else -> this?.name.orEmpty()
 }
 

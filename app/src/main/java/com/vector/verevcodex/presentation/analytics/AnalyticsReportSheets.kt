@@ -1,5 +1,8 @@
 package com.vector.verevcodex.presentation.analytics
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -50,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -60,18 +65,20 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
+import com.vector.verevcodex.domain.model.reports.ReportExport
 import com.vector.verevcodex.domain.model.reports.ReportFormat
 import com.vector.verevcodex.domain.model.reports.ReportSection
 import com.vector.verevcodex.domain.model.reports.ReportWeekday
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
+import com.vector.verevcodex.presentation.reports.createSaveReportIntent
+import com.vector.verevcodex.presentation.reports.saveReportToUri
 import com.vector.verevcodex.presentation.reports.ReportsUiState
 import com.vector.verevcodex.presentation.reports.descriptionRes
 import com.vector.verevcodex.presentation.reports.labelRes
 import com.vector.verevcodex.presentation.reports.titleRes
 import com.vector.verevcodex.presentation.theme.VerevColors
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -82,15 +89,29 @@ internal fun AnalyticsExportSheet(
     onExport: (ReportFormat) -> Unit,
     onClearError: () -> Unit,
 ) {
+    val context = LocalContext.current
     var selectedFormat by rememberSaveable { mutableStateOf(uiState.autoSettings.format) }
     var exportRequested by rememberSaveable { mutableStateOf(false) }
+    var pendingSaveReport by remember { mutableStateOf<ReportExport?>(null) }
     val selectedSections = remember { mutableStateListOf(*uiState.autoSettings.includedSections.toTypedArray()) }
 
-    LaunchedEffect(uiState.latestExport, uiState.isExporting, exportRequested) {
-        if (exportRequested && !uiState.isExporting && uiState.latestExport != null) {
-            delay(500)
-            onDismiss()
+    val saveReportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val report = pendingSaveReport
+        if (report != null && result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { destinationUri ->
+                saveReportToUri(context, report, destinationUri)
+            }
         }
+        pendingSaveReport = null
+        onDismiss()
+    }
+
+    LaunchedEffect(exportRequested, uiState.isExporting, uiState.latestExport) {
+        val report = uiState.latestExport ?: return@LaunchedEffect
+        if (!exportRequested || uiState.isExporting) return@LaunchedEffect
+        if (pendingSaveReport != null) return@LaunchedEffect
+        pendingSaveReport = report
+        saveReportLauncher.launch(createSaveReportIntent(report))
     }
 
     AnalyticsBottomSheetFrame(
@@ -103,24 +124,26 @@ internal fun AnalyticsExportSheet(
             icon = Icons.Default.Description,
             title = stringResource(R.string.merchant_analytics_export_format_title),
         )
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            AnalyticsSelectableTile(
-                modifier = Modifier.weight(1f),
-                selected = selectedFormat == ReportFormat.DOCX,
-                title = stringResource(ReportFormat.DOCX.titleRes()),
-                subtitle = stringResource(R.string.merchant_analytics_export_format_docx_supporting),
-                onClick = { selectedFormat = ReportFormat.DOCX },
-            )
-            AnalyticsSelectableTile(
-                modifier = Modifier.weight(1f),
-                selected = selectedFormat == ReportFormat.XLSX,
-                title = stringResource(ReportFormat.XLSX.titleRes()),
-                subtitle = stringResource(R.string.merchant_analytics_export_format_xlsx_supporting),
-                onClick = { selectedFormat = ReportFormat.XLSX },
-            )
+            ReportFormat.entries.forEach { format ->
+                AnalyticsSelectableTile(
+                    modifier = Modifier.defaultMinSize(minWidth = 140.dp),
+                    selected = selectedFormat == format,
+                    title = stringResource(format.titleRes()),
+                    subtitle = stringResource(
+                        when (format) {
+                            ReportFormat.DOCX -> R.string.merchant_analytics_export_format_docx_supporting
+                            ReportFormat.XLSX -> R.string.merchant_analytics_export_format_xlsx_supporting
+                            ReportFormat.PDF -> R.string.merchant_analytics_export_format_pdf_supporting
+                        }
+                    ),
+                    onClick = { selectedFormat = format },
+                )
+            }
         }
 
         AnalyticsSheetSectionTitle(
@@ -405,24 +428,26 @@ internal fun AnalyticsAutoReportSettingsSheet(
                 icon = Icons.Default.Description,
                 title = stringResource(R.string.merchant_analytics_auto_format_title),
             )
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                AnalyticsSelectableTile(
-                    modifier = Modifier.weight(1f),
-                    selected = format == ReportFormat.DOCX,
-                    title = stringResource(ReportFormat.DOCX.titleRes()),
-                    subtitle = stringResource(R.string.merchant_analytics_export_format_docx_supporting),
-                    onClick = { format = ReportFormat.DOCX },
-                )
-                AnalyticsSelectableTile(
-                    modifier = Modifier.weight(1f),
-                    selected = format == ReportFormat.XLSX,
-                    title = stringResource(ReportFormat.XLSX.titleRes()),
-                    subtitle = stringResource(R.string.merchant_analytics_export_format_xlsx_supporting),
-                    onClick = { format = ReportFormat.XLSX },
-                )
+                ReportFormat.entries.forEach { f ->
+                    AnalyticsSelectableTile(
+                        modifier = Modifier.defaultMinSize(minWidth = 140.dp),
+                        selected = format == f,
+                        title = stringResource(f.titleRes()),
+                        subtitle = stringResource(
+                            when (f) {
+                                ReportFormat.DOCX -> R.string.merchant_analytics_export_format_docx_supporting
+                                ReportFormat.XLSX -> R.string.merchant_analytics_export_format_xlsx_supporting
+                                ReportFormat.PDF -> R.string.merchant_analytics_export_format_pdf_supporting
+                            }
+                        ),
+                        onClick = { format = f },
+                    )
+                }
             }
 
             AnalyticsSheetSectionTitle(

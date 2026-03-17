@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 
@@ -56,12 +55,6 @@ fun AnalyticsDashboardScreen(
     val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
     var showExportSheet by rememberSaveable { mutableStateOf(false) }
     var showAutoReportSheet by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(reportsState.latestExport, reportsState.isExporting, showExportSheet) {
-        if (showExportSheet && !reportsState.isExporting && reportsState.latestExport != null) {
-            showExportSheet = false
-        }
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

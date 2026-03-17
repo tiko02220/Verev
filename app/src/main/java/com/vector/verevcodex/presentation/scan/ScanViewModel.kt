@@ -3,12 +3,14 @@ package com.vector.verevcodex.presentation.scan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.BuildConfig
 import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.domain.model.transactions.TransactionItem
 import com.vector.verevcodex.domain.usecase.customer.AdjustCustomerPointsUseCase
+import com.vector.verevcodex.domain.usecase.customer.RecordCustomerCheckInUseCase
 import com.vector.verevcodex.domain.usecase.scan.ClearScanPreferenceUseCase
 import com.vector.verevcodex.domain.usecase.customer.FindCustomerByLoyaltyIdUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveActiveScanActionsUseCase
@@ -37,6 +39,7 @@ class ScanViewModel @Inject constructor(
     private val findCustomerByLoyaltyIdUseCase: FindCustomerByLoyaltyIdUseCase,
     private val recordTransactionUseCase: RecordTransactionUseCase,
     private val adjustCustomerPointsUseCase: AdjustCustomerPointsUseCase,
+    private val recordCustomerCheckInUseCase: RecordCustomerCheckInUseCase,
     private val observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     private val observeSessionUseCase: ObserveSessionUseCase,
     private val observeProgramsUseCase: ObserveProgramsUseCase,
@@ -433,23 +436,7 @@ class ScanViewModel @Inject constructor(
         }
         RewardProgramScanAction.CHECK_IN -> {
             val rewardPoints = state.activePrograms.checkInRewardPoints()
-            val transactionId = UUID.randomUUID().toString()
-            val program = state.activePrograms.resolveProgramFor(selectedAction)
-            recordTransactionUseCase(
-                Transaction(
-                    id = transactionId,
-                    customerId = customerId,
-                    storeId = storeId,
-                    staffId = staffId,
-                    amount = 0.0,
-                    pointsEarned = rewardPoints,
-                    pointsRedeemed = 0,
-                    timestamp = LocalDateTime.now(),
-                    metadata = ScanTransactionMetadata.checkIn(program),
-                )
-                ,
-                incrementVisit = !state.visitCountedForCurrentScan,
-            )
+            recordCustomerCheckInUseCase(customerId, storeId, rewardPoints)
             markVisitCountedForCurrentScan()
             R.string.merchant_scan_message_check_in
         }

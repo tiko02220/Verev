@@ -16,5 +16,6 @@ internal object ReportFileMetadata {
     fun mimeType(format: ReportFormat): String = when (format) {
         ReportFormat.DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ReportFormat.XLSX -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ReportFormat.PDF -> "application/pdf"
     }
 }

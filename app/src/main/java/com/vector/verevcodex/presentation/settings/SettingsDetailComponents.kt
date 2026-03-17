@@ -459,7 +459,7 @@ internal fun AddPaymentMethodDialog(
     var isDefault by remember { mutableStateOf(false) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = { Text(stringResource(R.string.merchant_payment_methods_add_card_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -504,7 +504,7 @@ internal fun AddPaymentMethodDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = VerevColors.Forest,
                     )
-                    Switch(checked = isDefault, onCheckedChange = { isDefault = it })
+                    Switch(checked = isDefault, onCheckedChange = { if (!isSaving) isDefault = it })
                 }
             }
         },

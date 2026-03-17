@@ -43,6 +43,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.platform.android.findActivity
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -59,6 +61,12 @@ fun AddCustomerScreen(
 
     val selectedOption = state.selectedProvisioningOption ?: CustomerCardProvisioningOption.BARCODE_IMAGE
     val customerName = state.successName.ifBlank { stringResource(R.string.merchant_add_customer_title) }
+    val generalErrorRes = state.errorRes?.takeIf {
+        it != R.string.merchant_add_customer_error_first_name &&
+            it != R.string.merchant_add_customer_error_last_name &&
+            it != R.string.merchant_add_customer_error_email &&
+            it != R.string.merchant_add_customer_error_phone
+    }
     val sharePayload = remember(
         selectedOption,
         customerName,
@@ -104,48 +112,69 @@ fun AddCustomerScreen(
         viewModel.launchWalletSave(activity)
     }
 
-    if (state.createdCustomerId == null) {
-        AddCustomerEntryScaffold(
-            bottomInset = contentPadding.calculateBottomPadding(),
-            selectedStoreName = state.selectedStoreName,
-            onBack = onBack,
-        ) {
-            AddCustomerFormSheet(
-                state = state,
-                onFirstNameChanged = viewModel::onFirstNameChanged,
-                onLastNameChanged = viewModel::onLastNameChanged,
-                onEmailChanged = viewModel::onEmailChanged,
-                onPhoneChanged = viewModel::onPhoneChanged,
-                onCreateCustomer = viewModel::createCustomer,
-                onCancel = onBack,
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (state.createdCustomerId == null) {
+            AddCustomerEntryScaffold(
+                bottomInset = contentPadding.calculateBottomPadding(),
+                selectedStoreName = state.selectedStoreName,
+                onBack = onBack,
+            ) {
+                AddCustomerFormSheet(
+                    state = state,
+                    onFirstNameChanged = viewModel::onFirstNameChanged,
+                    onLastNameChanged = viewModel::onLastNameChanged,
+                    onEmailChanged = viewModel::onEmailChanged,
+                    onPhoneChanged = viewModel::onPhoneChanged,
+                    onCreateCustomer = viewModel::createCustomer,
+                    onCancel = onBack,
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(VerevColors.AppBackground)
+                    .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
+            ) {
+                AddCustomerSuccessSheet(
+                    state = state,
+                    copied = copied,
+                    onClose = onBack,
+                    onCopyLink = ::copyShareValue,
+                    onOpenEmail = ::openEmail,
+                    onOpenSms = ::openSms,
+                    onShareLink = ::shareCurrentProvisioning,
+                    onOpenProfile = { state.createdCustomerId?.let(onOpenProfile) },
+                    onAddAnother = {
+                        copied = false
+                        viewModel.resetForm()
+                    },
+                    onSelectProvisioningOption = viewModel::selectProvisioningOption,
+                    onLaunchGoogleWallet = ::launchWalletSave,
+                    onStartNfcWrite = viewModel::startNfcWrite,
+                    onRetryNfcWrite = viewModel::retryNfcWrite,
+                    onClearNfcState = viewModel::clearNfcState,
+                    onRefreshWalletStatus = viewModel::refreshWalletAvailability,
+                )
+            }
         }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(VerevColors.AppBackground)
-                .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
-        ) {
-            AddCustomerSuccessSheet(
-                state = state,
-                copied = copied,
-                onClose = onBack,
-                onCopyLink = ::copyShareValue,
-                onOpenEmail = ::openEmail,
-                onOpenSms = ::openSms,
-                onShareLink = ::shareCurrentProvisioning,
-                onOpenProfile = { state.createdCustomerId?.let(onOpenProfile) },
-                onAddAnother = {
-                    copied = false
-                    viewModel.resetForm()
-                },
-                onSelectProvisioningOption = viewModel::selectProvisioningOption,
-                onLaunchGoogleWallet = ::launchWalletSave,
-                onStartNfcWrite = viewModel::startNfcWrite,
-                onRetryNfcWrite = viewModel::retryNfcWrite,
-                onClearNfcState = viewModel::clearNfcState,
-                onRefreshWalletStatus = viewModel::refreshWalletAvailability,
+        MerchantLoadingOverlay(
+            isVisible = state.isSaving || state.walletIsSaving || state.nfcWritePhase == NfcWritePhase.WRITING,
+            title = when {
+                state.walletIsSaving -> stringResource(R.string.merchant_loader_wallet_title)
+                state.nfcWritePhase == NfcWritePhase.WRITING -> stringResource(R.string.merchant_loader_nfc_write_title)
+                else -> stringResource(R.string.merchant_loader_customer_create_title)
+            },
+            subtitle = when {
+                state.walletIsSaving -> stringResource(R.string.merchant_loader_wallet_subtitle)
+                state.nfcWritePhase == NfcWritePhase.WRITING -> stringResource(R.string.merchant_loader_nfc_write_subtitle)
+                else -> stringResource(R.string.merchant_loader_customer_create_subtitle)
+            },
+        )
+        generalErrorRes?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::dismissError,
             )
         }
     }

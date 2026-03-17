@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.common.state.UiState
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -210,189 +211,196 @@ fun CustomerProfileScreen(
         }
     }
 
-    CustomerFeatureScaffold(
-        title = customer?.displayName().orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile) },
-        subtitle = customer?.email.orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile_missing_subtitle) },
-        onBack = onBack,
-        headerStyle = CustomerFeatureHeaderStyle.GRADIENT,
-        showTitle = false,
-        backLabel = stringResource(R.string.auth_back),
-        wrapBodyInSheet = false,
-        headerContent = {
-            customer?.let {
-                CustomerProfileHero(
-                    customer = it,
-                    relation = state.relation,
-                    scopedLastVisit = state.scopedLastVisit,
-                    showTierBadge = hasActiveTierProgram,
-                    onEditTags = { showTagsSheet = true },
-                )
-            }
-            if (customer != null) {
-                CustomerProfileTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
-            }
-        },
-        body = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 20.dp,
-                        bottom = contentPadding.calculateBottomPadding() + 96.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    when {
-                        state.isMissingCustomer -> {
-                            item {
-                                MerchantEmptyStateCard(
-                                    title = stringResource(R.string.merchant_customer_profile_missing_title),
-                                    subtitle = stringResource(R.string.merchant_customer_profile_missing_subtitle),
-                                    icon = Icons.Default.Person,
-                                )
-                            }
-                        }
-                        customer == null -> {
-                            item {
-                                MerchantEmptyStateCard(
-                                    title = stringResource(R.string.merchant_customers_loading_title),
-                                    subtitle = stringResource(R.string.merchant_customers_loading_subtitle),
-                                    icon = Icons.Default.Person,
-                                )
-                            }
-                        }
-                        else -> {
-                            state.feedbackMessageRes?.let { messageRes ->
-                                item {
-                                    CustomerBodySection {
-                                        androidx.compose.material3.Text(
-                                            text = stringResource(messageRes),
-                                            color = com.vector.verevcodex.presentation.theme.VerevColors.Forest,
-                                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                        )
-                                    }
-                                }
-                            }
-                            when (selectedTab) {
-                                CustomerProfileTab.OVERVIEW -> {
-                                    item {
-                                        CustomerProfileBalanceSection(
-                                            customer = customer,
-                                            scopedVisits = state.scopedVisits,
-                                            scopedSpent = state.scopedSpent,
-                                            progress = state.tierProgress,
-                                            nextTierThreshold = state.nextTierThreshold,
-                                            showTierProgress = hasActiveTierProgram,
-                                            onOpenBonusManager = {
-                                                if (availablePointsPrograms.isEmpty()) {
-                                                    viewModel.showProgramRequiredFeedback()
-                                                } else {
-                                                    showAdjustPoints = true
-                                                }
-                                            },
-                                            onOpenTransactions = {
-                                                if (availablePointsPrograms.isEmpty()) {
-                                                    viewModel.showProgramRequiredFeedback()
-                                                } else {
-                                                    showAddTransactionSheet = true
-                                                }
-                                            },
-                                        )
-                                    }
-                                    item { CustomerProfileStatsGrid(state.scopedVisits, state.scopedSpent) }
-                                    item {
-                                        CustomerProfileContactSection(
-                                            customer = customer,
-                                            activeStoreName = state.activeStoreName,
-                                            activeStoreAddress = state.activeStoreAddress,
-                                            onEditContact = { showEditContact = true },
-                                        )
-                                    }
-                                    item { CustomerProfileNotesPreviewSection(state.relation, onEditNotes = { showEditCrm = true }) }
-                                    if (state.activities.isNotEmpty()) {
-                                        item {
-                                            CustomerProfileActivityPreviewSection(
-                                                activities = state.activities,
-                                                onOpenActivity = { selectedTab = CustomerProfileTab.ACTIVITY },
-                                            )
-                                        }
-                                    }
-                                }
-                                CustomerProfileTab.TRANSACTIONS -> {
-                                    if (state.transactions.isEmpty()) {
-                                        item {
-                                            MerchantEmptyStateCard(
-                                                title = stringResource(R.string.merchant_customer_transactions_empty_title),
-                                                subtitle = stringResource(R.string.merchant_customer_transactions_empty_subtitle),
-                                                icon = Icons.Default.CreditCard,
-                                            )
-                                        }
-                                    } else {
-                                        item { CustomerProfileTransactionSection(state.transactions, onOpenTransaction) }
-                                    }
-                                }
-                                CustomerProfileTab.ACTIVITY -> {
-                                    if (state.activities.isNotEmpty()) {
-                                        item { CustomerActivitySection(state.activities, onOpenTransaction) }
-                                    } else {
-                                        item {
-                                            MerchantEmptyStateCard(
-                                                title = stringResource(R.string.merchant_customer_activity_empty_title),
-                                                subtitle = stringResource(R.string.merchant_customer_activity_empty_subtitle),
-                                                icon = Icons.Default.Person,
-                                            )
-                                        }
-                                    }
-                                }
-                                CustomerProfileTab.ACCESS -> {
-                                    if (state.credentials.isNotEmpty()) {
-                                        item {
-                                            CustomerProfileCredentialSection(
-                                                credentials = state.credentials,
-                                                onManageCredentials = { onManageCredentials(customer.id) },
-                                            )
-                                        }
-                                    } else {
-                                        item {
-                                            MerchantEmptyStateCard(
-                                                title = stringResource(R.string.merchant_customer_access_empty_title),
-                                                subtitle = stringResource(R.string.merchant_customer_access_empty_subtitle),
-                                                icon = Icons.Default.CreditCard,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        CustomerFeatureScaffold(
+            title = customer?.displayName().orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile) },
+            subtitle = customer?.email.orEmpty().ifBlank { stringResource(R.string.merchant_customer_profile_missing_subtitle) },
+            onBack = onBack,
+            headerStyle = CustomerFeatureHeaderStyle.GRADIENT,
+            showTitle = false,
+            backLabel = stringResource(R.string.auth_back),
+            wrapBodyInSheet = false,
+            headerContent = {
+                customer?.let {
+                    CustomerProfileHero(
+                        customer = it,
+                        relation = state.relation,
+                        scopedLastVisit = state.scopedLastVisit,
+                        showTierBadge = hasActiveTierProgram,
+                        onEditTags = { showTagsSheet = true },
+                    )
                 }
-                if (customer != null && selectedTab != CustomerProfileTab.ACCESS) {
-                    FloatingActionButton(
-                        onClick = {
-                            if (availablePointsPrograms.isEmpty()) {
-                                viewModel.showProgramRequiredFeedback()
-                            } else {
-                                showAddTransactionSheet = true
-                            }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 24.dp, bottom = contentPadding.calculateBottomPadding() + 18.dp),
-                        containerColor = VerevColors.Gold,
-                        contentColor = VerevColors.Forest,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                if (customer != null) {
+                    CustomerProfileTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
+                }
+            },
+            body = {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 20.dp,
+                            bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.merchant_customer_add_transaction),
-                        )
+                        when {
+                            state.isMissingCustomer -> {
+                                item {
+                                    MerchantEmptyStateCard(
+                                        title = stringResource(R.string.merchant_customer_profile_missing_title),
+                                        subtitle = stringResource(R.string.merchant_customer_profile_missing_subtitle),
+                                        icon = Icons.Default.Person,
+                                    )
+                                }
+                            }
+                            customer == null -> {
+                                item {
+                                    MerchantEmptyStateCard(
+                                        title = stringResource(R.string.merchant_customers_loading_title),
+                                        subtitle = stringResource(R.string.merchant_customers_loading_subtitle),
+                                        icon = Icons.Default.Person,
+                                    )
+                                }
+                            }
+                            else -> {
+                                state.feedbackMessageRes?.let { messageRes ->
+                                    item {
+                                        CustomerBodySection {
+                                            androidx.compose.material3.Text(
+                                                text = stringResource(messageRes),
+                                                color = com.vector.verevcodex.presentation.theme.VerevColors.Forest,
+                                                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
+                                    }
+                                }
+                                when (selectedTab) {
+                                    CustomerProfileTab.OVERVIEW -> {
+                                        item {
+                                            CustomerProfileBalanceSection(
+                                                customer = customer,
+                                                scopedVisits = state.scopedVisits,
+                                                scopedSpent = state.scopedSpent,
+                                                progress = state.tierProgress,
+                                                nextTierThreshold = state.nextTierThreshold,
+                                                showTierProgress = hasActiveTierProgram,
+                                                onOpenBonusManager = {
+                                                    if (availablePointsPrograms.isEmpty()) {
+                                                        viewModel.showProgramRequiredFeedback()
+                                                    } else {
+                                                        showAdjustPoints = true
+                                                    }
+                                                },
+                                                onOpenTransactions = {
+                                                    if (availablePointsPrograms.isEmpty()) {
+                                                        viewModel.showProgramRequiredFeedback()
+                                                    } else {
+                                                        showAddTransactionSheet = true
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        item { CustomerProfileStatsGrid(state.scopedVisits, state.scopedSpent) }
+                                        item {
+                                            CustomerProfileContactSection(
+                                                customer = customer,
+                                                activeStoreName = state.activeStoreName,
+                                                activeStoreAddress = state.activeStoreAddress,
+                                                onEditContact = { showEditContact = true },
+                                            )
+                                        }
+                                        item { CustomerProfileNotesPreviewSection(state.relation, onEditNotes = { showEditCrm = true }) }
+                                        if (state.activities.isNotEmpty()) {
+                                            item {
+                                                CustomerProfileActivityPreviewSection(
+                                                    activities = state.activities,
+                                                    onOpenActivity = { selectedTab = CustomerProfileTab.ACTIVITY },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    CustomerProfileTab.TRANSACTIONS -> {
+                                        if (state.transactions.isEmpty()) {
+                                            item {
+                                                MerchantEmptyStateCard(
+                                                    title = stringResource(R.string.merchant_customer_transactions_empty_title),
+                                                    subtitle = stringResource(R.string.merchant_customer_transactions_empty_subtitle),
+                                                    icon = Icons.Default.CreditCard,
+                                                )
+                                            }
+                                        } else {
+                                            item { CustomerProfileTransactionSection(state.transactions, onOpenTransaction) }
+                                        }
+                                    }
+                                    CustomerProfileTab.ACTIVITY -> {
+                                        if (state.activities.isNotEmpty()) {
+                                            item { CustomerActivitySection(state.activities, onOpenTransaction) }
+                                        } else {
+                                            item {
+                                                MerchantEmptyStateCard(
+                                                    title = stringResource(R.string.merchant_customer_activity_empty_title),
+                                                    subtitle = stringResource(R.string.merchant_customer_activity_empty_subtitle),
+                                                    icon = Icons.Default.Person,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    CustomerProfileTab.ACCESS -> {
+                                        if (state.credentials.isNotEmpty()) {
+                                            item {
+                                                CustomerProfileCredentialSection(
+                                                    credentials = state.credentials,
+                                                    onManageCredentials = { onManageCredentials(customer.id) },
+                                                )
+                                            }
+                                        } else {
+                                            item {
+                                                MerchantEmptyStateCard(
+                                                    title = stringResource(R.string.merchant_customer_access_empty_title),
+                                                    subtitle = stringResource(R.string.merchant_customer_access_empty_subtitle),
+                                                    icon = Icons.Default.CreditCard,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (customer != null && selectedTab != CustomerProfileTab.ACCESS) {
+                        FloatingActionButton(
+                            onClick = {
+                                if (availablePointsPrograms.isEmpty()) {
+                                    viewModel.showProgramRequiredFeedback()
+                                } else {
+                                    showAddTransactionSheet = true
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 24.dp, bottom = contentPadding.calculateBottomPadding() + 18.dp),
+                            containerColor = VerevColors.Gold,
+                            contentColor = VerevColors.Forest,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.merchant_customer_add_transaction),
+                            )
+                        }
                     }
                 }
-            }
-        },
-    )
+            },
+        )
+        MerchantLoadingOverlay(
+            isVisible = state.isSaving,
+            title = stringResource(R.string.merchant_loader_customer_profile_title),
+            subtitle = stringResource(R.string.merchant_loader_customer_profile_subtitle),
+        )
+    }
 }
 
 @Composable

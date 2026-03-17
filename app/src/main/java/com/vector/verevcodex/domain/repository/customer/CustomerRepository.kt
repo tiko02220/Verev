@@ -45,6 +45,7 @@ interface CustomerRepository {
     )
     suspend fun adjustPoints(customerId: String, delta: Int, reason: String)
     suspend fun adjustVisits(customerId: String, delta: Int, reason: String)
+    suspend fun recordCheckIn(customerId: String, storeId: String, rewardPoints: Int)
     suspend fun recordBonusAction(
         customerId: String,
         storeId: String?,

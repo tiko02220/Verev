@@ -25,6 +25,7 @@ fun AppEntryScreen(
     onUseBiometric: () -> Unit,
     onBiometricResult: (Boolean) -> Unit,
     onRecoverAccess: () -> Unit,
+    onExitPinRecovery: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val merchantNavController = rememberNavController()
@@ -37,6 +38,7 @@ fun AppEntryScreen(
             AuthNavHost(
                 navController = authNavController,
                 startDestination = destination.startDestination,
+                onForgotPinExit = onExitPinRecovery,
                 onAuthenticated = { },
             )
         }

@@ -10,5 +10,6 @@ data class BranchStaffConfigUiState(
     val members: List<StaffMember> = emptyList(),
     val isSaving: Boolean = false,
     @StringRes val errorRes: Int? = null,
+    val errorMessage: String? = null,
     @StringRes val messageRes: Int? = null,
 )

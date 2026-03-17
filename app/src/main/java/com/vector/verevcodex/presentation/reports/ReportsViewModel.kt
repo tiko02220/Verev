@@ -2,19 +2,20 @@ package com.vector.verevcodex.presentation.reports
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
 import com.vector.verevcodex.domain.model.reports.ReportFormat
-import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.usecase.reports.ExportReportUseCase
 import com.vector.verevcodex.domain.usecase.reports.ObserveAutoReportSettingsUseCase
-import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.reports.SaveAutoReportSettingsUseCase
+import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -32,7 +33,16 @@ class ReportsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                observeAutoReportSettingsUseCase(),
+                observeAutoReportSettingsUseCase()
+                    .catch { throwable ->
+                        _uiState.update {
+                            it.copy(
+                                isSavingAutoSettings = false,
+                                error = throwable.message ?: "Could not load auto-report settings.",
+                            )
+                        }
+                        emit(_uiState.value.autoSettings)
+                    },
                 observeSelectedStoreUseCase(),
             ) { autoSettings, selectedStore ->
                 autoSettings to selectedStore
@@ -42,6 +52,7 @@ class ReportsViewModel @Inject constructor(
                         autoSettings = autoSettings,
                         selectedStoreId = selectedStore?.id,
                         selectedStoreName = selectedStore?.name.orEmpty(),
+                        isSavingAutoSettings = false,
                     )
                 }
             }
@@ -66,12 +77,12 @@ class ReportsViewModel @Inject constructor(
 
     fun updateAutoReportSettings(settings: ReportAutoSettings) {
         viewModelScope.launch {
-            saveAutoReportSettingsUseCase(settings)
+            saveAutoSettings(settings)
         }
     }
 
     fun clearError() {
-        _uiState.update { it.copy(error = null) }
+        _uiState.update { it.copy(error = null, messageRes = null) }
     }
 
     fun clearLatestExport() {
@@ -108,7 +119,24 @@ class ReportsViewModel @Inject constructor(
     private fun saveAutoSettings(transform: ReportAutoSettings.() -> ReportAutoSettings) {
         viewModelScope.launch {
             val updatedSettings = _uiState.value.autoSettings.transform()
-            saveAutoReportSettingsUseCase(updatedSettings)
+            saveAutoSettings(updatedSettings)
+        }
+    }
+
+    private suspend fun saveAutoSettings(settings: ReportAutoSettings) {
+        _uiState.update { it.copy(isSavingAutoSettings = true, error = null, messageRes = null) }
+        runCatching {
+            saveAutoReportSettingsUseCase(settings)
+        }.onSuccess {
+            _uiState.update { it.copy(isSavingAutoSettings = false, messageRes = null) }
+        }.onFailure { throwable ->
+            _uiState.update {
+                it.copy(
+                    isSavingAutoSettings = false,
+                    error = throwable.message ?: "Could not save auto-report settings.",
+                    messageRes = null,
+                )
+            }
         }
     }
 }

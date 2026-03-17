@@ -71,6 +71,7 @@ class MainActivity : FragmentActivity() {
                             onUseBiometric = appSecurityViewModel::requestBiometric,
                             onBiometricResult = appSecurityViewModel::biometricHandled,
                             onRecoverAccess = appSecurityViewModel::recoverAccess,
+                            onExitPinRecovery = appSecurityViewModel::exitPinRecovery,
                             onLogout = appSecurityViewModel::logoutToLogin,
                         )
                     }

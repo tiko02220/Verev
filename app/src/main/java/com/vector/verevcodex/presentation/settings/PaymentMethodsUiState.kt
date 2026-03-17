@@ -8,7 +8,9 @@ data class PaymentMethodsUiState(
     val renewalLabel: String = "",
     val methods: List<PaymentMethodUi> = emptyList(),
     val invoices: List<BillingEntryUi> = emptyList(),
+    val isSaving: Boolean = false,
     @StringRes val messageRes: Int? = null,
+    @StringRes val errorRes: Int? = null,
 ) {
     val isEmptyState: Boolean get() = methods.isEmpty() && invoices.isEmpty()
 }

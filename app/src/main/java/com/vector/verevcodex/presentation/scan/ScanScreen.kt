@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.scan
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -58,101 +60,120 @@ fun ScanScreen(
         return
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF4F4F4)),
     ) {
-        ScanRouteHeader(
-            title = stringResource(R.string.merchant_scan_title),
-            onBack = onBack,
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 0.dp,
-                end = 0.dp,
-                top = 0.dp,
-                bottom = contentPadding.calculateBottomPadding() + 24.dp,
-            ),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF4F4F4)),
         ) {
-            state.messageRes?.let { messageRes ->
-                item {
-                    ScanInlineBanner(
-                        title = stringResource(messageRes),
-                        subtitle = stringResource(R.string.merchant_scan_success_supporting),
-                        positive = true,
-                    )
-                }
-            }
-            state.errorRes?.let { errorRes ->
-                item {
-                    ScanInlineBanner(
-                        title = stringResource(errorRes),
-                        subtitle = stringResource(R.string.merchant_scan_error_supporting),
-                        positive = false,
-                    )
-                }
-            }
+            ScanRouteHeader(
+                title = stringResource(R.string.merchant_scan_title),
+                onBack = onBack,
+            )
 
-            when {
-                state.contentMode == ScanContentMode.LOOKUP -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 0.dp,
+                    end = 0.dp,
+                    top = 0.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 24.dp,
+                ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                state.messageRes?.let { messageRes ->
                     item {
-                        ScanCenteredStatusSurface(
-                            title = stringResource(R.string.merchant_scan_searching_title),
-                            subtitle = stringResource(R.string.merchant_scan_searching_subtitle),
-                            icon = Icons.Default.CreditCard,
+                        ScanInlineBanner(
+                            title = stringResource(messageRes),
+                            subtitle = stringResource(R.string.merchant_scan_success_supporting),
+                            positive = true,
+                        )
+                    }
+                }
+                state.errorRes?.let { errorRes ->
+                    item {
+                        ScanInlineBanner(
+                            title = stringResource(errorRes),
+                            subtitle = stringResource(R.string.merchant_scan_error_supporting),
+                            positive = false,
                         )
                     }
                 }
 
-                state.contentMode == ScanContentMode.CUSTOMER && state.customer != null -> {
-                    item { ScanCustomerCard(customer = state.customer!!) }
-                    item {
-                        ScanActionComposerCard(
-                            activePrograms = state.activePrograms,
-                            availableActions = state.availableActions,
-                            selectedAction = state.selectedAction,
-                            amount = amount.value,
-                            points = points.value,
-                            customerPoints = state.customer!!.currentPoints,
-                            fieldErrors = state.fieldErrors,
-                            isSubmitting = state.isSubmitting,
-                            onAmountChanged = {
-                                amount.value = it
-                                viewModel.clearFieldErrors(SCAN_FIELD_AMOUNT)
-                            },
-                            onPointsChanged = {
-                                points.value = it
-                                viewModel.clearFieldErrors(SCAN_FIELD_POINTS)
-                            },
-                            onActionSelected = viewModel::selectAction,
-                            onApply = {
-                                focusManager.clearFocus(force = true)
-                                viewModel.submitAction(amountInput = amount.value, pointsInput = points.value)
-                            },
-                            onOpenProfile = { onOpenCustomer(state.customer!!.id) },
-                            onScanAnother = {
-                                amount.value = ""
-                                points.value = ""
-                                focusManager.clearFocus(force = true)
-                                viewModel.requestScan()
-                            },
-                        )
+                when {
+                    state.contentMode == ScanContentMode.LOOKUP -> {
+                        item {
+                            ScanCenteredStatusSurface(
+                                title = stringResource(R.string.merchant_scan_searching_title),
+                                subtitle = stringResource(R.string.merchant_scan_searching_subtitle),
+                                icon = Icons.Default.CreditCard,
+                            )
+                        }
                     }
-                }
-                else -> {
-                    item {
-                        ScanCenteredStatusSurface(
-                            title = stringResource(R.string.merchant_scan_searching_title),
-                            subtitle = stringResource(R.string.merchant_scan_searching_subtitle),
-                            icon = Icons.Default.CreditCard,
-                        )
+
+                    state.contentMode == ScanContentMode.CUSTOMER && state.customer != null -> {
+                        item { ScanCustomerCard(customer = state.customer!!) }
+                        item {
+                            ScanActionComposerCard(
+                                activePrograms = state.activePrograms,
+                                availableActions = state.availableActions,
+                                selectedAction = state.selectedAction,
+                                amount = amount.value,
+                                points = points.value,
+                                customerPoints = state.customer!!.currentPoints,
+                                fieldErrors = state.fieldErrors,
+                                isSubmitting = state.isSubmitting,
+                                onAmountChanged = {
+                                    amount.value = it
+                                    viewModel.clearFieldErrors(SCAN_FIELD_AMOUNT)
+                                },
+                                onPointsChanged = {
+                                    points.value = it
+                                    viewModel.clearFieldErrors(SCAN_FIELD_POINTS)
+                                },
+                                onActionSelected = viewModel::selectAction,
+                                onApply = {
+                                    focusManager.clearFocus(force = true)
+                                    viewModel.submitAction(amountInput = amount.value, pointsInput = points.value)
+                                },
+                                onOpenProfile = { onOpenCustomer(state.customer!!.id) },
+                                onScanAnother = {
+                                    amount.value = ""
+                                    points.value = ""
+                                    focusManager.clearFocus(force = true)
+                                    viewModel.requestScan()
+                                },
+                            )
+                        }
+                    }
+                    else -> {
+                        item {
+                            ScanCenteredStatusSurface(
+                                title = stringResource(R.string.merchant_scan_searching_title),
+                                subtitle = stringResource(R.string.merchant_scan_searching_subtitle),
+                                icon = Icons.Default.CreditCard,
+                            )
+                        }
                     }
                 }
             }
         }
+        MerchantLoadingOverlay(
+            isVisible = state.isSearching || state.isSubmitting,
+            title = if (state.isSubmitting) {
+                stringResource(R.string.merchant_loader_scan_action_title)
+            } else {
+                stringResource(R.string.merchant_loader_scan_lookup_title)
+            },
+            subtitle = if (state.isSubmitting) {
+                stringResource(R.string.merchant_loader_scan_action_subtitle)
+            } else {
+                stringResource(R.string.merchant_loader_scan_lookup_subtitle)
+            },
+        )
     }
 }

@@ -2,6 +2,7 @@ package com.vector.verevcodex.data.repository.analytics
 
 import com.vector.verevcodex.data.db.AppDatabase
 import com.vector.verevcodex.data.mapper.toDomain
+import com.vector.verevcodex.data.remote.analytics.AnalyticsRemoteDataSource
 import com.vector.verevcodex.domain.model.analytics.AnalyticsPoint
 import com.vector.verevcodex.domain.model.analytics.AnalyticsSegment
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
@@ -47,6 +48,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.runBlocking
@@ -61,229 +63,55 @@ class AnalyticsRepositoryImpl @Inject constructor(
     private val loyaltyRepository: LoyaltyRepository,
     private val transactionRepository: TransactionRepository,
     private val authRepository: AuthRepository,
+    private val analyticsRemote: AnalyticsRemoteDataSource,
 ) : AnalyticsRepository {
-    override fun observeBusinessAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<BusinessAnalytics> = combine(
-        database.customerDao().observeCustomers(storeId),
-        database.transactionDao().observeTransactions(storeId),
-        loyaltyRepository.observeCampaigns(storeId),
-    ) { customerEntities, transactionEntities, promotions ->
-        val today = LocalDate.now()
-        val customers = customerEntities.map { it.toDomain() }
-        val transactions = transactionEntities.map { it.toDomain(emptyList()) }
-        val rangeWindow = range.windowEndingOn(today)
-        val previousWindow = range.previousWindowBefore(today)
-        val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
-        val previousTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end)
-        val rangeVisitTransactions = rangeTransactions.visitTransactions()
-        val previousVisitTransactions = previousTransactions.visitTransactions()
-        val currentVisitors = rangeVisitTransactions.map(Transaction::customerId).toSet()
-        val previousVisitors = previousVisitTransactions.map(Transaction::customerId).toSet()
-        val scopedPromotions = promotions.filter { it.endDate >= rangeWindow.start && it.startDate <= rangeWindow.end }
-        val totalRevenue = rangeTransactions.sumOf { it.amount }
-        val previousRevenue = previousTransactions.sumOf { it.amount }
-        val newCustomersInRange = customers.count { it.enrolledDate in rangeWindow.start..rangeWindow.end }
-        val previousNewCustomers = customers.count { it.enrolledDate in previousWindow.start..previousWindow.end }
 
-        BusinessAnalytics(
-            id = storeId ?: "all-stores",
-            scopeStoreId = storeId,
-            totalCustomers = customers.distinctBy(Customer::id).size,
-            newCustomers = newCustomersInRange,
-            visitsToday = transactions.count { it.countsAsVisit && it.timestamp.toLocalDate() == today },
-            visitsInRange = rangeVisitTransactions.size,
-            totalRevenue = totalRevenue,
-            averagePurchaseValue = rangeTransactions.averageAmount(),
-            rewardRedemptionRate = rangeTransactions.redemptionRate(),
-            averagePromotionRoi = scopedPromotions.averagePromotionRoi(rangeTransactions),
-            activePromotions = scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) },
-            retentionRate = retentionRateForWindow(currentVisitors, previousVisitors),
-            revenueGrowthRate = growthRate(totalRevenue, previousRevenue),
-            customerGrowthRate = growthRate(newCustomersInRange.toDouble(), previousNewCustomers.toDouble()),
-            topCustomerName = customers.maxByOrNull(Customer::totalSpent)?.displayName().orEmpty(),
-            topPromotionName = topPromotionName(scopedPromotions, rangeTransactions),
-            revenueTrend = buildPeriodRevenueTrend(rangeTransactions, range),
-            visitTrend = buildPeriodVisitTrend(rangeVisitTransactions, range),
-            newCustomerTrend = buildNewCustomerTrend(customers, range),
-            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeVisitTransactions, range),
-        )
-    }
-
-    override fun observeCustomerAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<CustomerAnalyticsDrillDown> = combine(
-        database.customerDao().observeCustomers(storeId),
-        database.transactionDao().observeTransactions(storeId),
-        loyaltyRepository.observePrograms(storeId),
-    ) { customerEntities, transactionEntities, programs ->
-        val today = LocalDate.now()
-        val customers = customerEntities.map { it.toDomain() }
-        val transactions = transactionEntities.map { it.toDomain(emptyList()) }
-        val rangeWindow = range.windowEndingOn(today)
-        val previousWindow = range.previousWindowBefore(today)
-        val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
-        val rangeVisitTransactions = rangeTransactions.visitTransactions()
-        val previousVisitTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end).visitTransactions()
-        val currentVisitors = rangeVisitTransactions.map(Transaction::customerId).toSet()
-        val previousVisitors = previousVisitTransactions.map(Transaction::customerId).toSet()
-        val customerSpendInRange = rangeTransactions.customerSpendMap()
-        val highValueThreshold = highValueThreshold(customerSpendInRange.values.toList())
-        val returningCustomerIds = currentVisitors.filterTo(mutableSetOf()) { customerId ->
-            customers.firstOrNull { it.id == customerId }?.enrolledDate?.isBefore(rangeWindow.start) == true
-        }
-        val inactiveCustomerIds = customers.asSequence()
-            .filter { it.enrolledDate <= rangeWindow.end }
-            .filter { customer ->
-                customer.lastVisit == null || customer.lastVisit.toLocalDate().isBefore(rangeWindow.start)
-            }
-            .map(Customer::id)
-            .toSet()
-        val retainedCustomerIds = currentVisitors.intersect(previousVisitors)
-        val topCustomers = customers.mapNotNull { customer ->
-            val spendInRange = customerSpendInRange[customer.id] ?: return@mapNotNull null
-            TopCustomerAnalytics(
-                customerId = customer.id,
-                customerName = customer.displayName(),
-                totalSpent = spendInRange,
-                totalVisits = rangeVisitTransactions.count { it.customerId == customer.id },
-                loyaltyTier = customer.loyaltyTier,
-            )
-        }.sortedByDescending(TopCustomerAnalytics::totalSpent)
-            .take(5)
-        val hasTierAnalytics = programs.any { it.active && it.configuration.tierTrackingEnabled }
-
-        CustomerAnalyticsDrillDown(
-            storeId = storeId,
-            hasTierAnalytics = hasTierAnalytics,
-            totalCustomers = customers.size,
-            newCustomers = customers.count { it.enrolledDate in rangeWindow.start..rangeWindow.end },
-            returningCustomers = returningCustomerIds.size,
-            retainedCustomers = retainedCustomerIds.size,
-            inactiveCustomers = inactiveCustomerIds.size,
-            highValueCustomers = customerSpendInRange.count { (_, spend) -> spend >= highValueThreshold },
-            averageLifetimeValue = customers.averageLifetimeValue(),
-            topCustomers = topCustomers,
-            tierBreakdown = if (hasTierAnalytics) customerTierSegments(customers) else emptyList(),
-            segmentBreakdown = listOf(
-                AnalyticsSegment("High value", customerSpendInRange.count { (_, spend) -> spend >= highValueThreshold }),
-                AnalyticsSegment("At risk", customers.count { customer ->
-                    customer.enrolledDate <= rangeWindow.end &&
-                        (customer.lastVisit == null || customer.lastVisit.toLocalDate().isBefore(rangeWindow.end.minusDays(30)))
-                }),
-                AnalyticsSegment("Inactive", inactiveCustomerIds.size),
-                AnalyticsSegment("Returning", returningCustomerIds.size),
-            ).filter { it.value > 0 },
-            newCustomerTrend = buildNewCustomerTrend(customers, range),
-            returningCustomerTrend = buildReturningCustomerTrend(customers, rangeVisitTransactions, range),
-            retentionTrend = buildRetentionTrend(range, currentVisitors, previousVisitors),
-        )
-    }
-
-    override fun observeRevenueAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<RevenueAnalyticsDrillDown> =
-        database.transactionDao().observeTransactions(storeId).map { transactionEntities ->
+    override fun observeBusinessAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<BusinessAnalytics> {
+        return flow {
+            val raw = analyticsRemote.business(storeId, range).getOrElse { emptyBusinessAnalytics(storeId) }
             val today = LocalDate.now()
-            val transactions = transactionEntities.map { it.toDomain(emptyList()) }
-            val rangeWindow = range.windowEndingOn(today)
-            val previousWindow = range.previousWindowBefore(today)
-            val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
-            val previousTransactions = transactions.inDateRange(previousWindow.start, previousWindow.end)
-            RevenueAnalyticsDrillDown(
-                storeId = storeId,
-                totalRevenue = rangeTransactions.sumOf(Transaction::amount),
-                todayRevenue = transactions.filter { it.timestamp.toLocalDate() == today }.sumOf(Transaction::amount),
-                averageOrderValue = rangeTransactions.averageAmount(),
-                transactionCount = rangeTransactions.size,
-                redeemedPointsValue = rangeTransactions.sumOf { it.pointsRedeemed.toDouble() },
-                revenueGrowthRate = growthRate(
-                    rangeTransactions.sumOf(Transaction::amount),
-                    previousTransactions.sumOf(Transaction::amount),
-                ),
-                revenueTrend = buildPeriodRevenueTrend(rangeTransactions, range),
-                timeBucketTrend = buildTimeBucketTrend(rangeTransactions),
-                sourceBreakdown = revenueSourceBreakdown(rangeTransactions),
-            )
+            val window = range.backendAlignedWindow(today)
+            emit(raw.copy(
+                revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
+                visitTrend = fillTrendWithDateRange(raw.visitTrend, window),
+                newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
+                returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
+            ))
         }
-
-    override fun observePromotionAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<PromotionAnalyticsDrillDown> = combine(
-        loyaltyRepository.observeCampaigns(storeId),
-        transactionRepository.observeTransactions(storeId),
-    ) { promotions, transactions ->
-        val today = LocalDate.now()
-        val rangeWindow = range.windowEndingOn(today)
-        val rangeTransactions = transactions.inDateRange(rangeWindow.start, rangeWindow.end)
-        val scopedPromotions = promotions.filter { it.endDate >= rangeWindow.start && it.startDate <= rangeWindow.end }
-        val allPromotionPerformance = scopedPromotions.map { promotion ->
-            val usageCount = estimatePromotionUsage(promotion, rangeTransactions)
-            val revenueImpact = estimatePromotionRevenueImpact(promotion, rangeTransactions)
-            val roiScore = if (promotion.promotionValue <= 0.0) revenueImpact else revenueImpact / (promotion.promotionValue * usageCount.coerceAtLeast(1))
-            PromotionPerformance(
-                promotionId = promotion.id,
-                name = promotion.name,
-                type = promotion.promotionType,
-                paymentFlowEnabled = promotion.paymentFlowEnabled,
-                active = promotion.active && !today.isBefore(promotion.startDate) && !today.isAfter(promotion.endDate),
-                estimatedUsageCount = usageCount,
-                revenueImpact = revenueImpact,
-                roiScore = roiScore,
-            )
-        }.sortedByDescending(PromotionPerformance::roiScore)
-        val topPromotions = allPromotionPerformance.take(6)
-
-        PromotionAnalyticsDrillDown(
-            storeId = storeId,
-            totalPromotions = scopedPromotions.size,
-            activePromotions = scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) },
-            scheduledPromotions = scopedPromotions.count { today.isBefore(it.startDate) },
-            expiredPromotions = scopedPromotions.count { today.isAfter(it.endDate) },
-            paymentPromotions = scopedPromotions.count { it.paymentFlowEnabled },
-            averageRoiScore = allPromotionPerformance.map(PromotionPerformance::roiScore).average().takeIf { !it.isNaN() } ?: 0.0,
-            typeBreakdown = scopedPromotions.groupBy { it.promotionType }
-                .map { (type, items) -> AnalyticsSegment(type.name.humanize(), items.size) }
-                .sortedByDescending(AnalyticsSegment::value),
-            statusBreakdown = listOf(
-                AnalyticsSegment("Active", scopedPromotions.count { it.active && !today.isBefore(it.startDate) && !today.isAfter(it.endDate) }),
-                AnalyticsSegment("Scheduled", scopedPromotions.count { today.isBefore(it.startDate) }),
-                AnalyticsSegment("Expired", scopedPromotions.count { today.isAfter(it.endDate) }),
-            ).filter { it.value > 0 },
-            topPromotions = topPromotions,
-        )
     }
 
-    override fun observeProgramAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<ProgramAnalyticsDrillDown> = combine(
-        loyaltyRepository.observePrograms(storeId),
-        transactionRepository.observeTransactions(storeId),
-        database.customerDao().observeCustomers(storeId),
-    ) { programs, transactions, customerEntities ->
-        val today = LocalDate.now()
-        val rangeTransactions = transactions.inDateRange(range.startDateFrom(today), today)
-        val customers = customerEntities.map { it.toDomain() }
-        val activePrograms = programs.count { it.active }
-        val participants = rangeTransactions.map(Transaction::customerId).distinct().size
-        ProgramAnalyticsDrillDown(
-            storeId = storeId,
-            totalPrograms = programs.size,
-            activePrograms = activePrograms,
-            memberParticipationRate = if (customers.isEmpty()) 0.0 else participants.toDouble() / customers.size,
-            redemptionEfficiency = if (rangeTransactions.sumOf { it.pointsEarned } == 0) 0.0 else rangeTransactions.sumOf { it.pointsRedeemed }.toDouble() / rangeTransactions.sumOf { it.pointsEarned },
-            typeBreakdown = programs.groupBy { it.type }
-                .map { (type, items) -> AnalyticsSegment(type.name.humanize(), items.size) }
-                .sortedByDescending(AnalyticsSegment::value),
-            rewardUsageBreakdown = rewardUsageBreakdown(rangeTransactions),
-            scanActionBreakdown = programs.flatMap { it.configuration.scanActions }
-                .groupBy { it.name.humanize() }
-                .map { (label, items) -> AnalyticsSegment(label, items.size) }
-                .sortedByDescending(AnalyticsSegment::value),
-            topPrograms = programs.sortedWith(compareByDescending<RewardProgram> { it.active }.thenBy { it.name })
-                .take(6)
-                .map { program ->
-                    ProgramPerformance(
-                        programId = program.id,
-                        name = program.name,
-                        type = program.type,
-                        active = program.active,
-                        scanActionsEnabled = program.configuration.scanActions.size,
-                        memberCount = estimateProgramMemberCount(program, rangeTransactions),
-                        redemptionRate = estimateProgramRedemptionRate(program, rangeTransactions),
-                    )
-                },
-        )
+    override fun observeCustomerAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<CustomerAnalyticsDrillDown> {
+        return flow {
+            val raw = analyticsRemote.customers(storeId, range).getOrElse { emptyCustomerAnalytics(storeId) }
+            val window = range.backendAlignedWindow(LocalDate.now())
+            emit(raw.copy(
+                newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
+                returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
+                retentionTrend = fillTrendWithDateRange(raw.retentionTrend, window),
+            ))
+        }
+    }
+
+    override fun observeRevenueAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<RevenueAnalyticsDrillDown> {
+        return flow {
+            val raw = analyticsRemote.revenue(storeId, range).getOrElse { emptyRevenueAnalytics(storeId) }
+            val window = range.backendAlignedWindow(LocalDate.now())
+            emit(raw.copy(
+                revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
+            ))
+        }
+    }
+
+    override fun observePromotionAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<PromotionAnalyticsDrillDown> {
+        return flow {
+            emit(analyticsRemote.promotions(storeId, range).getOrElse { emptyPromotionAnalytics(storeId) })
+        }
+    }
+
+    override fun observeProgramAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<ProgramAnalyticsDrillDown> {
+        return flow {
+            emit(analyticsRemote.programs(storeId, range).getOrElse { emptyProgramAnalytics(storeId) })
+        }
     }
 
     override fun observeDashboardSnapshot(): Flow<DashboardSnapshot> {
@@ -325,7 +153,8 @@ class AnalyticsRepositoryImpl @Inject constructor(
             staffFlow,
         ) { session, storeSelection, commerce, staffBundle ->
             val stores = storeSelection.second
-            val currentStore = storeSelection.first ?: stores.firstOrNull() ?: return@combine null
+            val currentStore = storeSelection.first ?: stores.firstOrNull()
+                ?: placeholderStore(session) // When no stores, use placeholder so dashboard/analytics still render
             val owner = resolveOwner(session)
             val topStaff = staffBundle.analytics
                 .sortedByDescending(StaffAnalytics::revenueHandled)
@@ -347,10 +176,110 @@ class AnalyticsRepositoryImpl @Inject constructor(
         }.mapNotNull { it }
     }
 
-    private fun resolveOwner(session: AuthSession?): BusinessOwner = when (session?.user?.role) {
-        StaffRole.OWNER -> runBlocking { database.ownerDao().getOwnerById(session.user.relatedEntityId)?.toDomain() }
-        else -> null
-    } ?: runBlocking { database.ownerDao().getOwner().toDomain() }
+    private fun resolveOwner(session: AuthSession?): BusinessOwner {
+        val user = session?.user
+        val nameParts = user?.fullName.orEmpty().trim().split(" ", limit = 2)
+        return BusinessOwner(
+            id = user?.relatedEntityId.orEmpty(),
+            firstName = nameParts.firstOrNull().orEmpty(),
+            lastName = nameParts.getOrElse(1) { "" },
+            email = user?.email.orEmpty(),
+            phoneNumber = user?.phoneNumber.orEmpty(),
+        )
+    }
+
+    private fun placeholderStore(session: AuthSession?): Store = Store(
+        id = "placeholder",
+        ownerId = session?.user?.relatedEntityId.orEmpty(),
+        name = "",
+        address = "",
+        contactInfo = "",
+        category = "",
+        workingHours = "",
+        logoUrl = "",
+        primaryColor = "#0C3B2E",
+        secondaryColor = "#FFBA00",
+        active = false,
+    )
+
+    private fun emptyBusinessAnalytics(storeId: String?) = BusinessAnalytics(
+        id = storeId ?: "all-stores",
+        scopeStoreId = storeId,
+        totalCustomers = 0,
+        newCustomers = 0,
+        visitsToday = 0,
+        visitsInRange = 0,
+        totalRevenue = 0.0,
+        averagePurchaseValue = 0.0,
+        rewardRedemptionRate = 0.0,
+        averagePromotionRoi = 0.0,
+        activePromotions = 0,
+        retentionRate = 0.0,
+        revenueGrowthRate = 0.0,
+        customerGrowthRate = 0.0,
+        topCustomerName = "",
+        topPromotionName = "",
+        revenueTrend = emptyList(),
+        visitTrend = emptyList(),
+        newCustomerTrend = emptyList(),
+        returningCustomerTrend = emptyList(),
+    )
+
+    private fun emptyCustomerAnalytics(storeId: String?) = CustomerAnalyticsDrillDown(
+        storeId = storeId,
+        hasTierAnalytics = false,
+        totalCustomers = 0,
+        newCustomers = 0,
+        returningCustomers = 0,
+        retainedCustomers = 0,
+        inactiveCustomers = 0,
+        highValueCustomers = 0,
+        averageLifetimeValue = 0.0,
+        topCustomers = emptyList(),
+        tierBreakdown = emptyList(),
+        segmentBreakdown = emptyList(),
+        newCustomerTrend = emptyList(),
+        returningCustomerTrend = emptyList(),
+        retentionTrend = emptyList(),
+    )
+
+    private fun emptyRevenueAnalytics(storeId: String?) = RevenueAnalyticsDrillDown(
+        storeId = storeId,
+        totalRevenue = 0.0,
+        todayRevenue = 0.0,
+        averageOrderValue = 0.0,
+        transactionCount = 0,
+        redeemedPointsValue = 0.0,
+        revenueGrowthRate = 0.0,
+        revenueTrend = emptyList(),
+        timeBucketTrend = emptyList(),
+        sourceBreakdown = emptyList(),
+    )
+
+    private fun emptyPromotionAnalytics(storeId: String?) = PromotionAnalyticsDrillDown(
+        storeId = storeId,
+        totalPromotions = 0,
+        activePromotions = 0,
+        scheduledPromotions = 0,
+        expiredPromotions = 0,
+        paymentPromotions = 0,
+        averageRoiScore = 0.0,
+        typeBreakdown = emptyList(),
+        statusBreakdown = emptyList(),
+        topPromotions = emptyList(),
+    )
+
+    private fun emptyProgramAnalytics(storeId: String?) = ProgramAnalyticsDrillDown(
+        storeId = storeId,
+        totalPrograms = 0,
+        activePrograms = 0,
+        memberParticipationRate = 0.0,
+        redemptionEfficiency = 0.0,
+        typeBreakdown = emptyList(),
+        rewardUsageBreakdown = emptyList(),
+        scanActionBreakdown = emptyList(),
+        topPrograms = emptyList(),
+    )
 }
 
 private data class DashboardCommerceBundle(
@@ -373,11 +302,51 @@ private data class AnalyticsDateWindow(
 private fun AnalyticsTimeRange.windowEndingOn(endDate: LocalDate): AnalyticsDateWindow =
     AnalyticsDateWindow(start = startDateFrom(endDate), end = endDate)
 
+/** Matches backend's scope: dateFrom = today - range.days, dateTo = today */
+private fun AnalyticsTimeRange.backendAlignedWindow(endDate: LocalDate): AnalyticsDateWindow {
+    val days = when (this) {
+        AnalyticsTimeRange.WEEK -> 6L
+        AnalyticsTimeRange.MONTH -> 29L
+        AnalyticsTimeRange.QUARTER -> 89L
+        AnalyticsTimeRange.YEAR -> 364L
+    }
+    return AnalyticsDateWindow(start = endDate.minusDays(days), end = endDate)
+}
+
 private fun AnalyticsTimeRange.previousWindowBefore(endDate: LocalDate): AnalyticsDateWindow {
     val currentStart = startDateFrom(endDate)
     val days = ChronoUnit.DAYS.between(currentStart, endDate) + 1
     val previousEnd = currentStart.minusDays(1)
     return AnalyticsDateWindow(start = previousEnd.minusDays(days - 1), end = previousEnd)
+}
+
+private fun fillTrendWithDateRange(
+    trend: List<AnalyticsPoint>,
+    window: AnalyticsDateWindow,
+): List<AnalyticsPoint> {
+    val byDate = trend.mapNotNull { point ->
+        runCatching { LocalDate.parse(point.label.take(10)) }.getOrNull()?.let { it to point.value }
+    }.toMap()
+    if (byDate.isNotEmpty()) {
+        return generateSequence(window.start) { it.plusDays(1) }
+            .takeWhile { !it.isAfter(window.end) }
+            .map { date -> AnalyticsPoint(date.toString(), byDate[date] ?: 0f) }
+            .toList()
+    }
+    if (trend.isEmpty()) {
+        return generateSequence(window.start) { it.plusDays(1) }
+            .takeWhile { !it.isAfter(window.end) }
+            .map { date -> AnalyticsPoint(date.toString(), 0f) }
+            .toList()
+    }
+    if (trend.size == 1) {
+        val single = trend.single()
+        val dates = generateSequence(window.start) { it.plusDays(1) }.takeWhile { !it.isAfter(window.end) }.toList()
+        return dates.mapIndexed { i, date ->
+            if (i == dates.lastIndex) AnalyticsPoint(date.toString(), single.value) else AnalyticsPoint(date.toString(), 0f)
+        }
+    }
+    return trend
 }
 
 private fun List<Transaction>.inDateRange(start: LocalDate, end: LocalDate): List<Transaction> =

@@ -8,17 +8,17 @@ import com.vector.verevcodex.domain.model.reports.ReportExport
 import java.io.File
 
 internal fun openReport(context: Context, report: ReportExport) {
-    val uri = reportUri(context, report)
+    val uri = report.contentUri?.let { Uri.parse(it) } ?: reportUri(context, report)
     val intent = Intent(Intent.ACTION_VIEW).apply {
         setDataAndType(uri, report.mimeType)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    context.startActivity(Intent.createChooser(intent, report.fileName))
+    context.startActivity(intent)
 }
 
 internal fun shareReport(context: Context, report: ReportExport) {
-    val uri = reportUri(context, report)
+    val uri = report.contentUri?.let { Uri.parse(it) } ?: reportUri(context, report)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = report.mimeType
         putExtra(Intent.EXTRA_STREAM, uri)
@@ -26,7 +26,7 @@ internal fun shareReport(context: Context, report: ReportExport) {
         putExtra(Intent.EXTRA_TEXT, report.summary)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, report.fileName))
+    context.startActivity(intent)
 }
 
 internal fun createSaveReportIntent(report: ReportExport): Intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -36,9 +36,11 @@ internal fun createSaveReportIntent(report: ReportExport): Intent = Intent(Inten
 }
 
 internal fun saveReportToUri(context: Context, report: ReportExport, destinationUri: Uri): Result<Unit> = runCatching {
-    val sourceFile = File(report.absolutePath)
+    val sourceStream = report.contentUri?.let { uri ->
+        context.contentResolver.openInputStream(Uri.parse(uri))
+    } ?: File(report.absolutePath).inputStream()
     context.contentResolver.openOutputStream(destinationUri)?.use { outputStream ->
-        sourceFile.inputStream().use { inputStream ->
+        sourceStream.use { inputStream ->
             inputStream.copyTo(outputStream)
         }
     } ?: error("Unable to open destination for report export")

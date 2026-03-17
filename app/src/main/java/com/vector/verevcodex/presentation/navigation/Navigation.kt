@@ -171,6 +171,12 @@ fun AuthNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Screen.Login.route,
     navController: NavHostController = rememberNavController(),
+    onForgotPinExit: () -> Unit = {
+        navController.navigate(Screen.Login.route) {
+            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+            launchSingleTop = true
+        }
+    },
     onAuthenticated: () -> Unit,
 ) {
     NavHost(navController = navController, startDestination = startDestination, modifier = modifier) {
@@ -203,12 +209,7 @@ fun AuthNavHost(
         composable(Screen.ForgotPin.route) {
             ForgotPasswordScreen(
                 mode = RecoveryMode.PIN,
-                onBackToLogin = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
+                onBackToLogin = onForgotPinExit,
             )
         }
         composable(Screen.StoreSelection.route) {

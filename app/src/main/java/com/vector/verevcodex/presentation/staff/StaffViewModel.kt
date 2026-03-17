@@ -15,6 +15,7 @@ import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
 import com.vector.verevcodex.domain.usecase.staff.RemoveStaffMemberUseCase
 import com.vector.verevcodex.domain.usecase.staff.UpdateStaffMemberUseCase
+import com.vector.verevcodex.data.remote.auth.ApiException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -103,7 +104,8 @@ class StaffViewModel @Inject constructor(
                 onFailure = {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        errorRes = R.string.merchant_staff_error_generic,
+                        errorRes = if (it.toStaffErrorMessage() == null) R.string.merchant_staff_error_generic else null,
+                        errorMessage = it.toStaffErrorMessage(),
                     )
                 },
             )
@@ -149,7 +151,8 @@ class StaffViewModel @Inject constructor(
                 onFailure = {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        errorRes = R.string.merchant_staff_error_generic,
+                        errorRes = if (it.toStaffErrorMessage() == null) R.string.merchant_staff_error_generic else null,
+                        errorMessage = it.toStaffErrorMessage(),
                     )
                 },
             )
@@ -169,7 +172,8 @@ class StaffViewModel @Inject constructor(
                 onFailure = {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        errorRes = R.string.merchant_staff_error_generic,
+                        errorRes = if (it.toStaffErrorMessage() == null) R.string.merchant_staff_error_generic else null,
+                        errorMessage = it.toStaffErrorMessage(),
                     )
                 },
             )
@@ -177,11 +181,11 @@ class StaffViewModel @Inject constructor(
     }
 
     fun dismissFeedback() {
-        _uiState.value = _uiState.value.copy(errorRes = null, messageRes = null)
+        _uiState.value = _uiState.value.copy(errorRes = null, errorMessage = null, messageRes = null)
     }
 
     private fun publishError(@StringRes messageRes: Int) {
-        _uiState.value = _uiState.value.copy(errorRes = messageRes)
+        _uiState.value = _uiState.value.copy(errorRes = messageRes, errorMessage = null)
     }
 }
 
@@ -191,5 +195,14 @@ data class StaffUiState(
     val members: List<StaffMember> = emptyList(),
     val isSaving: Boolean = false,
     @StringRes val errorRes: Int? = null,
+    val errorMessage: String? = null,
     @StringRes val messageRes: Int? = null,
 )
+
+private fun Throwable.toStaffErrorMessage(): String? {
+    val message = when (this) {
+        is ApiException -> message
+        else -> message
+    }?.trim().orEmpty()
+    return message.takeIf { it.isNotBlank() && !it.startsWith("HTTP ", ignoreCase = true) }
+}

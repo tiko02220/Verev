@@ -73,6 +73,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.MainActivity
 import com.vector.verevcodex.R
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
 import com.vector.verevcodex.presentation.theme.VerevColors
 import java.io.OutputStreamWriter
@@ -272,198 +275,217 @@ fun PaymentMethodsScreen(
 
     if (showAddCardDialog) {
         AddPaymentMethodDialog(
-            isSaving = false,
-            onDismiss = { showAddCardDialog = false },
+            isSaving = state.isSaving,
+            onDismiss = { if (!state.isSaving) showAddCardDialog = false },
             onSave = { brand, last4, month, year, isDefault ->
                 viewModel.addCard(brand, last4, month, year, isDefault)
-                showAddCardDialog = false
             },
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        SettingsLargeGradientHeader(
-            title = stringResource(R.string.merchant_payment_methods_title),
-            subtitle = stringResource(R.string.merchant_payment_methods_subtitle),
-            onBack = onBack,
-            colors = listOf(VerevColors.Forest, VerevColors.Moss),
-        )
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 18.dp,
-                bottom = contentPadding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            state.messageRes?.let { messageRes ->
-                item { LaunchedEffect(messageRes) { viewModel.dismissMessage() } }
-            }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan)))
-                        .padding(18.dp),
-                ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            SettingsLargeGradientHeader(
+                title = stringResource(R.string.merchant_payment_methods_title),
+                subtitle = stringResource(R.string.merchant_payment_methods_subtitle),
+                onBack = onBack,
+                colors = listOf(VerevColors.Forest, VerevColors.Moss),
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 18.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan)))
+                            .padding(18.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color.White.copy(alpha = 0.16f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(Icons.Default.Payments, contentDescription = null, tint = Color.White)
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(
+                                        text = stringResource(planSpec.nameRes),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = state.planPrice,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.88f),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.merchant_payment_methods_plan_renewal, state.renewalLabel),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.72f),
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = onOpenPlanSelection,
+                                shape = RoundedCornerShape(16.dp),
+                                enabled = !state.isSaving,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = VerevColors.Tan),
+                            ) {
+                                Text(stringResource(R.string.merchant_plan_selection_open))
+                            }
+                        }
+                    }
+                }
+                item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        SettingsPageIntro(
+                            title = stringResource(R.string.merchant_payment_methods_saved_methods),
+                            subtitle = stringResource(R.string.merchant_payment_methods_sync_note),
+                        )
+                    }
+                }
+                items(state.methods, key = { it.id }) { method ->
+                    PaymentMethodCard(
+                        method = method,
+                        onMakeDefault = { viewModel.makeDefault(method.id) },
+                        onRemove = { viewModel.removeMethod(method.id) },
+                    )
+                }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Color.White)
+                            .border(2.dp, VerevColors.Gold.copy(alpha = 0.22f), RoundedCornerShape(24.dp))
+                            .clickable(enabled = !state.isSaving, onClick = { showAddCardDialog = true })
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                    ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(54.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.White.copy(alpha = 0.16f)),
+                                    .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Default.Payments, contentDescription = null, tint = Color.White)
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
                             }
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = stringResource(planSpec.nameRes),
+                                    text = stringResource(R.string.merchant_payment_methods_add_card_cta),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White,
+                                    color = VerevColors.Forest,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
-                                    text = state.planPrice,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.88f),
-                                )
-                                Text(
-                                    text = stringResource(R.string.merchant_payment_methods_plan_renewal, state.renewalLabel),
+                                    text = stringResource(R.string.merchant_payment_methods_sync_note),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.72f),
+                                    color = VerevColors.Forest.copy(alpha = 0.6f),
                                 )
                             }
                         }
-                        Button(
-                            onClick = onOpenPlanSelection,
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = VerevColors.Tan),
-                        ) {
-                            Text(stringResource(R.string.merchant_plan_selection_open))
-                        }
                     }
                 }
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsPageIntro(
-                        title = stringResource(R.string.merchant_payment_methods_saved_methods),
-                        subtitle = stringResource(R.string.merchant_payment_methods_sync_note),
-                    )
-                }
-            }
-            items(state.methods, key = { it.id }) { method ->
-                PaymentMethodCard(
-                    method = method,
-                    onMakeDefault = { viewModel.makeDefault(method.id) },
-                    onRemove = { viewModel.removeMethod(method.id) },
-                )
-            }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White)
-                        .border(2.dp, VerevColors.Gold.copy(alpha = 0.22f), RoundedCornerShape(24.dp))
-                        .clickable(onClick = { showAddCardDialog = true })
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                ) {
+                item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(54.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                        }
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = stringResource(R.string.merchant_payment_methods_add_card_cta),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = VerevColors.Forest,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = stringResource(R.string.merchant_payment_methods_sync_note),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = VerevColors.Forest.copy(alpha = 0.6f),
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsPageIntro(
-                        title = stringResource(R.string.merchant_payment_methods_invoices_title),
-                        subtitle = stringResource(R.string.merchant_payment_methods_invoices_subtitle),
-                    )
-                    TextButton(onClick = onOpenInvoices) {
-                        Text(stringResource(R.string.merchant_all_invoices_open))
-                    }
-                }
-            }
-            items(state.invoices, key = { it.id }) { invoice ->
-                BillingHistoryCard(
-                    title = invoice.title,
-                    subtitle = invoice.subtitle,
-                    amount = invoice.amount,
-                    status = stringResource(invoice.statusRes),
-                    onClick = { onOpenInvoiceDetail(invoice.id) },
-                )
-            }
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(VerevColors.Moss.copy(alpha = 0.06f))
-                        .border(1.dp, VerevColors.Moss.copy(alpha = 0.16f), RoundedCornerShape(20.dp))
-                        .padding(14.dp),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        Icon(Icons.Default.Shield, contentDescription = null, tint = VerevColors.Moss)
-                        Text(
-                            text = stringResource(R.string.merchant_payment_methods_security_note),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VerevColors.Forest.copy(alpha = 0.72f),
+                        SettingsPageIntro(
+                            title = stringResource(R.string.merchant_payment_methods_invoices_title),
+                            subtitle = stringResource(R.string.merchant_payment_methods_invoices_subtitle),
                         )
+                        TextButton(onClick = onOpenInvoices) {
+                            Text(stringResource(R.string.merchant_all_invoices_open))
+                        }
+                    }
+                }
+                items(state.invoices, key = { it.id }) { invoice ->
+                    BillingHistoryCard(
+                        title = invoice.title,
+                        subtitle = invoice.subtitle,
+                        amount = invoice.amount,
+                        status = stringResource(invoice.statusRes),
+                        onClick = { onOpenInvoiceDetail(invoice.id) },
+                    )
+                }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(VerevColors.Moss.copy(alpha = 0.06f))
+                            .border(1.dp, VerevColors.Moss.copy(alpha = 0.16f), RoundedCornerShape(20.dp))
+                            .padding(14.dp),
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = VerevColors.Moss)
+                            Text(
+                                text = stringResource(R.string.merchant_payment_methods_security_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = VerevColors.Forest.copy(alpha = 0.72f),
+                            )
+                        }
                     }
                 }
             }
         }
+        MerchantLoadingOverlay(
+            isVisible = state.isSaving,
+            title = stringResource(R.string.merchant_loader_payment_methods_title),
+            subtitle = stringResource(R.string.merchant_loader_payment_methods_subtitle),
+        )
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::dismissMessage,
+        )
+    }
+    state.messageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            onDismiss = {
+                showAddCardDialog = false
+                viewModel.dismissMessage()
+            },
+        )
     }
 }
 

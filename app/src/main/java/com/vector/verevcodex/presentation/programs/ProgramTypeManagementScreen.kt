@@ -38,6 +38,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.theme.VerevColors
 import androidx.compose.foundation.shape.RoundedCornerShape
 
@@ -197,38 +199,6 @@ fun ProgramTypeManagementScreen(
                     colors = type.gradient(),
                 )
             }
-            state.messageRes?.let { messageRes ->
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = VerevColors.Forest.copy(alpha = 0.08f),
-                        shape = RoundedCornerShape(24.dp),
-                    ) {
-                        androidx.compose.material3.Text(
-                            text = stringResource(messageRes),
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                            color = VerevColors.Forest,
-                        )
-                    }
-                }
-            }
-            state.formErrorRes?.let { errorRes ->
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color(0xFFFFF3F1),
-                        shape = RoundedCornerShape(24.dp),
-                    ) {
-                        androidx.compose.material3.Text(
-                            text = stringResource(errorRes),
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                            color = VerevColors.ErrorText,
-                        )
-                    }
-                }
-            }
             item {
                 ProgramTypeHeroCard(
                     type = type,
@@ -268,6 +238,18 @@ fun ProgramTypeManagementScreen(
                 }
             }
         }
+    }
+    state.messageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            onDismiss = viewModel::clearMessage,
+        )
+    }
+    state.formErrorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::clearMessage,
+        )
     }
 }
 

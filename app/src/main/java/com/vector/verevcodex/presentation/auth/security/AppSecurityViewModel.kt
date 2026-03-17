@@ -37,6 +37,7 @@ class AppSecurityViewModel @Inject constructor(
         }.onEach { (session, security) ->
             val current = _uiState.value
             val authEntryDestination = when {
+                current.authEntryDestination == AuthEntryDestination.FORGOT_PIN -> current.authEntryDestination
                 session != null -> null
                 current.authEntryDestination != null -> current.authEntryDestination
                 else -> AuthEntryDestination.LOGIN
@@ -148,9 +149,18 @@ class AppSecurityViewModel @Inject constructor(
             pinError = null,
             pinErrorCount = 0,
         )
-        viewModelScope.launch {
-            logoutUseCase()
-        }
+    }
+
+    fun exitPinRecovery() {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            authEntryDestination = null,
+            requiresUnlock = state.session != null && state.securityConfig != null,
+            promptBiometric = false,
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
+        )
     }
 
     private fun verifyPin(

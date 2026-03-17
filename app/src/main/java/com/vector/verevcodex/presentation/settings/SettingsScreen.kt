@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,8 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -46,47 +49,57 @@ fun StoreManagementScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = contentPadding.calculateTopPadding() + 24.dp,
-            bottom = contentPadding.calculateBottomPadding() + 96.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            SettingsBackRow(onBack = onBack)
-        }
-        item {
-            SettingsHeroCard(
-                title = stringResource(R.string.merchant_store_management_title),
-                subtitle = stringResource(R.string.merchant_store_management_subtitle),
-                icon = Icons.Default.Storefront,
-                colors = listOf(VerevColors.Forest, VerevColors.Moss),
-            )
-        }
-        state.errorRes?.let { errorRes ->
-            item { SettingsDetailSection(title = stringResource(errorRes)) {} }
-        }
-        state.messageRes?.let { messageRes ->
-            item { SettingsDetailSection(title = stringResource(messageRes)) {} }
-        }
-        item {
-            Button(onClick = onOpenAddBranch, modifier = Modifier.fillParentMaxWidth()) {
-                androidx.compose.material3.Text(stringResource(R.string.merchant_add_branch))
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = contentPadding.calculateTopPadding() + 24.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                SettingsBackRow(onBack = onBack)
+            }
+            item {
+                SettingsHeroCard(
+                    title = stringResource(R.string.merchant_store_management_title),
+                    subtitle = stringResource(R.string.merchant_store_management_subtitle),
+                    icon = Icons.Default.Storefront,
+                    colors = listOf(VerevColors.Forest, VerevColors.Moss),
+                )
+            }
+            state.messageRes?.let { messageRes ->
+                item { SettingsDetailSection(title = stringResource(messageRes)) {} }
+            }
+            item {
+                Button(onClick = onOpenAddBranch, modifier = Modifier.fillParentMaxWidth()) {
+                    androidx.compose.material3.Text(stringResource(R.string.merchant_add_branch))
+                }
+            }
+            items(state.stores, key = { it.id }) { store ->
+                BranchStoreCard(
+                    store = store,
+                    selected = store.id == state.selectedStoreId,
+                    onSelect = { viewModel.selectStore(store.id) },
+                    onEdit = { onOpenEditBranch(store.id) },
+                    onToggleActive = { viewModel.toggleStoreActive(store) },
+                    onConfigureStaff = { onOpenBranchStaffConfig(store.id) },
+                    onConfigurePrograms = { onOpenBranchProgramsConfig(store.id) },
+                )
             }
         }
-        items(state.stores, key = { it.id }) { store ->
-            BranchStoreCard(
-                store = store,
-                selected = store.id == state.selectedStoreId,
-                onSelect = { viewModel.selectStore(store.id) },
-                onEdit = { onOpenEditBranch(store.id) },
-                onToggleActive = { viewModel.toggleStoreActive(store) },
-                onConfigureStaff = { onOpenBranchStaffConfig(store.id) },
-                onConfigurePrograms = { onOpenBranchProgramsConfig(store.id) },
+        MerchantLoadingOverlay(
+            isVisible = state.isSaving,
+            title = stringResource(R.string.merchant_loader_branch_settings_title),
+            subtitle = stringResource(R.string.merchant_loader_branch_settings_subtitle),
+        )
+        state.errorRes?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::dismissFeedback,
             )
         }
     }

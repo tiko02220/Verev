@@ -120,14 +120,6 @@ internal fun AddCustomerFormSheet(
                     icon = Icons.Default.CalendarMonth,
                     text = stringResource(R.string.merchant_add_customer_info),
                 )
-                state.errorRes?.takeIf {
-                    it != R.string.merchant_add_customer_error_first_name &&
-                        it != R.string.merchant_add_customer_error_last_name &&
-                        it != R.string.merchant_add_customer_error_email &&
-                        it != R.string.merchant_add_customer_error_phone
-                }?.let { errorRes ->
-                    AddCustomerErrorCard(text = stringResource(errorRes))
-                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
