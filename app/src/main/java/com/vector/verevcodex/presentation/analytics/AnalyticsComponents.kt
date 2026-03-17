@@ -2206,7 +2206,7 @@ internal fun AnalyticsAreaChartFromPoints(
                     val plotTop = analyticsPlotTop()
                     val plotBottom = analyticsPlotBottom()
                     val plotHeight = plotBottom - plotTop
-v                    val effectiveMax = chartPoints.maxOfOrNull { it.primary } ?: 0f
+                    val effectiveMax = chartPoints.maxOfOrNull { it.primary } ?: 0f
                     drawAnalyticsGrid(columnCount = chartPoints.size)
                     if (effectiveMax == 0f) {
                         val baselineY = plotTop + (plotHeight / 2f)
