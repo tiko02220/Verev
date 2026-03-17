@@ -706,6 +706,7 @@ fun MerchantAppNavHost(
                     onOpenBusinessDetails = { navController.navigate(Screen.BusinessDetails.route) },
                     onOpenPromotions = { navController.navigate(Screen.Promotions.route) },
                     onOpenStaff = { navController.navigate(Screen.Staff.route) },
+                    onOpenAnalytics = { navController.navigate(Screen.Analytics.route) },
                     onOpenReports = { navController.navigate(Screen.Reports.route) },
                     onOpenPayments = { navController.navigate(Screen.PaymentMethods.route) },
                     onOpenBranding = { navController.navigate(Screen.Branding.route) },

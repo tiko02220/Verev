@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import com.vector.verevcodex.presentation.common.state.UiState
 import com.vector.verevcodex.domain.model.common.LoyaltyTier
 
-internal data class CustomerListUiState(
+data class CustomerListUiState(
     val dataState: UiState<List<CustomerListCardUi>> = UiState.Loading,
     @StringRes val errorRes: Int? = null,
     val searchQuery: String = "",

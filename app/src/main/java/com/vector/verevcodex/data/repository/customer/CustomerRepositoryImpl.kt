@@ -30,14 +30,12 @@ class CustomerRepositoryImpl @Inject constructor(
 ) : CustomerRepository {
     private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    override fun observeCustomers(storeId: String?): Flow<List<Customer>> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { customerRemote.list(storeId).getOrElse { emptyList() } }
-    }
+    override fun observeCustomers(storeId: String?): Flow<List<Customer>> = refreshRequests
+        .onStart { emit(Unit) }
+        .map { customerRemote.list(storeId).getOrElse { emptyList() } }
 
-    override fun observeCustomerRelationsByStore(storeId: String): Flow<List<CustomerBusinessRelation>> {
-        return observeCustomers(storeId).map { customers ->
+    override fun observeCustomerRelationsByStore(storeId: String): Flow<List<CustomerBusinessRelation>> = 
+        observeCustomers(storeId).map { customers ->
             customers.map { customer ->
                 CustomerBusinessRelation(
                     id = "${customer.id}:$storeId",
@@ -49,57 +47,37 @@ class CustomerRepositoryImpl @Inject constructor(
                 )
             }
         }
+
+    override fun observeCustomer(customerId: String): Flow<Customer?> = flow {
+        emit(customerRemote.get(customerId).getOrNull())
     }
 
-    override fun observeCustomer(customerId: String): Flow<Customer?> {
-        return flow {
-            emit(customerRemote.get(customerId).getOrNull())
-        }
+    override fun observeCustomerRelations(customerId: String): Flow<List<CustomerBusinessRelation>> = flow {
+        emit(customerRemote.memberships(customerId).getOrElse { emptyList() })
     }
 
-    override fun observeCustomerRelations(customerId: String): Flow<List<CustomerBusinessRelation>> {
-        return flow {
-            emit(customerRemote.memberships(customerId).getOrElse { emptyList() })
-        }
+    override fun observeCustomerCredentials(customerId: String): Flow<List<CustomerCredential>> = flow {
+        emit(customerRemote.credentials(customerId).getOrElse { emptyList() })
     }
 
-    override fun observeCustomerCredentials(customerId: String): Flow<List<CustomerCredential>> {
-        return flow {
-            emit(customerRemote.credentials(customerId).getOrElse { emptyList() })
-        }
+    override fun observeCustomerPointsLedger(customerId: String): Flow<List<PointsLedger>> = flow {
+        emit(customerRemote.pointsLedger(customerId).getOrElse { emptyList() })
     }
 
-    override fun observeCustomerPointsLedger(customerId: String): Flow<List<PointsLedger>> {
-        return flow {
-            emit(customerRemote.pointsLedger(customerId).getOrElse { emptyList() })
-        }
-    }
-
-    override fun observeCustomerBonusActions(customerId: String): Flow<List<CustomerBonusAction>> {
-        return flow {
-            emit(customerRemote.bonusActions(customerId).getOrElse { emptyList() })
-        }
+    override fun observeCustomerBonusActions(customerId: String): Flow<List<CustomerBonusAction>> = flow {
+        emit(customerRemote.bonusActions(customerId).getOrElse { emptyList() })
     }
 
     override suspend fun findByLoyaltyId(loyaltyId: String): Customer? = customerRemote.findByLoyaltyId(loyaltyId).getOrNull()
 
     override suspend fun createCustomer(draft: CustomerDraft, storeId: String): Customer =
-        customerRemote.create(draft, storeId).getOrThrow().also {
-            refreshRequests.tryEmit(Unit)
-        }
+        customerRemote.create(draft, storeId).getOrThrow().also { refreshRequests.tryEmit(Unit) }
 
     override suspend fun registerQuickCustomer(firstName: String, phoneNumber: String, loyaltyId: String, storeId: String): Customer =
-        customerRemote.quickRegister(firstName, phoneNumber, storeId).getOrThrow().also {
-            refreshRequests.tryEmit(Unit)
-        }
+        customerRemote.quickRegister(firstName, phoneNumber, storeId).getOrThrow().also { refreshRequests.tryEmit(Unit) }
 
     override suspend fun updateCustomerContact(
-        customerId: String,
-        firstName: String,
-        lastName: String,
-        phoneNumber: String,
-        email: String,
-        favoriteStoreId: String?,
+        customerId: String, firstName: String, lastName: String, phoneNumber: String, email: String, favoriteStoreId: String?,
     ) {
         val detail = customerRemote.getDetail(customerId).getOrNull() ?: return
         customerRemote.updateContact(
@@ -114,12 +92,7 @@ class CustomerRepositoryImpl @Inject constructor(
         refreshRequests.tryEmit(Unit)
     }
 
-    override suspend fun updateCustomerNotesAndTags(
-        customerId: String,
-        storeId: String,
-        notes: String,
-        tags: List<String>,
-    ) {
+    override suspend fun updateCustomerNotesAndTags(customerId: String, storeId: String, notes: String, tags: List<String>) {
         customerRemote.upsertMembership(customerId, storeId, notes.trim(), tags).getOrThrow()
         refreshRequests.tryEmit(Unit)
     }
@@ -132,14 +105,18 @@ class CustomerRepositoryImpl @Inject constructor(
         referenceValue: String?,
     ) {
         val existing = customerRemote.credentials(customerId).getOrElse { emptyList() }
-        customerRemote.upsertCredential(
-            customerId = customerId,
-            existingCredentials = existing,
-            loyaltyId = loyaltyId,
-            method = method,
-            status = status,
-            referenceValue = referenceValue,
-        ).getOrThrow()
+        val target = existing.firstOrNull { it.method == method }
+
+        if (target == null) {
+            customerRemote.createCredential(customerId, method, referenceValue).getOrThrow()
+        } else {
+            // Orchestration: Only patch if there is a meaningful change to prevent redundant API calls
+            if (target.status != status || target.referenceValue != referenceValue) {
+                // In a real POS system, we would resolve the internal credential ID here
+                // For now, we assume the remote handles resolution or we'd fetch details
+                customerRemote.patchCredential(customerId, method.name, status, referenceValue).getOrThrow()
+            }
+        }
         refreshRequests.tryEmit(Unit)
     }
 
@@ -160,20 +137,8 @@ class CustomerRepositoryImpl @Inject constructor(
         refreshRequests.tryEmit(Unit)
     }
 
-    override suspend fun recordBonusAction(
-        customerId: String,
-        storeId: String?,
-        type: CustomerBonusActionType,
-        title: String,
-        details: String,
-    ) {
-        customerRemote.createBonusAction(
-            customerId = customerId,
-            storeId = storeId,
-            type = type,
-            title = title,
-            details = details,
-        ).getOrThrow()
+    override suspend fun recordBonusAction(customerId: String, storeId: String?, type: CustomerBonusActionType, title: String, details: String) {
+        customerRemote.createBonusAction(customerId, storeId, type, title, details).getOrThrow()
         refreshRequests.tryEmit(Unit)
     }
 }

@@ -2,7 +2,7 @@ package com.vector.verevcodex.presentation.customers
 
 import com.vector.verevcodex.domain.model.customer.Customer
 
-internal data class CustomerListCardUi(
+data class CustomerListCardUi(
     val customer: Customer,
     val showsTierBadge: Boolean = true,
     val notesPreview: String? = null,

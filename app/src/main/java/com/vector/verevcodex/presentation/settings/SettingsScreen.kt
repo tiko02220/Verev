@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
@@ -186,6 +187,7 @@ fun BusinessSettingsScreen(
     onOpenBusinessDetails: () -> Unit = {},
     onOpenPromotions: () -> Unit = {},
     onOpenStaff: () -> Unit = {},
+    onOpenAnalytics: () -> Unit = {},
     onOpenReports: () -> Unit = {},
     onOpenPayments: () -> Unit = {},
     onOpenBranding: () -> Unit = {},
@@ -264,6 +266,18 @@ fun BusinessSettingsScreen(
         }
         add(
             stringResource(R.string.merchant_settings_group_tools) to listOf(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_tab_analytics),
+                    subtitle = stringResource(R.string.merchant_analytics_subtitle),
+                    icon = Icons.Default.Analytics,
+                    onClick = onOpenAnalytics,
+                ),
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_reports),
+                    subtitle = stringResource(R.string.merchant_settings_reports_subtitle),
+                    icon = Icons.Default.Description,
+                    onClick = onOpenReports,
+                ),
                 SettingsMenuItem(
                     title = stringResource(R.string.merchant_settings_privacy),
                     subtitle = stringResource(R.string.merchant_settings_privacy_subtitle),
