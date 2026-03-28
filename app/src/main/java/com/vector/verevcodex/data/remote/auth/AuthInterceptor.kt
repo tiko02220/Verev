@@ -16,14 +16,17 @@ class AuthInterceptor @Inject constructor(
         val request = chain.request().newBuilder()
         runBlocking {
             tokenStore.getAccessToken()?.let { token ->
-                request.addHeader("Authorization", "Bearer $token")
+                request.header("Authorization", "Bearer $token")
             }
         }
-        request.addHeader("X-Device-Id", deviceId())
-        request.addHeader("Accept", "application/json")
-        request.addHeader("Content-Type", "application/json")
+        request.header("X-Device-Id", deviceId())
+        request.header("User-Agent", userAgent())
+        request.header("Accept", "application/json")
+        request.header("Content-Type", "application/json")
         return chain.proceed(request.build())
     }
 
     private fun deviceId(): String = "android-${Build.MANUFACTURER}-${Build.MODEL}-${Build.VERSION.SDK_INT}"
+
+    private fun userAgent(): String = "OneBonusBusiness/${Build.VERSION.SDK_INT} (${Build.MANUFACTURER} ${Build.MODEL})"
 }

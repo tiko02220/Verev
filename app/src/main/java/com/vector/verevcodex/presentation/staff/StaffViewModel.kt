@@ -4,6 +4,10 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.phone.isValidPhoneNumber
+import com.vector.verevcodex.common.phone.normalizePhoneNumber
+import com.vector.verevcodex.common.validation.isValidStaffPassword
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
 import com.vector.verevcodex.domain.model.business.StaffMember
 import com.vector.verevcodex.domain.model.business.StaffMemberDraft
@@ -15,7 +19,6 @@ import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
 import com.vector.verevcodex.domain.usecase.staff.RemoveStaffMemberUseCase
 import com.vector.verevcodex.domain.usecase.staff.UpdateStaffMemberUseCase
-import com.vector.verevcodex.data.remote.auth.ApiException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -74,7 +77,11 @@ class StaffViewModel @Inject constructor(
             publishError(R.string.merchant_staff_error_email)
             return
         }
-        if (password.length < 8) {
+        if (!isValidPhoneNumber(phoneNumber)) {
+            publishError(R.string.merchant_staff_error_phone)
+            return
+        }
+        if (!isValidStaffPassword(password)) {
             publishError(R.string.merchant_staff_error_password)
             return
         }
@@ -87,7 +94,7 @@ class StaffViewModel @Inject constructor(
                     StaffOnboardingMember(
                         fullName = fullName.trim(),
                         email = email.trim().lowercase(),
-                        phoneNumber = phoneNumber.trim(),
+                        phoneNumber = normalizePhoneNumber(phoneNumber),
                         password = password,
                         role = role,
                         permissionsSummary = permissions.summary(),
@@ -128,6 +135,10 @@ class StaffViewModel @Inject constructor(
             publishError(R.string.merchant_staff_error_email)
             return
         }
+        if (!isValidPhoneNumber(phoneNumber)) {
+            publishError(R.string.merchant_staff_error_phone)
+            return
+        }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, errorRes = null)
@@ -136,7 +147,7 @@ class StaffViewModel @Inject constructor(
                 StaffMemberDraft(
                     fullName = fullName.trim(),
                     email = email.trim().lowercase(),
-                    phoneNumber = phoneNumber.trim(),
+                    phoneNumber = normalizePhoneNumber(phoneNumber),
                     role = role,
                     permissionsSummary = permissions.summary(),
                     permissions = permissions,
@@ -201,7 +212,7 @@ data class StaffUiState(
 
 private fun Throwable.toStaffErrorMessage(): String? {
     val message = when (this) {
-        is ApiException -> message
+        is RemoteException -> message
         else -> message
     }?.trim().orEmpty()
     return message.takeIf { it.isNotBlank() && !it.startsWith("HTTP ", ignoreCase = true) }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
@@ -34,6 +33,7 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
+import com.vector.verevcodex.presentation.settings.branches.StoreManagementViewModel
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -187,7 +187,6 @@ fun BusinessSettingsScreen(
     onOpenBusinessDetails: () -> Unit = {},
     onOpenPromotions: () -> Unit = {},
     onOpenStaff: () -> Unit = {},
-    onOpenAnalytics: () -> Unit = {},
     onOpenReports: () -> Unit = {},
     onOpenPayments: () -> Unit = {},
     onOpenBranding: () -> Unit = {},
@@ -204,89 +203,25 @@ fun BusinessSettingsScreen(
         StaffRole.CASHIER, StaffRole.STAFF -> stringResource(R.string.merchant_settings_role_staff_subtitle)
         null -> stringResource(R.string.merchant_settings_role_default_subtitle)
     }
+    val currentRole = shellState.currentUser?.role
+    val permissions = shellState.currentUser?.permissions
+    val isStaffFocusedRole = currentRole == StaffRole.CASHIER || currentRole == StaffRole.STAFF
+    val isLoading = shellState.currentUser == null && shellState.selectedStore == null && shellState.stores.isEmpty()
 
-    val groups = buildList {
-        add(
-            stringResource(R.string.merchant_settings_group_account) to listOf(
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_personal_information),
-                    subtitle = stringResource(R.string.merchant_settings_personal_information_subtitle),
-                    icon = Icons.Default.Person,
-                    onClick = onOpenPersonalInformation,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_password_security),
-                    subtitle = stringResource(R.string.merchant_settings_password_security_subtitle),
-                    icon = Icons.Default.Shield,
-                    onClick = onOpenPasswordSecurity,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_email_notifications),
-                    subtitle = stringResource(R.string.merchant_settings_email_notifications_subtitle),
-                    icon = Icons.Default.Email,
-                    onClick = onOpenEmailNotifications,
-                ),
-            )
-        )
-        if (shellState.currentUser?.role == StaffRole.OWNER || shellState.currentUser?.role == StaffRole.STORE_MANAGER) {
-            add(
-                stringResource(R.string.merchant_settings_group_business) to listOf(
-                    SettingsMenuItem(
-                        title = stringResource(R.string.merchant_settings_business_details),
-                        subtitle = stringResource(R.string.merchant_settings_business_details_subtitle),
-                        icon = Icons.Default.Storefront,
-                        onClick = onOpenBusinessDetails,
-                    ),
-                    SettingsMenuItem(
-                        title = stringResource(R.string.merchant_settings_promotions),
-                        subtitle = stringResource(R.string.merchant_settings_promotions_subtitle),
-                        icon = Icons.Default.Campaign,
-                        onClick = onOpenPromotions,
-                    ),
-                    SettingsMenuItem(
-                        title = stringResource(R.string.merchant_settings_staff),
-                        subtitle = stringResource(R.string.merchant_settings_staff_subtitle),
-                        icon = Icons.Default.Groups,
-                        onClick = onOpenStaff,
-                    ),
-                    SettingsMenuItem(
-                        title = stringResource(R.string.merchant_settings_payments),
-                        subtitle = stringResource(R.string.merchant_settings_payments_subtitle),
-                        icon = Icons.Default.Payments,
-                        onClick = onOpenPayments,
-                    ),
-                    SettingsMenuItem(
-                        title = stringResource(R.string.merchant_settings_branding),
-                        subtitle = stringResource(R.string.merchant_settings_branding_subtitle),
-                        icon = Icons.Default.Palette,
-                        onClick = onOpenBranding,
-                    ),
-                )
-            )
-        }
-        add(
-            stringResource(R.string.merchant_settings_group_tools) to listOf(
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_tab_analytics),
-                    subtitle = stringResource(R.string.merchant_analytics_subtitle),
-                    icon = Icons.Default.Analytics,
-                    onClick = onOpenAnalytics,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_reports),
-                    subtitle = stringResource(R.string.merchant_settings_reports_subtitle),
-                    icon = Icons.Default.Description,
-                    onClick = onOpenReports,
-                ),
-                SettingsMenuItem(
-                    title = stringResource(R.string.merchant_settings_privacy),
-                    subtitle = stringResource(R.string.merchant_settings_privacy_subtitle),
-                    icon = Icons.Default.PrivacyTip,
-                    onClick = onOpenPrivacy,
-                ),
-            )
-        )
-    }
+    val groups = settingsGroups(
+        currentRole = currentRole,
+        permissions = permissions,
+        onOpenPersonalInformation = onOpenPersonalInformation,
+        onOpenPasswordSecurity = onOpenPasswordSecurity,
+        onOpenEmailNotifications = onOpenEmailNotifications,
+        onOpenBusinessDetails = onOpenBusinessDetails,
+        onOpenPromotions = onOpenPromotions,
+        onOpenStaff = onOpenStaff,
+        onOpenReports = onOpenReports,
+        onOpenPayments = onOpenPayments,
+        onOpenBranding = onOpenBranding,
+        onOpenPrivacy = onOpenPrivacy,
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -298,21 +233,28 @@ fun BusinessSettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { SettingsHeader(roleSubtitle = roleSubtitle) }
-        item { SettingsBusinessCard(store = shellState.selectedStore, currentUser = shellState.currentUser) }
-        groups.forEach { group ->
-            item { SettingsGroup(title = group.first, items = group.second) }
+        if (isLoading) {
+            item { SettingsScreenSkeleton(isStaffFocusedRole = isStaffFocusedRole) }
+        } else {
+            item { SettingsHeader(roleSubtitle = roleSubtitle) }
+            item { SettingsBusinessCard(store = shellState.selectedStore, currentUser = shellState.currentUser) }
+            if (isStaffFocusedRole) {
+                item { SettingsCurrentStoreCard(store = shellState.selectedStore) }
+            }
+            groups.forEach { group ->
+                item { SettingsGroup(group = group) }
+            }
+            item {
+                androidx.compose.material3.Text(
+                    text = stringResource(R.string.merchant_settings_version_label),
+                    modifier = Modifier.fillParentMaxWidth(),
+                    color = com.vector.verevcodex.presentation.theme.VerevColors.Inactive,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+            item { SettingsLogoutButton(onClick = { showLogoutDialog = true }) }
         }
-        item {
-            androidx.compose.material3.Text(
-                text = stringResource(R.string.merchant_settings_version_label),
-                modifier = Modifier.fillParentMaxWidth(),
-                color = com.vector.verevcodex.presentation.theme.VerevColors.Inactive,
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
-        item { SettingsLogoutButton(onClick = { showLogoutDialog = true }) }
     }
 
     if (showLogoutDialog) {
@@ -322,6 +264,176 @@ fun BusinessSettingsScreen(
                 viewModel.logout()
             },
             onCancel = { showLogoutDialog = false },
+        )
+    }
+}
+
+@Composable
+private fun settingsGroups(
+    currentRole: StaffRole?,
+    permissions: com.vector.verevcodex.domain.model.common.StaffPermissions?,
+    onOpenPersonalInformation: () -> Unit,
+    onOpenPasswordSecurity: () -> Unit,
+    onOpenEmailNotifications: () -> Unit,
+    onOpenBusinessDetails: () -> Unit,
+    onOpenPromotions: () -> Unit,
+    onOpenStaff: () -> Unit,
+    onOpenReports: () -> Unit,
+    onOpenPayments: () -> Unit,
+    onOpenBranding: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+): List<SettingsMenuGroup> {
+    val accountItems = listOf(
+        SettingsMenuItem(
+            title = stringResource(R.string.merchant_settings_personal_information),
+            subtitle = stringResource(R.string.merchant_settings_personal_information_subtitle),
+            icon = Icons.Default.Person,
+            onClick = onOpenPersonalInformation,
+        ),
+    )
+    val securityItems = listOf(
+        SettingsMenuItem(
+            title = stringResource(R.string.merchant_settings_password_security),
+            subtitle = stringResource(R.string.merchant_settings_password_security_subtitle),
+            icon = Icons.Default.Shield,
+            onClick = onOpenPasswordSecurity,
+        ),
+    )
+    val notificationItems = listOf(
+        SettingsMenuItem(
+            title = stringResource(R.string.merchant_settings_email_notifications),
+            subtitle = stringResource(R.string.merchant_settings_email_notifications_subtitle),
+            icon = Icons.Default.Email,
+            onClick = onOpenEmailNotifications,
+        ),
+    )
+    val operationalItems = buildList {
+        if (currentRole == StaffRole.OWNER || currentRole == StaffRole.STORE_MANAGER) {
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_business_details),
+                    subtitle = stringResource(R.string.merchant_settings_business_details_subtitle),
+                    icon = Icons.Default.Storefront,
+                    onClick = onOpenBusinessDetails,
+                )
+            )
+        }
+        if (permissions?.managePrograms == true) {
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_promotions),
+                    subtitle = stringResource(R.string.merchant_settings_promotions_subtitle),
+                    icon = Icons.Default.Campaign,
+                    onClick = onOpenPromotions,
+                )
+            )
+        }
+        if (permissions?.manageStaff == true) {
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_staff),
+                    subtitle = stringResource(R.string.merchant_settings_staff_subtitle),
+                    icon = Icons.Default.Groups,
+                    onClick = onOpenStaff,
+                )
+            )
+        }
+    }
+    val intelligenceItems = buildList {
+        if (permissions?.viewAnalytics == true) {
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_reports),
+                    subtitle = stringResource(R.string.merchant_settings_reports_subtitle),
+                    icon = Icons.Default.Description,
+                    onClick = onOpenReports,
+                )
+            )
+        }
+    }
+    val ownerControlItems = buildList {
+        if (currentRole == StaffRole.OWNER) {
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_payments),
+                    subtitle = stringResource(R.string.merchant_settings_payments_subtitle),
+                    icon = Icons.Default.Payments,
+                    onClick = onOpenPayments,
+                )
+            )
+            add(
+                SettingsMenuItem(
+                    title = stringResource(R.string.merchant_settings_branding),
+                    subtitle = stringResource(R.string.merchant_settings_branding_subtitle),
+                    icon = Icons.Default.Palette,
+                    onClick = onOpenBranding,
+                )
+            )
+        }
+    }
+    val supportItems = listOf(
+        SettingsMenuItem(
+            title = stringResource(R.string.merchant_settings_privacy),
+            subtitle = stringResource(R.string.merchant_settings_privacy_subtitle),
+            icon = Icons.Default.PrivacyTip,
+            onClick = onOpenPrivacy,
+        ),
+    )
+    return buildList {
+        add(
+            SettingsMenuGroup(
+                title = stringResource(R.string.merchant_settings_group_my_account),
+                subtitle = stringResource(R.string.merchant_settings_group_my_account_subtitle),
+                items = accountItems,
+            )
+        )
+        add(
+            SettingsMenuGroup(
+                title = stringResource(R.string.merchant_settings_group_security),
+                subtitle = stringResource(R.string.merchant_settings_group_security_subtitle),
+                items = securityItems,
+            )
+        )
+        add(
+            SettingsMenuGroup(
+                title = stringResource(R.string.merchant_settings_group_notifications),
+                subtitle = stringResource(R.string.merchant_settings_group_notifications_subtitle),
+                items = notificationItems,
+            )
+        )
+        if (operationalItems.isNotEmpty()) {
+            add(
+                SettingsMenuGroup(
+                    title = stringResource(R.string.merchant_settings_group_operations),
+                    subtitle = stringResource(R.string.merchant_settings_group_operations_subtitle),
+                    items = operationalItems,
+                )
+            )
+        }
+        if (intelligenceItems.isNotEmpty()) {
+            add(
+                SettingsMenuGroup(
+                    title = stringResource(R.string.merchant_settings_group_intelligence),
+                    subtitle = stringResource(R.string.merchant_settings_group_intelligence_subtitle),
+                    items = intelligenceItems,
+                )
+            )
+        }
+        if (ownerControlItems.isNotEmpty()) {
+            add(
+                SettingsMenuGroup(
+                    title = stringResource(R.string.merchant_settings_group_owner_controls),
+                    subtitle = stringResource(R.string.merchant_settings_group_owner_controls_subtitle),
+                    items = ownerControlItems,
+                )
+            )
+        }
+        add(
+            SettingsMenuGroup(
+                title = stringResource(R.string.merchant_settings_group_support),
+                subtitle = stringResource(R.string.merchant_settings_group_support_subtitle),
+                items = supportItems,
+            )
         )
     }
 }

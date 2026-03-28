@@ -11,7 +11,16 @@ class ObserveTransactionUseCase(private val repository: TransactionRepository) {
     operator fun invoke(transactionId: String) = repository.observeTransaction(transactionId)
 }
 
+class ObserveTransactionVoidRequestUseCase(private val repository: TransactionRepository) {
+    operator fun invoke(transactionId: String) = repository.observeTransactionVoidRequest(transactionId)
+}
+
 class RecordTransactionUseCase(private val repository: TransactionRepository) {
     suspend operator fun invoke(transaction: Transaction, incrementVisit: Boolean = true) =
         repository.recordTransaction(transaction, incrementVisit)
+}
+
+class RequestTransactionVoidUseCase(private val repository: TransactionRepository) {
+    suspend operator fun invoke(transactionId: String, reason: String) =
+        repository.requestVoidTransaction(transactionId, reason)
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
@@ -28,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.customer.CustomerGender
+import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.theme.VerevColors
 
@@ -36,6 +39,7 @@ internal fun AddCustomerFormSheet(
     state: AddCustomerUiState,
     onFirstNameChanged: (String) -> Unit,
     onLastNameChanged: (String) -> Unit,
+    onGenderSelected: (CustomerGender?) -> Unit,
     onEmailChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onCreateCustomer: () -> Unit,
@@ -92,6 +96,29 @@ internal fun AddCustomerFormSheet(
                         imeAction = androidx.compose.ui.text.input.ImeAction.Next,
                     ),
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = stringResource(R.string.merchant_add_customer_gender),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CustomerGenderChip(
+                            label = stringResource(R.string.merchant_add_customer_gender_female),
+                            selected = state.gender == CustomerGender.FEMALE,
+                            onClick = { onGenderSelected(CustomerGender.FEMALE) },
+                        )
+                        CustomerGenderChip(
+                            label = stringResource(R.string.merchant_add_customer_gender_male),
+                            selected = state.gender == CustomerGender.MALE,
+                            onClick = { onGenderSelected(CustomerGender.MALE) },
+                        )
+                    }
+                }
                 MerchantFormField(
                     value = state.email,
                     onValueChange = onEmailChanged,
@@ -149,12 +176,26 @@ internal fun AddCustomerFormSheet(
                                 if (state.isSaving) R.string.merchant_add_customer_creating else R.string.merchant_add_customer_create,
                             ),
                             fontWeight = FontWeight.Medium,
+                            maxLines = 1,
                         )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun CustomerGenderChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    MerchantFilterChip(
+        text = label,
+        selected = selected,
+        onClick = onClick,
+    )
 }
 
 @Composable

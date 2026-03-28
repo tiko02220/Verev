@@ -7,6 +7,10 @@ import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
 import com.vector.verevcodex.domain.model.customer.CustomerDraft
+import com.vector.verevcodex.domain.model.customer.CustomerMergePreview
+import com.vector.verevcodex.domain.model.customer.CustomerMergeResult
+import com.vector.verevcodex.domain.model.customer.CustomerSplitPreview
+import com.vector.verevcodex.domain.model.customer.CustomerSplitResult
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import com.vector.verevcodex.domain.repository.customer.CustomerRepository
 
@@ -39,7 +43,8 @@ class ObserveCustomerBonusActionsUseCase(private val repository: CustomerReposit
 }
 
 class FindCustomerByLoyaltyIdUseCase(private val repository: CustomerRepository) {
-    suspend operator fun invoke(loyaltyId: String): Customer? = repository.findByLoyaltyId(loyaltyId)
+    suspend operator fun invoke(loyaltyId: String, storeId: String? = null): Customer? =
+        repository.findByLoyaltyId(loyaltyId, storeId)
 }
 
 class CreateCustomerUseCase(private val repository: CustomerRepository) {
@@ -91,8 +96,8 @@ class AdjustCustomerVisitsUseCase(private val repository: CustomerRepository) {
 }
 
 class RecordCustomerCheckInUseCase(private val repository: CustomerRepository) {
-    suspend operator fun invoke(customerId: String, storeId: String, rewardPoints: Int) =
-        repository.recordCheckIn(customerId, storeId, rewardPoints)
+    suspend operator fun invoke(customerId: String, storeId: String) =
+        repository.recordCheckIn(customerId, storeId)
 }
 
 class RecordCustomerBonusActionUseCase(private val repository: CustomerRepository) {
@@ -103,4 +108,37 @@ class RecordCustomerBonusActionUseCase(private val repository: CustomerRepositor
         title: String,
         details: String,
     ) = repository.recordBonusAction(customerId, storeId, type, title, details)
+}
+
+class PreviewCustomerMergeUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(sourceCustomerId: String, targetCustomerId: String): CustomerMergePreview =
+        repository.previewCustomerMerge(sourceCustomerId, targetCustomerId)
+}
+
+class MergeCustomersUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(sourceCustomerId: String, targetCustomerId: String, notes: String? = null): CustomerMergeResult =
+        repository.mergeCustomers(sourceCustomerId, targetCustomerId, notes)
+}
+
+class PreviewCustomerSplitUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(sourceCustomerId: String): CustomerSplitPreview =
+        repository.previewCustomerSplit(sourceCustomerId)
+}
+
+class SplitCustomerUseCase(private val repository: CustomerRepository) {
+    suspend operator fun invoke(
+        sourceCustomerId: String,
+        firstName: String,
+        lastName: String,
+        phoneNumber: String,
+        email: String,
+        notes: String? = null,
+    ): CustomerSplitResult = repository.splitCustomer(
+        sourceCustomerId = sourceCustomerId,
+        firstName = firstName,
+        lastName = lastName,
+        phoneNumber = phoneNumber,
+        email = email,
+        notes = notes,
+    )
 }

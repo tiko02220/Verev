@@ -94,15 +94,42 @@ interface VerevCustomersApi {
         @Path("customerId") customerId: String,
         @Body request: ManualPointsAdjustmentRequestDto,
         @Header("X-Idempotency-Key") idempotencyKey: String? = null,
-    ): Response<ApiEnvelope<Any>>
+    ): Response<ApiEnvelope<ManualPointsAdjustmentResponseDto>>
 
     @POST("v1/customers/{customerId}/visit-adjustments")
     suspend fun adjustVisits(
         @Path("customerId") customerId: String,
         @Body request: ManualVisitAdjustmentRequestDto,
         @Header("X-Idempotency-Key") idempotencyKey: String? = null,
-    ): Response<ApiEnvelope<Any>>
+    ): Response<ApiEnvelope<ManualVisitAdjustmentResponseDto>>
 
     @GET("v1/customers/by-loyalty-id/{loyaltyId}")
-    suspend fun byLoyaltyId(@Path("loyaltyId") loyaltyId: String): Response<ApiEnvelope<CustomerDetailResponseDto>>
+    suspend fun byLoyaltyId(
+        @Path("loyaltyId") loyaltyId: String,
+        @Query("storeId") storeId: String? = null,
+    ): Response<ApiEnvelope<CustomerDetailResponseDto>>
+
+    @GET("v1/customers/merge-preview")
+    suspend fun mergePreview(
+        @Query("sourceCustomerId") sourceCustomerId: String,
+        @Query("targetCustomerId") targetCustomerId: String,
+    ): Response<ApiEnvelope<CustomerMergePreviewDto>>
+
+    @POST("v1/customers/merge")
+    suspend fun merge(
+        @Body request: MergeCustomersRequestDto,
+        @Header("X-Idempotency-Key") idempotencyKey: String? = null,
+    ): Response<ApiEnvelope<CustomerMergeResultDto>>
+
+    @GET("v1/customers/split-preview")
+    suspend fun splitPreview(
+        @Query("sourceCustomerId") sourceCustomerId: String,
+        @Query("organizationId") organizationId: String,
+    ): Response<ApiEnvelope<CustomerSplitPreviewDto>>
+
+    @POST("v1/customers/split")
+    suspend fun split(
+        @Body request: SplitCustomerRequestDto,
+        @Header("X-Idempotency-Key") idempotencyKey: String? = null,
+    ): Response<ApiEnvelope<CustomerSplitResultDto>>
 }

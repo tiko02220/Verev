@@ -41,6 +41,8 @@ import com.vector.verevcodex.presentation.analytics.ProgramAnalyticsScreen
 import com.vector.verevcodex.presentation.analytics.PromotionAnalyticsScreen
 import com.vector.verevcodex.presentation.analytics.RevenueAnalyticsScreen
 import com.vector.verevcodex.presentation.analytics.StaffAnalyticsScreen
+import com.vector.verevcodex.presentation.auth.activation.ForcePasswordSetupScreen
+import com.vector.verevcodex.presentation.auth.activation.FirstSecuritySetupScreen
 import com.vector.verevcodex.presentation.auth.forgot.ForgotPasswordScreen
 import com.vector.verevcodex.presentation.auth.forgot.RecoveryMode
 import com.vector.verevcodex.presentation.auth.login.LoginScreen
@@ -54,6 +56,7 @@ import com.vector.verevcodex.presentation.dashboard.DashboardScreen
 import com.vector.verevcodex.presentation.merchant.common.MerchantBottomBar
 import com.vector.verevcodex.presentation.merchant.common.MerchantBottomDestination
 import com.vector.verevcodex.presentation.merchant.common.MerchantTopBar
+import com.vector.verevcodex.presentation.notifications.NotificationInboxScreen
 import com.vector.verevcodex.presentation.programs.LoyaltyProgramManagementScreen
 import com.vector.verevcodex.presentation.programs.ProgramModulesScreen
 import com.vector.verevcodex.presentation.programs.ConfiguredProgramsScreen
@@ -64,19 +67,19 @@ import com.vector.verevcodex.presentation.promotions.PromotionsScreen
 import com.vector.verevcodex.presentation.reports.ReportExportScreen
 import com.vector.verevcodex.presentation.scan.ScanScreen
 import com.vector.verevcodex.presentation.scan.ScanViewModel
-import com.vector.verevcodex.presentation.settings.AddBranchScreen
+import com.vector.verevcodex.presentation.settings.account.EmailNotificationsScreen
+import com.vector.verevcodex.presentation.settings.account.PasswordSecurityScreen
+import com.vector.verevcodex.presentation.settings.account.PersonalInformationScreen
+import com.vector.verevcodex.presentation.settings.billing.AllInvoicesScreen
+import com.vector.verevcodex.presentation.settings.billing.InvoiceDetailScreen
+import com.vector.verevcodex.presentation.settings.billing.PlanSelectionScreen
+import com.vector.verevcodex.presentation.settings.branches.AddBranchScreen
 import com.vector.verevcodex.presentation.settings.BrandingScreen
-import com.vector.verevcodex.presentation.settings.BranchStaffConfigScreen
+import com.vector.verevcodex.presentation.settings.branches.BranchStaffConfigScreen
 import com.vector.verevcodex.presentation.settings.BusinessDetailsScreen
 import com.vector.verevcodex.presentation.settings.BusinessSettingsScreen
-import com.vector.verevcodex.presentation.settings.EditBranchScreen
-import com.vector.verevcodex.presentation.settings.EmailNotificationsScreen
-import com.vector.verevcodex.presentation.settings.AllInvoicesScreen
-import com.vector.verevcodex.presentation.settings.InvoiceDetailScreen
-import com.vector.verevcodex.presentation.settings.PlanSelectionScreen
+import com.vector.verevcodex.presentation.settings.branches.EditBranchScreen
 import com.vector.verevcodex.presentation.settings.PaymentMethodsScreen
-import com.vector.verevcodex.presentation.settings.PasswordSecurityScreen
-import com.vector.verevcodex.presentation.settings.PersonalInformationScreen
 import com.vector.verevcodex.presentation.settings.PrivacyTermsScreen
 import com.vector.verevcodex.presentation.settings.StoreManagementScreen
 import com.vector.verevcodex.presentation.staff.StaffManagementScreen
@@ -84,9 +87,14 @@ import com.vector.verevcodex.presentation.stores.StoreSelectionScreen
 import com.vector.verevcodex.presentation.theme.VerevColors
 import com.vector.verevcodex.presentation.transactions.TransactionEntryScreen
 
+private const val PROGRAM_EDITOR_QUERY = "openEditor"
+private const val PROGRAMS_HOME_TAB_QUERY = "tab"
+
 sealed class Screen(val route: String, @StringRes val labelRes: Int) {
     data object Login : Screen("login", R.string.auth_sign_in)
     data object Signup : Screen("signup", R.string.auth_create_account)
+    data object ForcePasswordSetup : Screen("force_password_setup", R.string.auth_force_password_setup_title)
+    data object FirstSecuritySetup : Screen("first_security_setup", R.string.auth_pin_setup_title)
     data object ForgotPassword : Screen("forgot_password", R.string.auth_forgot_password_title)
     data object ForgotPin : Screen("forgot_pin", R.string.auth_forgot_pin_title)
     data object StoreSelection : Screen("store_selection", R.string.merchant_select_store)
@@ -115,22 +123,42 @@ sealed class Screen(val route: String, @StringRes val labelRes: Int) {
     }
     data object Transactions : Screen("transactions", R.string.merchant_transactions)
     data object Rewards : Screen("rewards", R.string.merchant_rewards_title)
-    data object LoyaltyPrograms : Screen("programs", R.string.merchant_tab_programs)
+    data object LoyaltyPrograms : Screen("programs", R.string.merchant_tab_programs) {
+        const val TAB_PROGRAMS = "programs"
+        const val TAB_REWARDS = "rewards"
+        const val ROUTE_PATTERN = "programs?$PROGRAMS_HOME_TAB_QUERY={$PROGRAMS_HOME_TAB_QUERY}"
+        fun createRoute(tab: String = TAB_PROGRAMS): String = "programs?$PROGRAMS_HOME_TAB_QUERY=$tab"
+    }
     data object ProgramModules : Screen("programs/modules", R.string.merchant_program_modules_title)
     data object ConfiguredPrograms : Screen("programs/configured", R.string.merchant_programs_configured_title)
-    data object PointsRewards : Screen("programs/points", R.string.merchant_points_rewards_title)
-    data object TieredLoyalty : Screen("programs/tiered", R.string.merchant_tiered_loyalty_title)
-    data object CouponsManager : Screen("programs/coupons", R.string.merchant_coupons_manager_title)
-    data object CheckinRewards : Screen("programs/checkin", R.string.merchant_checkin_rewards_title)
-    data object PurchaseFrequency : Screen("programs/purchase_frequency", R.string.merchant_purchase_frequency_title)
-    data object ReferralRewards : Screen("programs/referrals", R.string.merchant_referral_rewards_title)
-    data object HybridPrograms : Screen("programs/hybrid", R.string.merchant_hybrid_programs_title)
+    data object PointsRewards : Screen("programs/points?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_points_rewards_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/points?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object TieredLoyalty : Screen("programs/tiered?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_tiered_loyalty_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/tiered?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object CouponsManager : Screen("programs/coupons?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_coupons_manager_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/coupons?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object CheckinRewards : Screen("programs/checkin?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_checkin_rewards_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/checkin?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object PurchaseFrequency : Screen("programs/purchase_frequency?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_purchase_frequency_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/purchase_frequency?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object ReferralRewards : Screen("programs/referrals?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_referral_rewards_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/referrals?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
+    data object HybridPrograms : Screen("programs/hybrid?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_hybrid_programs_title) {
+        fun createRoute(openEditor: Boolean = false): String = "programs/hybrid?$PROGRAM_EDITOR_QUERY=$openEditor"
+    }
     data object Promotions : Screen("promotions", R.string.merchant_promotions_title)
     data object Staff : Screen("staff", R.string.merchant_staff)
     data object BusinessDetails : Screen("business_details", R.string.merchant_business_details_title)
     data object PersonalInformation : Screen("personal_information", R.string.merchant_settings_personal_information)
     data object PasswordSecurity : Screen("password_security", R.string.merchant_settings_password_security)
     data object EmailNotifications : Screen("email_notifications", R.string.merchant_settings_email_notifications)
+    data object Notifications : Screen("notifications", R.string.merchant_notifications_inbox_title)
     data object PaymentMethods : Screen("payment_methods", R.string.merchant_payment_methods_title)
     data object PlanSelection : Screen("payment_methods/plans", R.string.merchant_plan_selection_title)
     data object AllInvoices : Screen("payment_methods/invoices", R.string.merchant_all_invoices_title)
@@ -166,6 +194,16 @@ sealed class Screen(val route: String, @StringRes val labelRes: Int) {
 
 private data class TopLevelDestination(val screen: Screen, val icon: ImageVector)
 
+private fun NavHostController.openProgramsRoot() {
+    val returnedToRoot = popBackStack(Screen.LoyaltyPrograms.route, inclusive = false)
+    if (!returnedToRoot) {
+        navigate(Screen.LoyaltyPrograms.createRoute()) {
+            popUpTo(graph.findStartDestination().id)
+            launchSingleTop = true
+        }
+    }
+}
+
 @Composable
 fun AuthNavHost(
     modifier: Modifier = Modifier,
@@ -192,7 +230,16 @@ fun AuthNavHost(
                 onBack = { navController.popBackStack() },
                 onLoginRequested = { navController.popBackStack(Screen.Login.route, false) },
                 onForgotPasswordRequested = { navController.navigate(Screen.ForgotPassword.route) },
-                onSignupCompleted = onAuthenticated,
+            )
+        }
+        composable(Screen.ForcePasswordSetup.route) {
+            ForcePasswordSetupScreen(
+                onCompleted = onAuthenticated,
+            )
+        }
+        composable(Screen.FirstSecuritySetup.route) {
+            FirstSecuritySetupScreen(
+                onCompleted = onAuthenticated,
             )
         }
         composable(Screen.ForgotPassword.route) {
@@ -262,6 +309,12 @@ fun MerchantAppNavHost(
                     onOpenCustomer = { customerId ->
                         navController.navigate(Screen.CustomerProfile.createRoute(customerId))
                     },
+                    onOpenPrograms = {
+                        navController.navigate(Screen.LoyaltyPrograms.createRoute()) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                 )
             }
         }
@@ -272,6 +325,7 @@ fun MerchantAppNavHost(
                     onOpenCustomer = { customerId ->
                         navController.navigate(Screen.CustomerProfile.createRoute(customerId))
                     },
+                    onOpenAddCustomer = { navController.navigate(Screen.AddCustomer.route) },
                 )
             }
         }
@@ -280,11 +334,6 @@ fun MerchantAppNavHost(
                 AddCustomerScreen(
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onOpenProfile = { customerId ->
-                        navController.navigate(Screen.CustomerProfile.createRoute(customerId)) {
-                            popUpTo(Screen.AddCustomer.route) { inclusive = true }
-                        }
-                    },
                 )
             }
         }
@@ -296,6 +345,9 @@ fun MerchantAppNavHost(
                 CustomerProfileScreen(
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onOpenCustomer = { customerId ->
+                        navController.navigate(Screen.CustomerProfile.createRoute(customerId))
+                    },
                     onOpenTransaction = { transactionId ->
                         navController.navigate(Screen.CustomerTransactionDetail.createRoute(transactionId))
                     },
@@ -332,18 +384,37 @@ fun MerchantAppNavHost(
                 TransactionEntryScreen(
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onOpenTransaction = { transactionId ->
+                        navController.navigate(Screen.CustomerTransactionDetail.createRoute(transactionId))
+                    },
                 )
             }
         }
         composable(Screen.Rewards.route) {
             MerchantShell(navController = navController) { padding ->
-                RewardManagementScreen(contentPadding = padding)
+                RewardManagementScreen(
+                    contentPadding = padding,
+                    onBack = {
+                        navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) {
+                            popUpTo(Screen.Rewards.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
         }
-        composable(Screen.LoyaltyPrograms.route) {
+        composable(
+            route = Screen.LoyaltyPrograms.ROUTE_PATTERN,
+            arguments = listOf(navArgument(PROGRAMS_HOME_TAB_QUERY) {
+                type = NavType.StringType
+                defaultValue = Screen.LoyaltyPrograms.TAB_PROGRAMS
+            }),
+        ) { entry ->
+            val initialTab = entry.arguments?.getString(PROGRAMS_HOME_TAB_QUERY)
             MerchantShell(navController = navController) { padding ->
                 LoyaltyProgramManagementScreen(
                     contentPadding = padding,
+                    startOnRewardsTab = initialTab == Screen.LoyaltyPrograms.TAB_REWARDS,
                     onOpenConfiguredPrograms = { navController.navigate(Screen.ConfiguredPrograms.route) },
                     onOpenProgramModules = { navController.navigate(Screen.ProgramModules.route) },
                     onOpenPointsRewards = { navController.navigate(Screen.PointsRewards.route) },
@@ -361,13 +432,13 @@ fun MerchantAppNavHost(
                 ProgramModulesScreen(
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
-                    onOpenPointsRewards = { navController.navigate(Screen.PointsRewards.route) },
-                    onOpenTieredLoyalty = { navController.navigate(Screen.TieredLoyalty.route) },
-                    onOpenCouponsManager = { navController.navigate(Screen.CouponsManager.route) },
-                    onOpenCheckinRewards = { navController.navigate(Screen.CheckinRewards.route) },
-                    onOpenPurchaseFrequency = { navController.navigate(Screen.PurchaseFrequency.route) },
-                    onOpenReferralRewards = { navController.navigate(Screen.ReferralRewards.route) },
-                    onOpenHybridPrograms = { navController.navigate(Screen.HybridPrograms.route) },
+                    onOpenPointsRewards = { navController.navigate(Screen.PointsRewards.createRoute(openEditor = true)) },
+                    onOpenTieredLoyalty = { navController.navigate(Screen.TieredLoyalty.createRoute(openEditor = true)) },
+                    onOpenCouponsManager = { navController.navigate(Screen.CouponsManager.createRoute(openEditor = true)) },
+                    onOpenCheckinRewards = { navController.navigate(Screen.CheckinRewards.createRoute(openEditor = true)) },
+                    onOpenPurchaseFrequency = { navController.navigate(Screen.PurchaseFrequency.createRoute(openEditor = true)) },
+                    onOpenReferralRewards = { navController.navigate(Screen.ReferralRewards.createRoute(openEditor = true)) },
+                    onOpenHybridPrograms = { navController.navigate(Screen.HybridPrograms.createRoute(openEditor = true)) },
                 )
             }
         }
@@ -381,66 +452,136 @@ fun MerchantAppNavHost(
                 )
             }
         }
-        composable(Screen.PointsRewards.route) {
+        composable(
+            route = Screen.PointsRewards.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.POINTS,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.TieredLoyalty.route) {
+        composable(
+            route = Screen.TieredLoyalty.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.TIER,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.CouponsManager.route) {
+        composable(
+            route = Screen.CouponsManager.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.COUPON,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.CheckinRewards.route) {
+        composable(
+            route = Screen.CheckinRewards.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.DIGITAL_STAMP,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.PurchaseFrequency.route) {
+        composable(
+            route = Screen.PurchaseFrequency.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.PURCHASE_FREQUENCY,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.ReferralRewards.route) {
+        composable(
+            route = Screen.ReferralRewards.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.REFERRAL,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
-        composable(Screen.HybridPrograms.route) {
+        composable(
+            route = Screen.HybridPrograms.route,
+            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
+                type = NavType.BoolType
+                defaultValue = false
+            }),
+        ) { entry ->
+            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.HYBRID,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
+                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
+                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    openEditorOnLaunch = openEditor,
                 )
             }
         }
@@ -706,13 +847,17 @@ fun MerchantAppNavHost(
                     onOpenBusinessDetails = { navController.navigate(Screen.BusinessDetails.route) },
                     onOpenPromotions = { navController.navigate(Screen.Promotions.route) },
                     onOpenStaff = { navController.navigate(Screen.Staff.route) },
-                    onOpenAnalytics = { navController.navigate(Screen.Analytics.route) },
                     onOpenReports = { navController.navigate(Screen.Reports.route) },
                     onOpenPayments = { navController.navigate(Screen.PaymentMethods.route) },
                     onOpenBranding = { navController.navigate(Screen.Branding.route) },
                     onOpenPrivacy = { navController.navigate(Screen.Privacy.route) },
                 )
             }
+        }
+        composable(Screen.Notifications.route) {
+            NotificationInboxScreen(
+                onBack = { navController.popBackStack() },
+            )
         }
     }
 }
@@ -723,23 +868,30 @@ private fun MerchantShell(
     shellViewModel: ShellViewModel = hiltViewModel(),
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val destinations = listOf(
-        TopLevelDestination(Screen.Dashboard, Icons.Default.Home),
-        TopLevelDestination(Screen.Analytics, Icons.Default.Analytics),
-        TopLevelDestination(Screen.LoyaltyPrograms, Icons.Default.Campaign),
-        TopLevelDestination(Screen.Customers, Icons.Default.Groups),
-        TopLevelDestination(Screen.Settings, Icons.Default.Settings),
-    )
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    val topLevelRoutes = destinations.map { it.screen.route }.toSet()
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
-    val showTopBar = currentRoute in topLevelRoutes
-    val showBottomBar = currentRoute in topLevelRoutes
-    val showFab = currentRoute in setOf(
+    val destinations = buildList {
+        add(TopLevelDestination(Screen.Dashboard, Icons.Default.Home))
+        if (shellState.currentUser?.permissions?.viewAnalytics == true) {
+            add(TopLevelDestination(Screen.Analytics, Icons.Default.Analytics))
+        }
+        if (shellState.currentUser?.permissions?.viewPrograms == true) {
+            add(TopLevelDestination(Screen.LoyaltyPrograms, Icons.Default.Campaign))
+        }
+        if (shellState.currentUser?.permissions?.manageCustomers == true) {
+            add(TopLevelDestination(Screen.Customers, Icons.Default.Groups))
+        }
+        add(TopLevelDestination(Screen.Settings, Icons.Default.Settings))
+    }
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentBaseRoute = currentRoute?.substringBefore("?")
+    val topLevelRoutes = destinations.map { it.screen.route.substringBefore("?") }.toSet()
+    val showTopBar = currentBaseRoute in topLevelRoutes
+    val showBottomBar = currentBaseRoute in topLevelRoutes
+    val showFab = currentBaseRoute in setOf(
         Screen.Dashboard.route,
         Screen.LoyaltyPrograms.route,
         Screen.Customers.route,
-    )
+    ) && shellState.currentUser?.permissions?.processTransactions == true
 
     Scaffold(
         containerColor = VerevColors.AppBackground,
@@ -749,14 +901,16 @@ private fun MerchantShell(
                     currentUser = shellState.currentUser,
                     selectedStore = shellState.selectedStore,
                     stores = shellState.stores,
+                    unreadNotifications = shellState.unreadNotificationCount,
                     onStoreSelected = shellViewModel::selectStore,
+                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
                 )
             }
         },
         floatingActionButton = {
             if (showFab) {
                 FloatingActionButton(
-                    onClick = { navController.navigate(Screen.Scan.createRoute(ScanMethod.NFC)) },
+                    onClick = { navController.navigate(Screen.Scan.createRoute()) },
                     containerColor = VerevColors.Gold,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp),
@@ -769,7 +923,7 @@ private fun MerchantShell(
             if (showBottomBar) {
                 MerchantBottomBar(
                     destinations = destinations.map { MerchantBottomDestination(it.screen.route, it.screen.labelRes, it.icon) },
-                    currentRoute = currentRoute,
+                    currentRoute = currentBaseRoute,
                     onDestinationClick = { destination ->
                         navController.navigate(destination.route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }

@@ -1,16 +1,13 @@
 package com.vector.verevcodex.di
 
-import android.content.Context
-import androidx.room.Room
-import com.vector.verevcodex.data.db.AppDatabase
-import com.vector.verevcodex.data.db.AppDatabaseMigrations
-import com.vector.verevcodex.data.db.DatabaseSeeder
 import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
 import com.vector.verevcodex.data.repository.analytics.AnalyticsRepositoryImpl
 import com.vector.verevcodex.data.repository.auth.AuthRepositoryImpl
 import com.vector.verevcodex.data.repository.customer.CustomerRepositoryImpl
 import com.vector.verevcodex.data.repository.loyalty.LoyaltyRepositoryImpl
+import com.vector.verevcodex.data.repository.notifications.NotificationRepositoryImpl
 import com.vector.verevcodex.data.repository.reports.ReportRepositoryImpl
+import com.vector.verevcodex.data.repository.realtime.RealtimeRepositoryImpl
 import com.vector.verevcodex.data.repository.scan.ScanPreferencesRepositoryImpl
 import com.vector.verevcodex.data.repository.staff.StaffRepositoryImpl
 import com.vector.verevcodex.data.repository.store.StoreRepositoryImpl
@@ -19,7 +16,9 @@ import com.vector.verevcodex.domain.repository.analytics.AnalyticsRepository
 import com.vector.verevcodex.domain.repository.settings.BusinessSettingsRepository
 import com.vector.verevcodex.domain.repository.customer.CustomerRepository
 import com.vector.verevcodex.domain.repository.loyalty.LoyaltyRepository
+import com.vector.verevcodex.domain.repository.notifications.NotificationRepository
 import com.vector.verevcodex.domain.repository.reports.ReportRepository
+import com.vector.verevcodex.domain.repository.realtime.RealtimeRepository
 import com.vector.verevcodex.domain.repository.scan.ScanPreferencesRepository
 import com.vector.verevcodex.domain.repository.staff.StaffRepository
 import com.vector.verevcodex.domain.repository.store.StoreRepository
@@ -30,6 +29,7 @@ import com.vector.verevcodex.domain.usecase.auth.ActivateSessionUseCase
 import com.vector.verevcodex.domain.usecase.auth.ChangeCurrentPasswordUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveCurrentSecurityConfigUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveEmailNotificationSettingsUseCase
+import com.vector.verevcodex.domain.usecase.auth.ObserveSignupOnboardingPendingUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
 import com.vector.verevcodex.domain.usecase.auth.LogoutUseCase
 import com.vector.verevcodex.domain.usecase.auth.RegisterBusinessUseCase
@@ -37,12 +37,17 @@ import com.vector.verevcodex.domain.usecase.auth.ResetPasswordUseCase
 import com.vector.verevcodex.domain.usecase.auth.ResetQuickPinUseCase
 import com.vector.verevcodex.domain.usecase.auth.SaveSecuritySetupUseCase
 import com.vector.verevcodex.domain.usecase.auth.SendPasswordResetCodeUseCase
+import com.vector.verevcodex.domain.usecase.auth.SetSignupOnboardingPendingUseCase
 import com.vector.verevcodex.domain.usecase.auth.UpdateCurrentBiometricEnabledUseCase
 import com.vector.verevcodex.domain.usecase.auth.UpdateCurrentProfileUseCase
 import com.vector.verevcodex.domain.usecase.auth.UpdateCurrentQuickPinUseCase
 import com.vector.verevcodex.domain.usecase.auth.UpdateEmailNotificationSettingsUseCase
 import com.vector.verevcodex.domain.usecase.auth.VerifyQuickPinUseCase
 import com.vector.verevcodex.domain.usecase.auth.VerifyPasswordResetCodeUseCase
+import com.vector.verevcodex.domain.usecase.notifications.MarkAllMerchantNotificationsReadUseCase
+import com.vector.verevcodex.domain.usecase.notifications.MarkMerchantNotificationReadUseCase
+import com.vector.verevcodex.domain.usecase.notifications.ObserveMerchantNotificationsUseCase
+import com.vector.verevcodex.domain.usecase.notifications.ObserveUnreadMerchantNotificationCountUseCase
 import com.vector.verevcodex.domain.usecase.settings.AddPaymentMethodUseCase
 import com.vector.verevcodex.domain.usecase.staff.AddStaffMembersUseCase
 import com.vector.verevcodex.domain.usecase.staff.RemoveStaffMemberUseCase
@@ -54,6 +59,7 @@ import com.vector.verevcodex.domain.usecase.customer.RecordCustomerCheckInUseCas
 import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.CreateProgramUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.CreateRewardUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.AdjustRewardInventoryUseCase
 import com.vector.verevcodex.domain.usecase.reports.ExportReportUseCase
 import com.vector.verevcodex.domain.usecase.scan.ClearScanPreferenceUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.DeleteProgramUseCase
@@ -81,6 +87,9 @@ import com.vector.verevcodex.domain.usecase.analytics.ObserveProgramAnalyticsUse
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
 import com.vector.verevcodex.domain.usecase.analytics.ObservePromotionAnalyticsUseCase
 import com.vector.verevcodex.domain.usecase.analytics.ObserveRevenueAnalyticsUseCase
+import com.vector.verevcodex.domain.usecase.customer.MergeCustomersUseCase
+import com.vector.verevcodex.domain.usecase.customer.PreviewCustomerMergeUseCase
+import com.vector.verevcodex.domain.usecase.customer.PreviewCustomerSplitUseCase
 import com.vector.verevcodex.domain.usecase.reports.ObserveAutoReportSettingsUseCase
 import com.vector.verevcodex.domain.usecase.scan.ObserveScanPreferencesUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveRewardsUseCase
@@ -91,10 +100,13 @@ import com.vector.verevcodex.domain.usecase.staff.ObserveStaffAnalyticsUseCase
 import com.vector.verevcodex.domain.usecase.staff.ObserveStaffUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
 import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionUseCase
+import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionVoidRequestUseCase
 import com.vector.verevcodex.domain.usecase.transactions.ObserveTransactionsUseCase
 import com.vector.verevcodex.domain.usecase.customer.QuickRegisterCustomerUseCase
 import com.vector.verevcodex.domain.usecase.customer.RecordCustomerBonusActionUseCase
+import com.vector.verevcodex.domain.usecase.customer.SplitCustomerUseCase
 import com.vector.verevcodex.domain.usecase.customer.UpsertCustomerCredentialUseCase
+import com.vector.verevcodex.domain.usecase.transactions.RequestTransactionVoidUseCase
 import com.vector.verevcodex.domain.usecase.transactions.RecordTransactionUseCase
 import com.vector.verevcodex.domain.usecase.settings.RemovePaymentMethodUseCase
 import com.vector.verevcodex.domain.usecase.reports.SaveAutoReportSettingsUseCase
@@ -124,21 +136,6 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DatabaseModule {
-    @Provides
-    @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "verev_merchant.db")
-            .addMigrations(*AppDatabaseMigrations.ALL)
-            .build()
-
-    @Provides
-    @Singleton
-    fun provideSeeder(database: AppDatabase): DatabaseSeeder = DatabaseSeeder(database)
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
     @Binds abstract fun bindStoreRepository(impl: StoreRepositoryImpl): StoreRepository
@@ -147,9 +144,11 @@ abstract class RepositoryModule {
     @Binds abstract fun bindScanPreferencesRepository(impl: ScanPreferencesRepositoryImpl): ScanPreferencesRepository
     @Binds abstract fun bindLoyaltyRepository(impl: LoyaltyRepositoryImpl): LoyaltyRepository
     @Binds abstract fun bindTransactionRepository(impl: TransactionRepositoryImpl): TransactionRepository
+    @Binds abstract fun bindRealtimeRepository(impl: RealtimeRepositoryImpl): RealtimeRepository
     @Binds abstract fun bindStaffRepository(impl: StaffRepositoryImpl): StaffRepository
     @Binds abstract fun bindAnalyticsRepository(impl: AnalyticsRepositoryImpl): AnalyticsRepository
     @Binds abstract fun bindReportRepository(impl: ReportRepositoryImpl): ReportRepository
+    @Binds abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
 }
 
 @Module
@@ -158,6 +157,7 @@ object UseCaseModule {
     @Provides fun provideObserveSessionUseCase(repository: AuthRepository) = ObserveSessionUseCase(repository)
     @Provides fun provideObserveCurrentSecurityConfigUseCase(repository: AuthRepository) = ObserveCurrentSecurityConfigUseCase(repository)
     @Provides fun provideObserveEmailNotificationSettingsUseCase(repository: AuthRepository) = ObserveEmailNotificationSettingsUseCase(repository)
+    @Provides fun provideObserveSignupOnboardingPendingUseCase(repository: AuthRepository) = ObserveSignupOnboardingPendingUseCase(repository)
     @Provides fun provideLoginUseCase(repository: AuthRepository) = LoginUseCase(repository)
     @Provides fun provideRegisterBusinessUseCase(repository: AuthRepository) = RegisterBusinessUseCase(repository)
     @Provides fun provideSaveSecuritySetupUseCase(repository: AuthRepository) = SaveSecuritySetupUseCase(repository)
@@ -172,6 +172,7 @@ object UseCaseModule {
     @Provides fun provideResetPasswordUseCase(repository: AuthRepository) = ResetPasswordUseCase(repository)
     @Provides fun provideResetQuickPinUseCase(repository: AuthRepository) = ResetQuickPinUseCase(repository)
     @Provides fun provideActivateSessionUseCase(repository: AuthRepository) = ActivateSessionUseCase(repository)
+    @Provides fun provideSetSignupOnboardingPendingUseCase(repository: AuthRepository) = SetSignupOnboardingPendingUseCase(repository)
     @Provides fun provideLogoutUseCase(repository: AuthRepository) = LogoutUseCase(repository)
     @Provides fun provideObserveDashboardUseCase(repository: AnalyticsRepository) = ObserveDashboardUseCase(repository)
     @Provides fun provideObserveBusinessAnalyticsUseCase(repository: AnalyticsRepository) = ObserveBusinessAnalyticsUseCase(repository)
@@ -179,6 +180,10 @@ object UseCaseModule {
     @Provides fun provideObserveRevenueAnalyticsUseCase(repository: AnalyticsRepository) = ObserveRevenueAnalyticsUseCase(repository)
     @Provides fun provideObservePromotionAnalyticsUseCase(repository: AnalyticsRepository) = ObservePromotionAnalyticsUseCase(repository)
     @Provides fun provideObserveProgramAnalyticsUseCase(repository: AnalyticsRepository) = ObserveProgramAnalyticsUseCase(repository)
+    @Provides fun provideObserveMerchantNotificationsUseCase(repository: NotificationRepository) = ObserveMerchantNotificationsUseCase(repository)
+    @Provides fun provideObserveUnreadMerchantNotificationCountUseCase(repository: NotificationRepository) = ObserveUnreadMerchantNotificationCountUseCase(repository)
+    @Provides fun provideMarkMerchantNotificationReadUseCase(repository: NotificationRepository) = MarkMerchantNotificationReadUseCase(repository)
+    @Provides fun provideMarkAllMerchantNotificationsReadUseCase(repository: NotificationRepository) = MarkAllMerchantNotificationsReadUseCase(repository)
     @Provides fun provideObserveStoresUseCase(repository: StoreRepository) = ObserveStoresUseCase(repository)
     @Provides fun provideObserveSelectedStoreUseCase(repository: StoreRepository) = ObserveSelectedStoreUseCase(repository)
     @Provides fun provideSelectStoreUseCase(repository: StoreRepository) = SelectStoreUseCase(repository)
@@ -214,6 +219,14 @@ object UseCaseModule {
     @Provides fun provideAdjustCustomerVisitsUseCase(repository: CustomerRepository) = AdjustCustomerVisitsUseCase(repository)
     @Provides fun provideRecordCustomerCheckInUseCase(repository: CustomerRepository) = RecordCustomerCheckInUseCase(repository)
     @Provides fun provideRecordCustomerBonusActionUseCase(repository: CustomerRepository) = RecordCustomerBonusActionUseCase(repository)
+    @Provides fun providePreviewCustomerMergeUseCase(repository: CustomerRepository) =
+        PreviewCustomerMergeUseCase(repository)
+    @Provides fun provideMergeCustomersUseCase(repository: CustomerRepository) =
+        MergeCustomersUseCase(repository)
+    @Provides fun providePreviewCustomerSplitUseCase(repository: CustomerRepository) =
+        PreviewCustomerSplitUseCase(repository)
+    @Provides fun provideSplitCustomerUseCase(repository: CustomerRepository) =
+        SplitCustomerUseCase(repository)
     @Provides fun provideObserveScanPreferencesUseCase(repository: ScanPreferencesRepository) = ObserveScanPreferencesUseCase(repository)
     @Provides fun provideSaveScanPreferenceUseCase(repository: ScanPreferencesRepository) = SaveScanPreferenceUseCase(repository)
     @Provides fun provideClearScanPreferenceUseCase(repository: ScanPreferencesRepository) = ClearScanPreferenceUseCase(repository)
@@ -224,6 +237,7 @@ object UseCaseModule {
     @Provides fun provideCreateRewardUseCase(repository: LoyaltyRepository) = CreateRewardUseCase(repository)
     @Provides fun provideUpdateRewardUseCase(repository: LoyaltyRepository) = UpdateRewardUseCase(repository)
     @Provides fun provideSetRewardEnabledUseCase(repository: LoyaltyRepository) = SetRewardEnabledUseCase(repository)
+    @Provides fun provideAdjustRewardInventoryUseCase(repository: LoyaltyRepository) = AdjustRewardInventoryUseCase(repository)
     @Provides fun provideDeleteRewardUseCase(repository: LoyaltyRepository) = DeleteRewardUseCase(repository)
     @Provides fun provideCreatePromotionUseCase(repository: LoyaltyRepository) = CreatePromotionUseCase(repository)
     @Provides fun provideUpdatePromotionUseCase(repository: LoyaltyRepository) = UpdatePromotionUseCase(repository)
@@ -240,7 +254,9 @@ object UseCaseModule {
     @Provides fun provideObserveStaffAnalyticsUseCase(repository: StaffRepository) = ObserveStaffAnalyticsUseCase(repository)
     @Provides fun provideObserveTransactionsUseCase(repository: TransactionRepository) = ObserveTransactionsUseCase(repository)
     @Provides fun provideObserveTransactionUseCase(repository: TransactionRepository) = ObserveTransactionUseCase(repository)
+    @Provides fun provideObserveTransactionVoidRequestUseCase(repository: TransactionRepository) = ObserveTransactionVoidRequestUseCase(repository)
     @Provides fun provideRecordTransactionUseCase(repository: TransactionRepository) = RecordTransactionUseCase(repository)
+    @Provides fun provideRequestTransactionVoidUseCase(repository: TransactionRepository) = RequestTransactionVoidUseCase(repository)
     @Provides fun provideObserveAutoReportSettingsUseCase(repository: ReportRepository) = ObserveAutoReportSettingsUseCase(repository)
     @Provides fun provideSaveAutoReportSettingsUseCase(repository: ReportRepository) = SaveAutoReportSettingsUseCase(repository)
     @Provides fun provideExportReportUseCase(repository: ReportRepository) = ExportReportUseCase(repository)

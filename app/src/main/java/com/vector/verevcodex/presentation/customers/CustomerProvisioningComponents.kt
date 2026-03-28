@@ -58,7 +58,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.vector.verevcodex.R
-import com.vector.verevcodex.platform.wallet.GoogleWalletAvailability
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -70,14 +69,11 @@ internal fun AddCustomerSuccessSheet(
     onOpenEmail: () -> Unit,
     onOpenSms: () -> Unit,
     onShareLink: () -> Unit,
-    onOpenProfile: () -> Unit,
     onAddAnother: () -> Unit,
     onSelectProvisioningOption: (CustomerCardProvisioningOption) -> Unit,
-    onLaunchGoogleWallet: () -> Unit,
     onStartNfcWrite: () -> Unit,
     onRetryNfcWrite: () -> Unit,
-    onClearNfcState: () -> Unit,
-    onRefreshWalletStatus: () -> Unit,
+    onNfcDone: () -> Unit,
 ) {
     val selectedOption = state.selectedProvisioningOption ?: CustomerCardProvisioningOption.GOOGLE_WALLET
 
@@ -94,11 +90,9 @@ internal fun AddCustomerSuccessSheet(
             onOpenEmail = onOpenEmail,
             onOpenSms = onOpenSms,
             onShareLink = onShareLink,
-            onLaunchGoogleWallet = onLaunchGoogleWallet,
             onStartNfcWrite = onStartNfcWrite,
             onRetryNfcWrite = onRetryNfcWrite,
-            onClearNfcState = onClearNfcState,
-            onRefreshWalletStatus = onRefreshWalletStatus,
+            onNfcDone = onNfcDone,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -117,7 +111,7 @@ internal fun AddCustomerSuccessSheet(
                 )
             }
             Button(
-                onClick = onOpenProfile,
+                onClick = onClose,
                 modifier = Modifier.weight(1f).height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -126,7 +120,7 @@ internal fun AddCustomerSuccessSheet(
                 ),
             ) {
                 Text(
-                    text = stringResource(R.string.merchant_add_customer_open_profile),
+                    text = stringResource(R.string.merchant_add_customer_close),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.titleSmall,
                 )
@@ -286,14 +280,8 @@ internal fun WalletProvisioningPanel(
     onOpenEmail: () -> Unit,
     onOpenSms: () -> Unit,
     onShareLink: () -> Unit,
-    onLaunchGoogleWallet: () -> Unit,
-    onRefreshWalletStatus: () -> Unit,
 ) {
     var showExpandedQr by remember(state.activationLink, state.generatedLoyaltyId) { mutableStateOf(false) }
-    val walletStatusRes = state.walletSaveResult.toStatusRes() ?: state.walletAvailability.toStatusRes()
-    val walletPrimaryEnabled = state.walletAvailability == GoogleWalletAvailability.AVAILABLE &&
-        state.walletPassRequest != null &&
-        !state.walletIsSaving
 
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Surface(
@@ -358,33 +346,6 @@ internal fun WalletProvisioningPanel(
             copied = copied,
         )
 
-        Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Text(
-                    text = stringResource(walletStatusRes),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = VerevColors.Forest,
-                )
-                GradientPrimaryProvisioningButton(
-                    text = if (state.walletIsSaving) stringResource(R.string.merchant_add_customer_wallet_saving) else stringResource(R.string.merchant_add_customer_wallet_primary),
-                    icon = Icons.Default.PhoneAndroid,
-                    enabled = walletPrimaryEnabled,
-                    onClick = onLaunchGoogleWallet,
-                )
-                OutlinedButton(
-                    onClick = onRefreshWalletStatus,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.12f)),
-                ) {
-                    Text(stringResource(R.string.merchant_add_customer_wallet_refresh))
-                }
-            }
-        }
-
         ProvisioningInfoCard(
             title = stringResource(R.string.merchant_add_customer_how_it_works_title),
             subtitle = stringResource(R.string.merchant_add_customer_wallet_how_it_works),
@@ -411,7 +372,7 @@ internal fun NfcProvisioningPanel(
     state: AddCustomerUiState,
     onStartNfcWrite: () -> Unit,
     onRetryNfcWrite: () -> Unit,
-    onClearNfcState: () -> Unit,
+    onNfcDone: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Surface(shape = RoundedCornerShape(28.dp), color = Color.White) {
@@ -490,7 +451,7 @@ internal fun NfcProvisioningPanel(
                     onClick = onStartNfcWrite,
                 )
                 OutlinedButton(
-                    onClick = onClearNfcState,
+                    onClick = onNfcDone,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                 ) {
@@ -500,7 +461,7 @@ internal fun NfcProvisioningPanel(
             NfcWritePhase.SUCCESS -> GradientPrimaryProvisioningButton(
                 text = stringResource(R.string.merchant_add_customer_nfc_done),
                 icon = Icons.Default.Check,
-                onClick = onClearNfcState,
+                onClick = onNfcDone,
             )
             NfcWritePhase.ERROR -> GradientPrimaryProvisioningButton(
                 text = stringResource(R.string.merchant_add_customer_nfc_retry),
@@ -891,11 +852,9 @@ internal fun ProvisioningOptionBody(
     onOpenEmail: () -> Unit,
     onOpenSms: () -> Unit,
     onShareLink: () -> Unit,
-    onLaunchGoogleWallet: () -> Unit,
     onStartNfcWrite: () -> Unit,
     onRetryNfcWrite: () -> Unit,
-    onClearNfcState: () -> Unit,
-    onRefreshWalletStatus: () -> Unit,
+    onNfcDone: () -> Unit,
 ) {
     when (selectedOption) {
         CustomerCardProvisioningOption.GOOGLE_WALLET -> WalletProvisioningPanel(
@@ -905,14 +864,12 @@ internal fun ProvisioningOptionBody(
             onOpenEmail = onOpenEmail,
             onOpenSms = onOpenSms,
             onShareLink = onShareLink,
-            onLaunchGoogleWallet = onLaunchGoogleWallet,
-            onRefreshWalletStatus = onRefreshWalletStatus,
         )
         CustomerCardProvisioningOption.NFC_CARD -> NfcProvisioningPanel(
             state = state,
             onStartNfcWrite = onStartNfcWrite,
             onRetryNfcWrite = onRetryNfcWrite,
-            onClearNfcState = onClearNfcState,
+            onNfcDone = onNfcDone,
         )
         CustomerCardProvisioningOption.BARCODE_IMAGE -> BarcodeProvisioningPanel(
             state = state,

@@ -32,6 +32,10 @@ class SetRewardEnabledUseCase(private val repository: LoyaltyRepository) {
     suspend operator fun invoke(rewardId: String, enabled: Boolean) = repository.setRewardEnabled(rewardId, enabled)
 }
 
+class AdjustRewardInventoryUseCase(private val repository: LoyaltyRepository) {
+    suspend operator fun invoke(rewardId: String, delta: Int) = repository.adjustRewardInventory(rewardId, delta)
+}
+
 class DeleteRewardUseCase(private val repository: LoyaltyRepository) {
     suspend operator fun invoke(rewardId: String) = repository.deleteReward(rewardId)
 }

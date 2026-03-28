@@ -1,6 +1,7 @@
 package com.vector.verevcodex.domain.repository.customer
 
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerAdjustmentResult
 import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
 import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
@@ -8,6 +9,10 @@ import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
 import com.vector.verevcodex.domain.model.customer.CustomerDraft
+import com.vector.verevcodex.domain.model.customer.CustomerMergePreview
+import com.vector.verevcodex.domain.model.customer.CustomerMergeResult
+import com.vector.verevcodex.domain.model.customer.CustomerSplitPreview
+import com.vector.verevcodex.domain.model.customer.CustomerSplitResult
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import kotlinx.coroutines.flow.Flow
 
@@ -19,7 +24,7 @@ interface CustomerRepository {
     fun observeCustomerCredentials(customerId: String): Flow<List<CustomerCredential>>
     fun observeCustomerPointsLedger(customerId: String): Flow<List<PointsLedger>>
     fun observeCustomerBonusActions(customerId: String): Flow<List<CustomerBonusAction>>
-    suspend fun findByLoyaltyId(loyaltyId: String): Customer?
+    suspend fun findByLoyaltyId(loyaltyId: String, storeId: String? = null): Customer?
     suspend fun createCustomer(draft: CustomerDraft, storeId: String): Customer
     suspend fun registerQuickCustomer(firstName: String, phoneNumber: String, loyaltyId: String, storeId: String): Customer
     suspend fun updateCustomerContact(
@@ -43,9 +48,9 @@ interface CustomerRepository {
         status: CustomerCredentialStatus,
         referenceValue: String? = null,
     )
-    suspend fun adjustPoints(customerId: String, delta: Int, reason: String)
-    suspend fun adjustVisits(customerId: String, delta: Int, reason: String)
-    suspend fun recordCheckIn(customerId: String, storeId: String, rewardPoints: Int)
+    suspend fun adjustPoints(customerId: String, delta: Int, reason: String): CustomerAdjustmentResult
+    suspend fun adjustVisits(customerId: String, delta: Int, reason: String): CustomerAdjustmentResult
+    suspend fun recordCheckIn(customerId: String, storeId: String)
     suspend fun recordBonusAction(
         customerId: String,
         storeId: String?,
@@ -53,4 +58,15 @@ interface CustomerRepository {
         title: String,
         details: String,
     )
+    suspend fun previewCustomerMerge(sourceCustomerId: String, targetCustomerId: String): CustomerMergePreview
+    suspend fun mergeCustomers(sourceCustomerId: String, targetCustomerId: String, notes: String? = null): CustomerMergeResult
+    suspend fun previewCustomerSplit(sourceCustomerId: String): CustomerSplitPreview
+    suspend fun splitCustomer(
+        sourceCustomerId: String,
+        firstName: String,
+        lastName: String,
+        phoneNumber: String,
+        email: String,
+        notes: String? = null,
+    ): CustomerSplitResult
 }

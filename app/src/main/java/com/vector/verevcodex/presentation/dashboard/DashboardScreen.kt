@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.presentation.common.state.UiState
+import com.vector.verevcodex.presentation.navigation.ShellViewModel
 import com.vector.verevcodex.presentation.scan.ScanMethodSheet
 
 @Composable
@@ -26,10 +27,14 @@ fun DashboardScreen(
     onOpenAddCustomer: () -> Unit = {},
     onOpenPromotions: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
+    shellViewModel: ShellViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
     var showScanMethodChooser by remember { mutableStateOf(false) }
     var rememberScanChoice by remember { mutableStateOf(false) }
+    val scanPreferences = state.scanPreferences
+    val permissions = shellState.currentUser?.permissions
 
     if (showScanMethodChooser) {
         ScanMethodSheet(
@@ -57,12 +62,12 @@ fun DashboardScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        when (val snapshotState = state) {
+        when (val snapshotState = state.snapshotState) {
             UiState.Loading -> {
                 item {
-                    DashboardStateCard(
-                        title = stringResource(R.string.merchant_loading_dashboard_title),
-                        subtitle = stringResource(R.string.merchant_loading_dashboard_subtitle),
+                    DashboardLoadingContent(
+                        showQuickActions = permissions?.processTransactions != false || permissions?.manageCustomers != false,
+                        showPromotions = permissions?.viewPrograms != false,
                     )
                 }
             }
@@ -85,13 +90,27 @@ fun DashboardScreen(
             is UiState.Success -> {
                 val snapshot = snapshotState.data
                 item { DashboardOverviewCard(snapshot) }
-                item {
-                    DashboardQuickActions(
-                        onOpenScan = { showScanMethodChooser = true },
-                        onOpenAddCustomer = onOpenAddCustomer,
-                    )
+                item { DashboardBranchHealthCard(snapshot) }
+                if (permissions?.processTransactions == true || permissions?.manageCustomers == true) {
+                    item {
+                        DashboardQuickActions(
+                            showScanAction = permissions?.processTransactions == true,
+                            showAddCustomerAction = permissions?.manageCustomers == true,
+                            onOpenScan = {
+                                val preferredMethod = scanPreferences.preferredMethod
+                                if (scanPreferences.skipMethodSelection && preferredMethod != null) {
+                                    onOpenScan(preferredMethod, false)
+                                } else {
+                                    showScanMethodChooser = true
+                                }
+                            },
+                            onOpenAddCustomer = onOpenAddCustomer,
+                        )
+                    }
                 }
-                item { DashboardPromotionCard(snapshot = snapshot, onOpenPromotions = onOpenPromotions) }
+                if (permissions?.viewPrograms == true) {
+                    item { DashboardPromotionCard(snapshot = snapshot, onOpenPromotions = onOpenPromotions) }
+                }
                 item { DashboardTodayStats(snapshot) }
             }
         }

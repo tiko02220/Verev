@@ -6,6 +6,7 @@ import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.auth.AuthUser
 import com.vector.verevcodex.domain.repository.store.StoreRepository
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
+import com.vector.verevcodex.domain.usecase.notifications.ObserveUnreadMerchantNotificationCountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 class ShellViewModel @Inject constructor(
     private val storeRepository: StoreRepository,
     observeSessionUseCase: ObserveSessionUseCase,
+    observeUnreadMerchantNotificationCountUseCase: ObserveUnreadMerchantNotificationCountUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ShellUiState())
     val uiState: StateFlow<ShellUiState> = _uiState.asStateFlow()
@@ -29,11 +31,13 @@ class ShellViewModel @Inject constructor(
             storeRepository.observeStores(),
             storeRepository.observeSelectedStore(),
             observeSessionUseCase(),
-        ) { stores, selectedStore, session ->
+            observeUnreadMerchantNotificationCountUseCase(),
+        ) { stores, selectedStore, session, unreadNotificationCount ->
             ShellUiState(
                 stores = stores,
                 selectedStore = selectedStore ?: stores.firstOrNull(),
                 currentUser = session?.user,
+                unreadNotificationCount = unreadNotificationCount,
             )
         }.onEach { _uiState.value = it }.launchIn(viewModelScope)
     }
@@ -47,4 +51,5 @@ data class ShellUiState(
     val stores: List<Store> = emptyList(),
     val selectedStore: Store? = null,
     val currentUser: AuthUser? = null,
+    val unreadNotificationCount: Int = 0,
 )

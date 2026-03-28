@@ -36,6 +36,8 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
+import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
+import com.vector.verevcodex.domain.model.loyalty.displayValue
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -208,12 +210,7 @@ internal fun ProgramTypeInsightCard(
                 ),
             )
             LoyaltyProgramType.TIER -> ProgramFactGrid(
-                facts = listOf(
-                    stringResource(R.string.merchant_program_form_tier_silver) to leadProgram.configuration.tierRule.silverThreshold.toString(),
-                    stringResource(R.string.merchant_program_form_tier_gold) to leadProgram.configuration.tierRule.goldThreshold.toString(),
-                    stringResource(R.string.merchant_program_form_tier_vip) to leadProgram.configuration.tierRule.vipThreshold.toString(),
-                    stringResource(R.string.merchant_program_form_tier_bonus_percent) to "${leadProgram.configuration.tierRule.tierBonusPercent}%",
-                ),
+                facts = leadProgram.configuration.tierRule.toInsightFacts(),
             )
             LoyaltyProgramType.COUPON -> ProgramFactGrid(
                 facts = listOf(
@@ -226,22 +223,20 @@ internal fun ProgramTypeInsightCard(
             LoyaltyProgramType.DIGITAL_STAMP -> ProgramFactGrid(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_checkin_visits) to leadProgram.configuration.checkInRule.visitsRequired.toString(),
-                    stringResource(R.string.merchant_program_form_checkin_reward_points) to leadProgram.configuration.checkInRule.rewardPoints.toString(),
-                    stringResource(R.string.merchant_program_form_checkin_reward_name) to leadProgram.configuration.checkInRule.rewardName,
+                    stringResource(R.string.merchant_program_editor_reward_title) to leadProgram.configuration.checkInRule.rewardOutcome.displayValue(),
                 ),
             )
             LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramFactGrid(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_frequency_count) to leadProgram.configuration.purchaseFrequencyRule.purchaseCount.toString(),
                     stringResource(R.string.merchant_program_form_frequency_window_days) to leadProgram.configuration.purchaseFrequencyRule.windowDays.toString(),
-                    stringResource(R.string.merchant_program_form_frequency_reward_points) to leadProgram.configuration.purchaseFrequencyRule.rewardPoints.toString(),
-                    stringResource(R.string.merchant_program_form_frequency_reward_name) to leadProgram.configuration.purchaseFrequencyRule.rewardName,
+                    stringResource(R.string.merchant_program_editor_reward_title) to leadProgram.configuration.purchaseFrequencyRule.rewardOutcome.displayValue(),
                 ),
             )
             LoyaltyProgramType.REFERRAL -> ProgramFactGrid(
                 facts = listOf(
-                    stringResource(R.string.merchant_program_form_referral_referrer_points) to leadProgram.configuration.referralRule.referrerRewardPoints.toString(),
-                    stringResource(R.string.merchant_program_form_referral_referee_points) to leadProgram.configuration.referralRule.refereeRewardPoints.toString(),
+                    stringResource(R.string.merchant_program_form_referral_referrer_points) to leadProgram.configuration.referralRule.referrerRewardOutcome.displayValue(),
+                    stringResource(R.string.merchant_program_form_referral_referee_points) to leadProgram.configuration.referralRule.refereeRewardOutcome.displayValue(),
                     stringResource(R.string.merchant_program_form_referral_prefix) to leadProgram.configuration.referralRule.referralCodePrefix,
                 ),
             )
@@ -249,12 +244,33 @@ internal fun ProgramTypeInsightCard(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_points_awarded) to leadProgram.configuration.pointsRule.pointsAwardedPerStep.toString(),
                     stringResource(R.string.merchant_program_form_cashback_percent) to "${leadProgram.configuration.cashbackRule.cashbackPercent}%",
-                    stringResource(R.string.merchant_program_form_tier_bonus_percent) to "${leadProgram.configuration.tierRule.tierBonusPercent}%",
+                    stringResource(R.string.merchant_program_form_tier_bonus_percent) to leadProgram.configuration.tierRule.configurableLevels
+                        .lastOrNull()
+                        ?.let { "${it.name} ${it.bonusPercent}%" }
+                        .orEmpty(),
                     stringResource(R.string.merchant_program_form_coupon_name) to leadProgram.configuration.couponRule.couponName,
                 ),
             )
         }
         }
+    }
+}
+
+@Composable
+private fun TierProgramRule.toInsightFacts(): List<Pair<String, String>> {
+    val tierFacts = configurableLevels.map { level ->
+        level.name to stringResource(
+            R.string.merchant_program_tier_fact_format,
+            level.threshold,
+            level.bonusPercent,
+        )
+    }
+    return if (tierFacts.isNotEmpty()) {
+        tierFacts
+    } else {
+        listOf(
+            stringResource(R.string.merchant_program_section_tier) to stringResource(R.string.merchant_program_preview_tier_empty_message),
+        )
     }
 }
 
@@ -335,11 +351,14 @@ internal fun ProgramTypeGuidanceCard(type: LoyaltyProgramType) {
 internal fun ProgramTypeProgramCard(
     type: LoyaltyProgramType,
     program: RewardProgram,
+    selectedStoreName: String,
+    snapshot: ProgramOperationalSnapshot,
     isBusy: Boolean,
-    onEdit: () -> Unit,
+    onEdit: (() -> Unit)?,
     quickActions: List<ProgramQuickActionUi>,
     onToggleEnabled: (Boolean) -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)?,
+    canManagePrograms: Boolean = true,
 ) {
     Surface(
         color = Color.White,
@@ -405,42 +424,69 @@ internal fun ProgramTypeProgramCard(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onEdit,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = VerevColors.Forest,
-                        ),
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = stringResource(R.string.merchant_program_edit_action),
-                            modifier = Modifier.padding(start = 8.dp),
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { onToggleEnabled(!program.active) },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isBusy,
-                        shape = RoundedCornerShape(18.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = VerevColors.Forest,
-                        ),
-                    ) {
-                        Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = if (program.active) stringResource(R.string.merchant_program_pause_action) else stringResource(R.string.merchant_program_resume_action),
-                            modifier = Modifier.padding(start = 8.dp),
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                if (snapshot.inactiveReasons.isNotEmpty()) {
+                    ProgramInlineStatusCard(
+                        title = inactiveReasonTitle(snapshot.inactiveReasons.first()),
+                        supporting = inactiveReasonMessage(snapshot.inactiveReasons.first()),
+                    )
+                } else {
+                    ProgramInlineStatusCard(
+                        title = stringResource(R.string.merchant_program_preview_branch_title),
+                        supporting = branchImpactSummary(selectedStoreName, snapshot.scanActions),
+                    )
+                }
+                if (snapshot.overlapWarnings.isNotEmpty()) {
+                    ProgramInlineStatusCard(
+                        title = stringResource(R.string.merchant_program_overlap_summary_title),
+                        supporting = snapshot.overlapWarnings.take(2).joinToString(separator = " • ") { warning ->
+                            when (warning) {
+                                is ProgramOverlapWarning.ProgramConflict -> warning.programName
+                                is ProgramOverlapWarning.CampaignConflict -> warning.campaignName
+                            }
+                        },
+                        highlighted = true,
+                    )
+                }
+                if (canManagePrograms) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        onEdit?.let {
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = it,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(18.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = VerevColors.Forest,
+                                ),
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = stringResource(R.string.merchant_program_edit_action),
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { onToggleEnabled(!program.active) },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isBusy,
+                            shape = RoundedCornerShape(18.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = VerevColors.Forest,
+                            ),
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = if (program.active) stringResource(R.string.merchant_program_pause_action) else stringResource(R.string.merchant_program_resume_action),
+                                modifier = Modifier.padding(start = 8.dp),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
-                if (quickActions.isNotEmpty()) {
+                if (canManagePrograms && quickActions.isNotEmpty()) {
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -464,28 +510,61 @@ internal fun ProgramTypeProgramCard(
                         }
                     }
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onDelete,
-                        enabled = !isBusy,
-                        shape = RoundedCornerShape(18.dp),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = VerevColors.ErrorText,
-                        ),
+                if (canManagePrograms && onDelete != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(
-                            text = stringResource(R.string.merchant_program_delete_action),
-                            modifier = Modifier.padding(start = 8.dp),
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onDelete,
+                            enabled = !isBusy,
+                            shape = RoundedCornerShape(18.dp),
+                            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = VerevColors.ErrorText,
+                            ),
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = stringResource(R.string.merchant_program_delete_action),
+                                modifier = Modifier.padding(start = 8.dp),
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ProgramInlineStatusCard(
+    title: String,
+    supporting: String,
+    highlighted: Boolean = false,
+) {
+    Surface(
+        color = if (highlighted) Color(0xFFFFF6E8) else VerevColors.AppBackground,
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.68f),
+            )
         }
     }
 }

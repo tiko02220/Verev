@@ -34,6 +34,7 @@ class CustomerViewModel @Inject constructor(
     private val errorRes = MutableStateFlow<Int?>(null)
     private val searchQuery = MutableStateFlow("")
     private val selectedTier = MutableStateFlow<LoyaltyTier?>(null)
+    private val selectedSort = MutableStateFlow(CustomerListSortOption.RECENT_ACTIVITY)
     private val hasActiveTierProgram = MutableStateFlow(false)
 
     private val _uiState = MutableStateFlow(CustomerListUiState())
@@ -56,9 +57,10 @@ class CustomerViewModel @Inject constructor(
         ) { selectedStore, customers, relations, programs ->
             val storeId = selectedStore?.id
             val relatedCustomerIds = relations.mapTo(mutableSetOf()) { it.customerId }
-            val hasActiveTierProgram = programs.any { program ->
+            val activeTierProgram = programs.firstOrNull { program ->
                 program.active && program.configuration.tierTrackingEnabled
             }
+            val hasActiveTierProgram = activeTierProgram != null
             val scopedCustomers = if (storeId == null) {
                 customers
             } else {
@@ -69,7 +71,7 @@ class CustomerViewModel @Inject constructor(
             val cards = mapCustomerListCards(
                 customers = scopedCustomers,
                 relations = relations,
-                showTierBadge = hasActiveTierProgram,
+                tierRule = activeTierProgram?.configuration?.tierRule,
             )
             CustomerListDataState(
                 customers = if (cards.isEmpty()) UiState.Empty else UiState.Success(cards),
@@ -88,14 +90,31 @@ class CustomerViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         combine(
-            combine(customersState, errorRes, searchQuery, selectedTier, hasActiveTierProgram) { dataState, errorRes, query, tier, hasActiveTierProgram ->
+            combine(
+                combine(customersState, errorRes, searchQuery, selectedTier, selectedSort) { dataState, errorRes, query, tier, sort ->
+                    CustomerListUiState(
+                        dataState = dataState,
+                        errorRes = errorRes,
+                        searchQuery = query,
+                        selectedTier = tier,
+                        selectedSort = sort,
+                    )
+                },
+                hasActiveTierProgram,
+            ) { partialState, hasActiveTierProgram ->
                 CustomerListUiState(
-                    dataState = dataState,
-                    errorRes = errorRes,
-                    searchQuery = query,
-                    selectedTier = tier,
+                    dataState = partialState.dataState,
+                    errorRes = partialState.errorRes,
+                    searchQuery = partialState.searchQuery,
+                    selectedTier = partialState.selectedTier,
+                    selectedSort = partialState.selectedSort,
                     hasActiveTierProgram = hasActiveTierProgram,
-                    filteredCustomers = filterCustomers(dataState, query, if (hasActiveTierProgram) tier else null),
+                    filteredCustomers = filterCustomers(
+                        dataState = partialState.dataState,
+                        query = partialState.searchQuery,
+                        tier = if (hasActiveTierProgram) partialState.selectedTier else null,
+                        sort = partialState.selectedSort,
+                    ),
                 )
             },
             selectedStoreFlow,
@@ -110,6 +129,10 @@ class CustomerViewModel @Inject constructor(
 
     fun onTierSelected(tier: LoyaltyTier?) {
         selectedTier.value = tier
+    }
+
+    fun onSortSelected(sort: CustomerListSortOption) {
+        selectedSort.value = sort
     }
 }
 

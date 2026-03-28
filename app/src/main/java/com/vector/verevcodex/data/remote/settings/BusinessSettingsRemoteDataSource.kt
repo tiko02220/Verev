@@ -18,6 +18,7 @@ import com.vector.verevcodex.data.remote.api.store.VerevStoresApi
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyAction
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyDomain
 import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
+import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.billing.BillingInvoice
 import com.vector.verevcodex.domain.model.billing.InvoiceStatus
@@ -38,13 +39,13 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
     private val billingApi: VerevBillingApi,
 ) {
 
-    suspend fun getBranding(storeId: String): Result<BrandingSettings> = runCatching {
+    suspend fun getBranding(storeId: String): Result<BrandingSettings> = remoteResult {
         val branding = storesApi.branding(storeId).unwrap { it }
         val store = storesApi.get(storeId).unwrap { it }
         branding.toDomain(store)
     }
 
-    suspend fun saveBranding(settings: BrandingSettings): Result<Unit> = runCatching {
+    suspend fun saveBranding(settings: BrandingSettings): Result<Unit> = remoteResult {
         val currentStore = storesApi.get(settings.storeId).unwrap { it }
         storesApi.update(
             storeId = settings.storeId,
@@ -84,11 +85,11 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
         Unit
     }
 
-    suspend fun getBranchConfiguration(storeId: String): Result<BranchConfiguration> = runCatching {
+    suspend fun getBranchConfiguration(storeId: String): Result<BranchConfiguration> = remoteResult {
         storesApi.configuration(storeId).unwrap { it.toDomain() }
     }
 
-    suspend fun saveBranchConfiguration(configuration: BranchConfiguration): Result<Unit> = runCatching {
+    suspend fun saveBranchConfiguration(configuration: BranchConfiguration): Result<Unit> = remoteResult {
         storesApi.updateConfiguration(
             storeId = configuration.storeId,
             request = UpdateBranchConfigurationRequestDto(
@@ -113,15 +114,15 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
         Unit
     }
 
-    suspend fun getCurrentSubscription(ownerId: String): Result<SubscriptionPlan?> = runCatching {
+    suspend fun getCurrentSubscription(ownerId: String): Result<SubscriptionPlan?> = remoteResult {
         billingApi.overview().unwrap { it.currentSubscription?.toDomain(ownerId) }
     }
 
-    suspend fun getPaymentMethods(ownerId: String): Result<List<SavedPaymentMethod>> = runCatching {
+    suspend fun getPaymentMethods(ownerId: String): Result<List<SavedPaymentMethod>> = remoteResult {
         billingApi.paymentMethods().unwrap { list -> list.map { it.toDomain(ownerId) } }
     }
 
-    suspend fun addPaymentMethod(ownerId: String, draft: PaymentMethodDraft): Result<Unit> = runCatching {
+    suspend fun addPaymentMethod(ownerId: String, draft: PaymentMethodDraft): Result<Unit> = remoteResult {
         billingApi.createPaymentMethod(
             request = CreatePaymentMethodRequestDto(
                 brand = draft.brand.trim(),
@@ -143,7 +144,7 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
         Unit
     }
 
-    suspend fun setDefaultPaymentMethod(ownerId: String, methodId: String): Result<Unit> = runCatching {
+    suspend fun setDefaultPaymentMethod(ownerId: String, methodId: String): Result<Unit> = remoteResult {
         billingApi.setDefaultPaymentMethod(
             paymentMethodId = methodId,
             idempotencyKey = billingIdempotencyKey(
@@ -156,7 +157,7 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
     }
 
     suspend fun removePaymentMethod(ownerId: String, methodId: String): Result<Unit> =
-        runCatching {
+        remoteResult {
             billingApi.removePaymentMethod(
                 paymentMethodId = methodId,
                 idempotencyKey = billingIdempotencyKey(
@@ -168,16 +169,16 @@ class BusinessSettingsRemoteDataSource @Inject constructor(
             Unit
         }
 
-    suspend fun getInvoices(ownerId: String): Result<List<BillingInvoice>> = runCatching {
+    suspend fun getInvoices(ownerId: String): Result<List<BillingInvoice>> = remoteResult {
         billingApi.invoices().unwrap { list -> list.map { it.toDomain(ownerId) } }
     }
 
-    suspend fun getAvailablePlans(): Result<List<SubscriptionPlanOption>> = runCatching {
+    suspend fun getAvailablePlans(): Result<List<SubscriptionPlanOption>> = remoteResult {
         billingApi.plans().unwrap { list -> list.filter { it.active ?: false }.map { it.toDomain() } }
     }
 
     suspend fun updateSubscriptionPlan(ownerId: String, planId: String): Result<Unit> =
-        runCatching {
+        remoteResult {
             billingApi.updateCurrentSubscription(
                 request = UpdateCurrentSubscriptionRequestDto(
                     planCode = planId,

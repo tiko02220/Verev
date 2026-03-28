@@ -10,6 +10,7 @@ fun authErrorRes(errorKey: String?): Int? = when (errorKey) {
     "required_password" -> R.string.auth_error_required_password
     "password_short" -> R.string.auth_error_password_short
     "password_confirm" -> R.string.auth_error_password_confirm
+    "activation_failed" -> R.string.auth_force_password_setup_failed
     "required_business_name" -> R.string.auth_error_required_business_name
     "required_industry" -> R.string.auth_error_required_industry
     "required_address" -> R.string.auth_error_required_address
@@ -26,6 +27,9 @@ fun authErrorRes(errorKey: String?): Int? = when (errorKey) {
     "pin_length" -> R.string.auth_pin_error_length
     "pin_mismatch" -> R.string.auth_pin_error_mismatch
     "staff_incomplete" -> R.string.auth_staff_error_incomplete
+    "staff_phone_invalid" -> R.string.merchant_staff_error_phone
+    "staff_password_short" -> R.string.auth_staff_error_password_short
     "staff_failed" -> R.string.auth_staff_error_failed
+    "staff_missing_store" -> R.string.merchant_staff_error_missing_store
     else -> null
 }

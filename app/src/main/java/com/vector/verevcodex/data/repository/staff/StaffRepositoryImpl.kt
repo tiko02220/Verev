@@ -4,6 +4,7 @@ import com.vector.verevcodex.data.remote.analytics.AnalyticsRemoteDataSource
 import com.vector.verevcodex.data.remote.staff.StaffRemoteDataSource
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.model.analytics.StaffAnalytics
+import com.vector.verevcodex.domain.repository.realtime.RealtimeRepository
 import com.vector.verevcodex.domain.repository.staff.StaffRepository
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
 import com.vector.verevcodex.domain.model.business.StaffMemberDraft
@@ -11,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
@@ -19,20 +20,24 @@ import kotlinx.coroutines.flow.onStart
 class StaffRepositoryImpl @Inject constructor(
     private val staffRemote: StaffRemoteDataSource,
     private val analyticsRemote: AnalyticsRemoteDataSource,
+    private val realtimeRepository: RealtimeRepository,
 ) : StaffRepository {
     private val staffRefreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val staffRefreshSignals = merge(
+        staffRefreshRequests.onStart { emit(Unit) },
+        realtimeRepository.observeRefreshSignals(),
+    )
 
     override fun observeStaff(storeId: String?): Flow<List<com.vector.verevcodex.domain.model.business.StaffMember>> {
-        return staffRefreshRequests
-            .onStart { emit(Unit) }
+        return staffRefreshSignals
             .map {
                 staffRemote.list(storeId).getOrElse { emptyList() }
             }
     }
 
     override fun observeStaffAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<List<StaffAnalytics>> {
-        return kotlinx.coroutines.flow.flow {
-            emit(analyticsRemote.staff(storeId, range).getOrElse { emptyList() })
+        return staffRefreshSignals.map {
+            analyticsRemote.staff(storeId, range).getOrElse { emptyList() }
         }
     }
 

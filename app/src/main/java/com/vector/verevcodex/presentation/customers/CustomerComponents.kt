@@ -16,12 +16,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,9 +43,12 @@ import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyTier
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
+import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonBlock
+import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonCard
 import com.vector.verevcodex.presentation.merchant.common.displayName
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency
+import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -51,77 +60,87 @@ internal fun CustomersHeaderPanel(
     totalRevenue: Double,
     query: String,
     selectedTier: LoyaltyTier?,
+    selectedSort: CustomerListSortOption,
     hasActiveTierProgram: Boolean,
+    onOpenAddCustomer: () -> Unit,
+    onOpenFilter: () -> Unit,
+    onOpenSort: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onTierSelected: (LoyaltyTier?) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = VerevColors.Forest.copy(alpha = 0.7f),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = VerevColors.Forest.copy(alpha = 0.7f),
+                )
+            }
+            CustomerHeaderIconAction(
+                onClick = onOpenAddCustomer,
+                icon = Icons.Default.Add,
+                contentDescription = stringResource(R.string.merchant_add_customer_cta),
+                emphasized = true,
             )
         }
 
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 2.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.04f),
-                    spotColor = Color.Black.copy(alpha = 0.04f),
-                ),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = VerevColors.Forest.copy(alpha = 0.38f),
-                )
-            },
-            placeholder = {
-                Text(
-                    text = stringResource(R.string.merchant_customer_search_label),
-                    color = VerevColors.Forest.copy(alpha = 0.4f),
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedBorderColor = VerevColors.Gold,
-                unfocusedBorderColor = VerevColors.Forest.copy(alpha = 0.08f),
-                cursorColor = VerevColors.Forest,
-            ),
-        )
-
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                CustomerTierFilterChip(
-                    text = stringResource(R.string.merchant_filter_all),
-                    selected = selectedTier == null || !hasActiveTierProgram,
-                    onClick = { onTierSelected(null) },
-                )
-            }
-            if (hasActiveTierProgram) {
-                items(LoyaltyTier.entries) { tier ->
-                    CustomerTierFilterChip(
-                        text = tier.displayName(),
-                        selected = selectedTier == tier,
-                        onClick = { onTierSelected(tier) },
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = query,
+                onValueChange = onQueryChange,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = VerevColors.Forest.copy(alpha = 0.38f),
                     )
-                }
-            }
+                },
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.merchant_customer_search_label),
+                        color = VerevColors.Forest.copy(alpha = 0.4f),
+                    )
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = VerevColors.Gold,
+                    unfocusedBorderColor = VerevColors.Forest.copy(alpha = 0.08f),
+                    cursorColor = VerevColors.Forest,
+                ),
+            )
+            CustomerHeaderIconAction(
+                onClick = onOpenFilter,
+                icon = Icons.Default.FilterList,
+                contentDescription = stringResource(R.string.merchant_customers_filter_action),
+                emphasized = selectedTier != null && hasActiveTierProgram,
+            )
+            CustomerHeaderIconAction(
+                onClick = onOpenSort,
+                icon = Icons.AutoMirrored.Filled.Sort,
+                contentDescription = stringResource(R.string.merchant_customers_sort_action),
+                emphasized = selectedSort != CustomerListSortOption.RECENT_ACTIVITY,
+            )
         }
 
         Box(
@@ -148,6 +167,232 @@ internal fun CustomersHeaderPanel(
                     value = formatCompactCurrency(totalRevenue),
                     label = stringResource(R.string.merchant_metric_revenue),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CustomerListSkeleton() {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        repeat(4) {
+            MerchantSkeletonCard(shape = RoundedCornerShape(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MerchantSkeletonBlock(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        MerchantSkeletonBlock(
+                            modifier = Modifier.fillMaxWidth(0.46f).height(18.dp),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MerchantSkeletonBlock(
+                                modifier = Modifier.fillMaxWidth(0.24f).height(14.dp),
+                            )
+                            MerchantSkeletonBlock(
+                                modifier = Modifier.fillMaxWidth(0.18f).height(14.dp),
+                            )
+                        }
+                    }
+                    MerchantSkeletonBlock(
+                        modifier = Modifier.size(34.dp),
+                        shape = CircleShape,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomerHeaderIconAction(
+    icon: ImageVector,
+    contentDescription: String,
+    emphasized: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        shadowElevation = 4.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (emphasized) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.72f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun CustomerTierFilterSheet(
+    hasActiveTierProgram: Boolean,
+    selectedTier: LoyaltyTier?,
+    onDismiss: () -> Unit,
+    onTierSelected: (LoyaltyTier?) -> Unit,
+) {
+    AppBottomSheetDialog(
+        onDismissRequest = onDismiss,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+    ) { dismiss, dismissAfter ->
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
+            CustomerSheetHeader(
+                title = stringResource(R.string.merchant_customers_filter_sheet_title),
+                subtitle = stringResource(
+                    if (hasActiveTierProgram) {
+                        R.string.merchant_customers_filter_sheet_subtitle
+                    } else {
+                        R.string.merchant_customers_filter_sheet_disabled_subtitle
+                    }
+                ),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CustomerSheetOptionRow(
+                    title = stringResource(R.string.merchant_filter_all),
+                    selected = selectedTier == null || !hasActiveTierProgram,
+                    onClick = { dismissAfter { onTierSelected(null) } },
+                )
+                if (hasActiveTierProgram) {
+                    LoyaltyTier.entries.forEach { tier ->
+                        CustomerSheetOptionRow(
+                            title = tier.displayName(),
+                            selected = selectedTier == tier,
+                            onClick = { dismissAfter { onTierSelected(tier) } },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun CustomerSortSheet(
+    selectedSort: CustomerListSortOption,
+    onDismiss: () -> Unit,
+    onSortSelected: (CustomerListSortOption) -> Unit,
+) {
+    AppBottomSheetDialog(
+        onDismissRequest = onDismiss,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+    ) { _, dismissAfter ->
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
+            CustomerSheetHeader(
+                title = stringResource(R.string.merchant_customers_sort_sheet_title),
+                subtitle = stringResource(R.string.merchant_customers_sort_sheet_subtitle),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CustomerListSortOption.entries.forEach { option ->
+                    CustomerSheetOptionRow(
+                        title = stringResource(option.labelRes),
+                        selected = selectedSort == option,
+                        onClick = { dismissAfter { onSortSelected(option) } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomerSheetHeader(
+    title: String,
+    subtitle: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VerevColors.Forest.copy(alpha = 0.62f),
+        )
+    }
+}
+
+@Composable
+private fun CustomerSheetOptionRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) VerevColors.Gold.copy(alpha = 0.12f) else VerevColors.AppBackground,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            )
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(VerevColors.Gold, VerevColors.Tan))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }
@@ -204,7 +449,7 @@ internal fun CustomerCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (customer.showsTierBadge) {
-                    CustomerTierPill(model.loyaltyTier)
+                    CustomerTierPill(model.loyaltyTier, model.loyaltyTierLabel)
                 }
             }
             Row(
@@ -268,10 +513,10 @@ private fun CustomerHeaderFigure(
 }
 
 @Composable
-private fun CustomerTierPill(tier: LoyaltyTier) {
+private fun CustomerTierPill(tier: LoyaltyTier, label: String) {
     val colors = tier.toUiColors()
     MerchantStatusPill(
-        text = tier.displayName(),
+        text = label,
         backgroundColor = colors.background,
         contentColor = colors.content,
     )

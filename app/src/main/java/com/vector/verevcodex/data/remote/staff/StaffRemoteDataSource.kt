@@ -1,5 +1,6 @@
 package com.vector.verevcodex.data.remote.staff
 
+import com.vector.verevcodex.common.phone.normalizePhoneNumber
 import com.vector.verevcodex.data.remote.api.staff.BulkCreateStaffRequestDto
 import com.vector.verevcodex.data.remote.api.staff.StaffPermissionsDto
 import com.vector.verevcodex.data.remote.api.staff.StaffOnboardingMemberRequestDto
@@ -10,6 +11,7 @@ import com.vector.verevcodex.data.remote.core.RemoteIdempotencyAction
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyDomain
 import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
 import com.vector.verevcodex.data.remote.core.parseRemoteStaffRole
+import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.business.StaffMember
 import com.vector.verevcodex.domain.model.business.StaffMemberDraft
@@ -25,13 +27,13 @@ class StaffRemoteDataSource @Inject constructor(
     private val api: VerevStaffApi,
 ) {
 
-    suspend fun list(storeId: String?): Result<List<StaffMember>> = runCatching {
+    suspend fun list(storeId: String?): Result<List<StaffMember>> = remoteResult {
         val response = api.list()
         val list = response.unwrap { it.map { dto -> dto.toDomain() } }
         if (storeId != null) list.filter { it.storeId == storeId } else list
     }
 
-    suspend fun bulkCreate(storeId: String, members: List<StaffOnboardingMember>): Result<Unit> = runCatching {
+    suspend fun bulkCreate(storeId: String, members: List<StaffOnboardingMember>): Result<Unit> = remoteResult {
         val request = BulkCreateStaffRequestDto(
             primaryStoreId = storeId,
             storeIds = listOf(storeId),
@@ -39,7 +41,7 @@ class StaffRemoteDataSource @Inject constructor(
                 StaffOnboardingMemberRequestDto(
                     fullName = m.fullName.trim(),
                     email = m.email.trim(),
-                    phoneNumber = m.phoneNumber.trim(),
+                    phoneNumber = normalizePhoneNumber(m.phoneNumber),
                     password = m.password,
                     role = m.role.name,
                     permissionsSummary = m.permissionsSummary,
@@ -56,7 +58,7 @@ class StaffRemoteDataSource @Inject constructor(
                     listOf(
                         member.fullName.trim(),
                         member.email.trim().lowercase(),
-                        member.phoneNumber.trim(),
+                        normalizePhoneNumber(member.phoneNumber),
                         member.role.name,
                     ).joinToString(":")
                 },
@@ -65,13 +67,13 @@ class StaffRemoteDataSource @Inject constructor(
         response.unwrap { Unit }
     }
 
-    suspend fun update(staffId: String, primaryStoreId: String, draft: StaffMemberDraft): Result<Unit> = runCatching {
+    suspend fun update(staffId: String, primaryStoreId: String, draft: StaffMemberDraft): Result<Unit> = remoteResult {
         val nameParts = draft.fullName.trim().split(" ", limit = 2)
         val request = UpdateStaffRequestDto(
             firstName = nameParts.firstOrNull().orEmpty(),
             lastName = nameParts.getOrElse(1) { "" },
             email = draft.email.trim(),
-            phoneNumber = draft.phoneNumber.trim(),
+            phoneNumber = normalizePhoneNumber(draft.phoneNumber),
             role = draft.role.name,
             permissions = draft.permissions.toDto(),
             primaryStoreId = primaryStoreId,
@@ -85,14 +87,14 @@ class StaffRemoteDataSource @Inject constructor(
                 primaryStoreId,
                 draft.fullName,
                 draft.email,
-                draft.phoneNumber,
+                normalizePhoneNumber(draft.phoneNumber),
                 draft.role.name,
             ),
         )
         response.unwrap { Unit }
     }
 
-    suspend fun deactivate(staffId: String): Result<Unit> = runCatching {
+    suspend fun deactivate(staffId: String): Result<Unit> = remoteResult {
         val response = api.deactivate(
             staffId = staffId,
             idempotencyKey = staffIdempotencyKey(
@@ -135,6 +137,7 @@ private fun StaffPermissions.toDto() = StaffPermissionsDto(
 
 private fun StaffPermissionsDto.toDomain() = StaffPermissions(
     viewAnalytics = viewAnalytics ?: false,
+    viewPrograms = managePrograms ?: false,
     managePrograms = managePrograms ?: false,
     processTransactions = processTransactions ?: false,
     manageCustomers = manageCustomers ?: false,

@@ -1,15 +1,21 @@
 package com.vector.verevcodex.domain.usecase.auth
 
 import com.vector.verevcodex.domain.model.auth.AccountRegistration
+import com.vector.verevcodex.domain.model.auth.AuthBootstrapState
 import com.vector.verevcodex.domain.model.auth.BusinessRegistration
 import com.vector.verevcodex.domain.model.auth.EmailNotificationSettings
 import com.vector.verevcodex.domain.model.auth.PersonalInformationUpdate
 import com.vector.verevcodex.domain.model.auth.SecuritySetup
+import com.vector.verevcodex.domain.model.auth.SignupOnboardingProgress
 import com.vector.verevcodex.domain.repository.auth.AuthRepository
 import javax.inject.Inject
 
 class ObserveSessionUseCase @Inject constructor(private val repository: AuthRepository) {
     operator fun invoke() = repository.observeSession()
+}
+
+class ObserveAuthBootstrapStateUseCase @Inject constructor(private val repository: AuthRepository) {
+    operator fun invoke() = repository.observeAuthBootstrapState()
 }
 
 class ObserveCurrentSecurityConfigUseCase @Inject constructor(private val repository: AuthRepository) {
@@ -18,6 +24,10 @@ class ObserveCurrentSecurityConfigUseCase @Inject constructor(private val reposi
 
 class ObserveEmailNotificationSettingsUseCase @Inject constructor(private val repository: AuthRepository) {
     operator fun invoke() = repository.observeEmailNotificationSettings()
+}
+
+class ObserveSignupOnboardingPendingUseCase @Inject constructor(private val repository: AuthRepository) {
+    operator fun invoke() = repository.observeSignupOnboardingPending()
 }
 
 class LoginUseCase @Inject constructor(private val repository: AuthRepository) {
@@ -40,6 +50,10 @@ class UpdateCurrentProfileUseCase @Inject constructor(private val repository: Au
 class ChangeCurrentPasswordUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend operator fun invoke(currentPassword: String, newPassword: String) =
         repository.changeCurrentPassword(currentPassword, newPassword)
+}
+
+class ActivateInvitedPasswordUseCase @Inject constructor(private val repository: AuthRepository) {
+    suspend operator fun invoke(newPassword: String) = repository.activateInvitedPassword(newPassword)
 }
 
 class UpdateCurrentQuickPinUseCase @Inject constructor(private val repository: AuthRepository) {
@@ -78,6 +92,14 @@ class ResetQuickPinUseCase @Inject constructor(private val repository: AuthRepos
 
 class ActivateSessionUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend operator fun invoke(accountId: String) = repository.activateSession(accountId)
+}
+
+class SetSignupOnboardingPendingUseCase @Inject constructor(private val repository: AuthRepository) {
+    suspend operator fun invoke(pending: Boolean) = repository.setSignupOnboardingPending(pending)
+}
+
+class UpdateSignupOnboardingProgressUseCase @Inject constructor(private val repository: AuthRepository) {
+    suspend operator fun invoke(progress: SignupOnboardingProgress?) = repository.updateSignupOnboardingProgress(progress)
 }
 
 class LogoutUseCase @Inject constructor(private val repository: AuthRepository) {

@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.settings
 
 import androidx.annotation.StringRes
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.phone.isValidPhoneNumber
 
 internal object SettingsValidation {
     @StringRes
@@ -14,7 +15,7 @@ internal object SettingsValidation {
         fullName.isBlank() -> R.string.merchant_settings_error_full_name_required
         email.isBlank() -> R.string.auth_error_required_email
         !isEmailValid -> R.string.auth_error_invalid_email
-        phoneNumber.isBlank() -> R.string.merchant_settings_error_phone_required
+        !isValidPhoneNumber(phoneNumber) -> R.string.merchant_settings_error_phone_required
         else -> null
     }
 

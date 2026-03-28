@@ -1,6 +1,7 @@
 package com.vector.verevcodex.domain.model.loyalty
 
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import java.time.LocalDate
 
 data class RewardProgramDraft(
     val storeId: String,
@@ -9,5 +10,9 @@ data class RewardProgramDraft(
     val type: LoyaltyProgramType,
     val rulesSummary: String,
     val active: Boolean,
+    val autoScheduleEnabled: Boolean,
+    val scheduleStartDate: LocalDate?,
+    val scheduleEndDate: LocalDate?,
+    val annualRepeatEnabled: Boolean,
     val configuration: RewardProgramConfiguration,
 )

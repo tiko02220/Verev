@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vector.verevcodex.common.phone.defaultPhoneNumberInput
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
@@ -40,7 +41,7 @@ fun StaffManagementScreen(
     var pendingDeleteStaffId by rememberSaveable { mutableStateOf<String?>(null) }
     var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var phoneNumber by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf(defaultPhoneNumberInput()) }
     var password by rememberSaveable { mutableStateOf("") }
     var role by rememberSaveable { mutableStateOf(StaffRole.STAFF) }
     var permissions by rememberSaveable(stateSaver = StaffPermissionsSaver) {
@@ -52,7 +53,7 @@ fun StaffManagementScreen(
     fun dismissSuccessFeedback() {
         fullName = ""
         email = ""
-        phoneNumber = ""
+        phoneNumber = defaultPhoneNumberInput()
         password = ""
         role = StaffRole.STAFF
         permissions = StaffRole.STAFF.defaultPermissions()
@@ -111,7 +112,7 @@ fun StaffManagementScreen(
                             viewModel.dismissFeedback()
                             fullName = ""
                             email = ""
-                            phoneNumber = ""
+                            phoneNumber = defaultPhoneNumberInput()
                             password = ""
                             role = StaffRole.STAFF
                             permissions = StaffRole.STAFF.defaultPermissions()
@@ -207,15 +208,17 @@ fun StaffManagementScreen(
 }
 
 private val StaffPermissionsSaver = androidx.compose.runtime.saveable.listSaver<StaffPermissions, Boolean>(
-    save = { listOf(it.viewAnalytics, it.managePrograms, it.processTransactions, it.manageCustomers, it.manageStaff, it.viewSettings) },
+    save = { listOf(it.viewAnalytics, it.viewPrograms, it.managePrograms, it.processTransactions, it.manageCustomers, it.manageStaff, it.viewSettings) },
     restore = {
+        fun valueAt(index: Int): Boolean = if (index in it.indices) it[index] else false
         StaffPermissions(
-            viewAnalytics = it[0],
-            managePrograms = it[1],
-            processTransactions = it[2],
-            manageCustomers = it[3],
-            manageStaff = it[4],
-            viewSettings = it[5],
+            viewAnalytics = valueAt(0),
+            viewPrograms = if (1 in it.indices) valueAt(1) else valueAt(2),
+            managePrograms = if (2 in it.indices) valueAt(2) else valueAt(1),
+            processTransactions = valueAt(3),
+            manageCustomers = valueAt(4),
+            manageStaff = valueAt(5),
+            viewSettings = valueAt(6),
         )
     },
 )

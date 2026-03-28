@@ -89,6 +89,9 @@ fun PromotionsScreen(
             isSubmitting = state.isSubmitting,
             paymentMethods = state.paymentMethods,
             selectedStoreId = state.selectedStoreId.orEmpty(),
+            selectedStoreName = state.selectedStoreName,
+            existingPromotions = state.promotions,
+            existingPrograms = state.programs,
             onDismiss = viewModel::dismissEditor,
             onPickImage = {
                 activity?.suppressRelockForTransientSystemUi()

@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
 import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
+import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerBonusActionsUseCase
 import com.vector.verevcodex.domain.usecase.customer.FindCustomerByLoyaltyIdUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveActiveScanActionsUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
@@ -26,12 +29,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ScanViewModel @Inject constructor(
     private val findCustomerByLoyaltyIdUseCase: FindCustomerByLoyaltyIdUseCase,
+    private val observeCustomerBonusActionsUseCase: ObserveCustomerBonusActionsUseCase,
     private val executeScanActionUseCase: ExecuteScanActionUseCase,
     private val validateScanActionUseCase: ValidateScanActionUseCase,
     private val observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
@@ -44,6 +49,7 @@ class ScanViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
+    private val scannedCustomerId = MutableStateFlow<String?>(null)
 
     init {
         observeSelectedStoreUseCase()
@@ -57,11 +63,15 @@ class ScanViewModel @Inject constructor(
 
         observeSelectedStoreUseCase()
             .flatMapLatest { store -> observeActiveScanActionsUseCase(store?.id) }
-            .onEach { actions ->
+            .onEach { remoteActions ->
                 val current = _uiState.value
+                val resolvedActions = resolveAvailableActions(
+                    remoteActions = remoteActions,
+                    activePrograms = current.activePrograms,
+                )
                 _uiState.value = current.copy(
-                    availableActions = actions,
-                    selectedAction = current.selectedAction?.takeIf { it in actions } ?: actions.firstOrNull(),
+                    availableActions = resolvedActions,
+                    selectedAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull(),
                 )
             }
             .launchIn(viewModelScope)
@@ -69,13 +79,34 @@ class ScanViewModel @Inject constructor(
         observeSelectedStoreUseCase()
             .flatMapLatest { store -> observeProgramsUseCase(store?.id) }
             .onEach { programs ->
-                _uiState.value = _uiState.value.copy(activePrograms = programs.filter { it.active })
+                val current = _uiState.value
+                val activePrograms = programs.filter { it.active }
+                val resolvedActions = resolveAvailableActions(
+                    remoteActions = current.availableActions,
+                    activePrograms = activePrograms,
+                )
+                _uiState.value = current.copy(
+                    activePrograms = activePrograms,
+                    availableActions = resolvedActions,
+                    selectedAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull(),
+                )
             }
             .launchIn(viewModelScope)
 
         observeScanPreferencesUseCase()
             .onEach { preferences ->
                 _uiState.value = _uiState.value.copy(scanPreferences = preferences)
+            }
+            .launchIn(viewModelScope)
+
+        scannedCustomerId
+            .flatMapLatest { customerId ->
+                customerId?.let { observeCustomerBonusActionsUseCase(it) } ?: flowOf(emptyList())
+            }
+            .onEach { bonusActions ->
+                _uiState.value = _uiState.value.copy(
+                    customerRewardHighlights = bonusActions.filterRewardHighlights(),
+                )
             }
             .launchIn(viewModelScope)
     }
@@ -92,37 +123,54 @@ class ScanViewModel @Inject constructor(
         ) {
             return
         }
-        val nextAction = current.availableActions.firstOrNull()
+        val resolvedActions = resolveAvailableActions(
+            remoteActions = current.availableActions,
+            activePrograms = current.activePrograms,
+        )
+        val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
         _uiState.value = current.copy(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             customer = null,
+            customerRewardHighlights = emptyList(),
             scannedLoyaltyId = null,
             visitCountedForCurrentScan = false,
+            availableActions = resolvedActions,
             selectedAction = nextAction,
             isSearching = false,
             isSubmitting = false,
             fieldErrors = emptyMap(),
+            successDialogMessageRes = null,
             errorRes = null,
             messageRes = null,
         )
+        scannedCustomerId.value = null
         enterScan(initialMethod)
     }
 
     fun enterScan(method: ScanMethod? = null, rememberChoice: Boolean = false) {
         viewModelScope.launch {
-            val nextAction = _uiState.value.availableActions.firstOrNull()
-            _uiState.value = _uiState.value.copy(
+            val current = _uiState.value
+            val resolvedActions = resolveAvailableActions(
+                remoteActions = current.availableActions,
+                activePrograms = current.activePrograms,
+            )
+            val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
+            _uiState.value = current.copy(
                 contentMode = ScanContentMode.ACTIVE_SCAN,
                 customer = null,
+                customerRewardHighlights = emptyList(),
                 scannedLoyaltyId = null,
                 visitCountedForCurrentScan = false,
+                availableActions = resolvedActions,
                 selectedAction = nextAction,
                 isSearching = false,
                 isSubmitting = false,
                 fieldErrors = emptyMap(),
+                successDialogMessageRes = null,
                 errorRes = null,
                 messageRes = null,
             )
+            scannedCustomerId.value = null
             val resolvedMethod = method
                 ?: _uiState.value.scanPreferences.preferredMethod
                 ?: ScanMethod.NFC
@@ -134,25 +182,30 @@ class ScanViewModel @Inject constructor(
     }
 
     fun requestScan() {
-        val nextAction = _uiState.value.availableActions.firstOrNull()
-        _uiState.value = _uiState.value.copy(
+        val current = _uiState.value
+        val resolvedActions = resolveAvailableActions(
+            remoteActions = current.availableActions,
+            activePrograms = current.activePrograms,
+        )
+        val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
+        _uiState.value = current.copy(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             customer = null,
+            customerRewardHighlights = emptyList(),
             scannedLoyaltyId = null,
             visitCountedForCurrentScan = false,
+            availableActions = resolvedActions,
             selectedAction = nextAction,
             isSearching = false,
             isSubmitting = false,
             fieldErrors = emptyMap(),
+            successDialogMessageRes = null,
             errorRes = null,
             messageRes = null,
         )
-        if (nextAction == null) {
-            _uiState.value = _uiState.value.copy(errorRes = R.string.merchant_scan_error_no_program_actions)
-            return
-        }
-        val resolvedMethod = _uiState.value.activeScanMethod
-            ?: _uiState.value.scanPreferences.preferredMethod
+        scannedCustomerId.value = null
+        val resolvedMethod = current.activeScanMethod
+            ?: current.scanPreferences.preferredMethod
             ?: ScanMethod.NFC
         startScan(resolvedMethod)
     }
@@ -162,12 +215,15 @@ class ScanViewModel @Inject constructor(
             clearScanPreferenceUseCase()
             _uiState.value = _uiState.value.copy(
                 contentMode = ScanContentMode.ACTIVE_SCAN,
+                customerRewardHighlights = emptyList(),
                 scannedLoyaltyId = null,
                 visitCountedForCurrentScan = false,
+                successDialogMessageRes = null,
                 errorRes = null,
                 messageRes = null,
                 fieldErrors = emptyMap(),
             )
+            scannedCustomerId.value = null
             startScan(ScanMethod.NFC)
         }
     }
@@ -223,6 +279,7 @@ class ScanViewModel @Inject constructor(
     fun selectAction(action: RewardProgramScanAction) {
         _uiState.value = _uiState.value.copy(
             selectedAction = action,
+            successDialogMessageRes = null,
             errorRes = null,
             messageRes = null,
             fieldErrors = emptyMap(),
@@ -236,6 +293,22 @@ class ScanViewModel @Inject constructor(
             fieldErrors = updatedErrors,
             errorRes = if (updatedErrors.isEmpty()) null else _uiState.value.errorRes,
         )
+    }
+
+    private fun resolveAvailableActions(
+        remoteActions: List<RewardProgramScanAction>,
+        activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
+    ): List<RewardProgramScanAction> {
+        if (remoteActions.isNotEmpty()) {
+            return remoteActions.distinct()
+        }
+        return activePrograms
+            .asSequence()
+            .filter { it.active }
+            .flatMap { it.configuration.scanActions.asSequence() }
+            .distinct()
+            .sortedBy { it.ordinal }
+            .toList()
     }
 
     fun submitAction(amountInput: String, pointsInput: String) {
@@ -302,11 +375,12 @@ class ScanViewModel @Inject constructor(
                 if (selectedAction == RewardProgramScanAction.EARN_POINTS || selectedAction == RewardProgramScanAction.CHECK_IN) {
                     markVisitCountedForCurrentScan()
                 }
-                performLookup(customer.loyaltyId, getSuccessMessage(selectedAction))
+                refreshCustomerAfterAction(customer.loyaltyId, getSuccessMessage(selectedAction))
             }.onFailure {
                 _uiState.value = _uiState.value.copy(
                     contentMode = ScanContentMode.CUSTOMER,
                     isSubmitting = false,
+                    successDialogMessageRes = null,
                     errorRes = R.string.merchant_scan_error_action_failed,
                     messageRes = null,
                 )
@@ -323,7 +397,11 @@ class ScanViewModel @Inject constructor(
     }
 
     fun clearFeedback() {
-        _uiState.value = _uiState.value.copy(errorRes = null, messageRes = null)
+        _uiState.value = _uiState.value.copy(errorRes = null, messageRes = null, successDialogMessageRes = null)
+    }
+
+    fun dismissSuccessDialog() {
+        _uiState.value = _uiState.value.copy(successDialogMessageRes = null)
     }
 
     private fun startScan(method: ScanMethod) {
@@ -332,17 +410,20 @@ class ScanViewModel @Inject constructor(
             scanSessionToken = _uiState.value.scanSessionToken + 1,
             activeScanMethod = method,
             customer = null,
+            customerRewardHighlights = emptyList(),
             scannedLoyaltyId = null,
             visitCountedForCurrentScan = false,
             isSearching = false,
             isSubmitting = false,
             fieldErrors = emptyMap(),
+            successDialogMessageRes = null,
             errorRes = null,
             messageRes = when (method) {
                 ScanMethod.NFC -> R.string.merchant_scan_message_nfc_ready
                 ScanMethod.BARCODE -> R.string.merchant_scan_message_barcode_ready
             },
         )
+        scannedCustomerId.value = null
     }
 
     private fun handleResolvedScan(method: ScanMethod, rawValue: String) {
@@ -365,12 +446,15 @@ class ScanViewModel @Inject constructor(
             isSearching = true,
             isSubmitting = false,
             customer = null,
+            customerRewardHighlights = emptyList(),
             fieldErrors = emptyMap(),
+            successDialogMessageRes = null,
             errorRes = null,
             messageRes = successMessageRes,
         )
-        runCatching { findCustomerByLoyaltyIdUseCase(loyaltyId) }
+        runCatching { findCustomerByLoyaltyIdUseCase(loyaltyId, _uiState.value.selectedStoreId) }
             .onSuccess { customer ->
+                scannedCustomerId.value = customer?.id
                 val preserveVisitCount =
                     customer != null &&
                         previousState.visitCountedForCurrentScan &&
@@ -382,6 +466,7 @@ class ScanViewModel @Inject constructor(
                     isSubmitting = false,
                     customer = customer,
                     visitCountedForCurrentScan = preserveVisitCount,
+                    successDialogMessageRes = null,
                     errorRes = if (customer == null) R.string.merchant_scan_error_not_found else null,
                     messageRes = successMessageRes ?: if (customer != null) {
                         R.string.merchant_scan_message_member_found
@@ -396,9 +481,50 @@ class ScanViewModel @Inject constructor(
                     isSearching = false,
                     isSubmitting = false,
                     customer = null,
+                    customerRewardHighlights = emptyList(),
+                    successDialogMessageRes = null,
                     errorRes = R.string.merchant_scan_error_lookup_failed,
                     messageRes = null,
                 )
+                scannedCustomerId.value = null
+            }
+    }
+
+    private suspend fun refreshCustomerAfterAction(loyaltyId: String, successMessageRes: Int) {
+        val previousState = _uiState.value
+        runCatching { findCustomerByLoyaltyIdUseCase(loyaltyId, _uiState.value.selectedStoreId) }
+            .onSuccess { customer ->
+                scannedCustomerId.value = customer?.id
+                val preserveVisitCount =
+                    customer != null &&
+                        previousState.visitCountedForCurrentScan &&
+                        previousState.scannedLoyaltyId == loyaltyId &&
+                        previousState.customer?.id == customer.id
+                _uiState.value = previousState.copy(
+                    contentMode = if (customer == null) ScanContentMode.ACTIVE_SCAN else ScanContentMode.CUSTOMER,
+                    scannedLoyaltyId = loyaltyId,
+                    isSearching = false,
+                    isSubmitting = false,
+                    customer = customer,
+                    customerRewardHighlights = if (customer == null) emptyList() else previousState.customerRewardHighlights,
+                    visitCountedForCurrentScan = preserveVisitCount,
+                    successDialogMessageRes = if (customer != null) successMessageRes else null,
+                    errorRes = if (customer == null) R.string.merchant_scan_error_not_found else null,
+                    messageRes = null,
+                    fieldErrors = emptyMap(),
+                )
+            }
+            .onFailure {
+                _uiState.value = previousState.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSearching = false,
+                    isSubmitting = false,
+                    successDialogMessageRes = null,
+                    errorRes = R.string.merchant_scan_error_lookup_failed,
+                    messageRes = null,
+                    fieldErrors = emptyMap(),
+                )
+                scannedCustomerId.value = previousState.customer?.id
             }
     }
 
@@ -407,6 +533,7 @@ class ScanViewModel @Inject constructor(
             contentMode = ScanContentMode.ACTIVE_SCAN,
             isSearching = false,
             isSubmitting = false,
+            successDialogMessageRes = null,
             errorRes = errorRes,
             messageRes = null,
             fieldErrors = fieldErrors,
@@ -417,3 +544,16 @@ class ScanViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(visitCountedForCurrentScan = true)
     }
 }
+
+private fun List<CustomerBonusAction>.filterRewardHighlights(): List<CustomerBonusAction> =
+    filter { action ->
+        action.type in setOf(
+            CustomerBonusActionType.CHECK_IN_REWARD,
+            CustomerBonusActionType.REFERRAL_REFERRER_REWARD,
+            CustomerBonusActionType.REFERRAL_REFEREE_REWARD,
+            CustomerBonusActionType.PURCHASE_FREQUENCY_REWARD,
+            CustomerBonusActionType.TIER_LEVEL_REWARD,
+            CustomerBonusActionType.TIER_BENEFIT_RECORDED,
+            CustomerBonusActionType.DISCOUNT_APPLIED,
+        )
+    }.take(3)

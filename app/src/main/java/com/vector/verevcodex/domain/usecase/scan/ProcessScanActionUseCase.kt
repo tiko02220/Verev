@@ -56,8 +56,7 @@ class ProcessScanActionUseCase @Inject constructor(
                 customerRepository.adjustPoints(customerId, -pointsToRedeem, "Reward Redemption")
             }
             RewardProgramScanAction.CHECK_IN -> {
-                val rewardPoints = activePrograms.firstOrNull()?.configuration?.checkInRule?.rewardPoints ?: 0
-                customerRepository.recordCheckIn(customerId, storeId, rewardPoints)
+                customerRepository.recordCheckIn(customerId, storeId)
             }
             else -> { /* Handle other actions like Cashback */ }
         }

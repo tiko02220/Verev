@@ -1,9 +1,13 @@
 package com.vector.verevcodex
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -32,9 +36,13 @@ class MainActivity : FragmentActivity() {
     private var didEnterBackground = false
     private var suppressRelockUntilResume = false
     private var pendingExternalNfcResult: PendingExternalNfcResult? = null
+    private var hasRequestedNotificationPermission = false
 
     @Inject lateinit var nfcCardWriteCoordinator: NfcCardWriteCoordinator
     @Inject lateinit var googleWalletProvisioningManager: GoogleWalletProvisioningManager
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private val nfcAdapter: NfcAdapter? by lazy { NfcAdapter.getDefaultAdapter(this) }
     private val nfcPendingIntent: PendingIntent by lazy {
@@ -54,6 +62,7 @@ class MainActivity : FragmentActivity() {
                 appSecurityViewModel.uiState.collect { state ->
                     if (!state.requiresUnlock && state.authEntryDestination == null) {
                         deliverPendingExternalNfcResult()
+                        maybeRequestNotificationPermission()
                     }
                 }
             }
@@ -72,6 +81,7 @@ class MainActivity : FragmentActivity() {
                             onBiometricResult = appSecurityViewModel::biometricHandled,
                             onRecoverAccess = appSecurityViewModel::recoverAccess,
                             onExitPinRecovery = appSecurityViewModel::exitPinRecovery,
+                            onAuthFlowCompleted = appSecurityViewModel::completeAuthenticatedEntry,
                             onLogout = appSecurityViewModel::logoutToLogin,
                         )
                     }
@@ -159,6 +169,17 @@ class MainActivity : FragmentActivity() {
             is PendingExternalNfcResult.Success -> scanViewModel.onExternalNfcScan(pendingResult.loyaltyId)
         }
         pendingExternalNfcResult = null
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (hasRequestedNotificationPermission) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            hasRequestedNotificationPermission = true
+            return
+        }
+        hasRequestedNotificationPermission = true
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private sealed interface PendingExternalNfcResult {

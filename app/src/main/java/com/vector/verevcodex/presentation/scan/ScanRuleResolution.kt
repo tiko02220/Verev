@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.scan
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
+import com.vector.verevcodex.domain.model.loyalty.displayValue
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfiguration
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
@@ -46,8 +47,8 @@ internal fun List<RewardProgram>.calculateCashbackCredit(amount: Double): Int {
 internal fun List<RewardProgram>.cashbackMinimumSpendAmount(): Double =
     resolveProgramFor(RewardProgramScanAction.APPLY_CASHBACK)?.configuration?.cashbackRule?.minimumSpendAmount ?: 0.0
 
-internal fun List<RewardProgram>.checkInRewardPoints(): Int =
-    (resolveProgramFor(RewardProgramScanAction.CHECK_IN)?.configuration?.checkInRule ?: CheckInProgramRule()).rewardPoints
+internal fun List<RewardProgram>.checkInRewardSummary(): String =
+    (resolveProgramFor(RewardProgramScanAction.CHECK_IN)?.configuration?.checkInRule ?: CheckInProgramRule()).rewardOutcome.displayValue()
 
 private fun RewardProgramScanAction.isEnabledIn(configuration: RewardProgramConfiguration): Boolean = when (this) {
     RewardProgramScanAction.EARN_POINTS -> configuration.earningEnabled

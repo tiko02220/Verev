@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.scan
 
 import androidx.annotation.StringRes
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
@@ -36,10 +37,12 @@ data class ScanUiState(
     val scannedLoyaltyId: String? = null,
     val visitCountedForCurrentScan: Boolean = false,
     val customer: Customer? = null,
+    val customerRewardHighlights: List<CustomerBonusAction> = emptyList(),
     val selectedAction: RewardProgramScanAction? = null,
     val isSearching: Boolean = false,
     val isSubmitting: Boolean = false,
     val fieldErrors: Map<String, Int> = emptyMap(),
+    @StringRes val successDialogMessageRes: Int? = null,
     @StringRes val errorRes: Int? = null,
     @StringRes val messageRes: Int? = null,
 )

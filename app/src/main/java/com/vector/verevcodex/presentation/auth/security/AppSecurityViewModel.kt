@@ -3,23 +3,20 @@ package com.vector.verevcodex.presentation.auth.security
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.domain.usecase.auth.LogoutUseCase
-import com.vector.verevcodex.domain.usecase.auth.ObserveCurrentSecurityConfigUseCase
-import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
+import com.vector.verevcodex.domain.usecase.auth.ObserveAuthBootstrapStateUseCase
 import com.vector.verevcodex.domain.usecase.auth.VerifyQuickPinUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AppSecurityViewModel @Inject constructor(
-    observeSessionUseCase: ObserveSessionUseCase,
-    observeCurrentSecurityConfigUseCase: ObserveCurrentSecurityConfigUseCase,
+    observeAuthBootstrapStateUseCase: ObserveAuthBootstrapStateUseCase,
     private val verifyQuickPinUseCase: VerifyQuickPinUseCase,
     private val logoutUseCase: LogoutUseCase,
 ) : ViewModel() {
@@ -27,21 +24,23 @@ class AppSecurityViewModel @Inject constructor(
     val uiState: StateFlow<AppSecurityUiState> = _uiState.asStateFlow()
     private var hasHandledInitialSnapshot = false
     private var lockSessionId = 0
+    private var suppressSignupReentry = false
 
     init {
-        combine(
-            observeSessionUseCase(),
-            observeCurrentSecurityConfigUseCase(),
-        ) { session, security ->
-            session to security
-        }.onEach { (session, security) ->
-            val current = _uiState.value
-            val authEntryDestination = when {
-                current.authEntryDestination == AuthEntryDestination.FORGOT_PIN -> current.authEntryDestination
-                session != null -> null
-                current.authEntryDestination != null -> current.authEntryDestination
-                else -> AuthEntryDestination.LOGIN
+        observeAuthBootstrapStateUseCase().onEach { snapshot ->
+            val session = snapshot.session
+            val security = snapshot.securityConfig
+            val signupOnboardingPending = snapshot.signupOnboardingPending
+            if (session == null || !signupOnboardingPending) {
+                suppressSignupReentry = false
             }
+            val current = _uiState.value
+            val authEntryDestination = resolveAuthEntryDestination(
+                currentDestination = current.authEntryDestination,
+                hasSession = session != null,
+                signupOnboardingPending = signupOnboardingPending,
+                suppressSignupReentry = suppressSignupReentry,
+            )
             val shouldRequireUnlock = when {
                 session == null || security == null -> false
                 !hasHandledInitialSnapshot -> true
@@ -59,6 +58,7 @@ class AppSecurityViewModel @Inject constructor(
                 isInitialized = true,
                 session = session,
                 securityConfig = security,
+                signupOnboardingPending = signupOnboardingPending,
                 authEntryDestination = authEntryDestination,
                 requiresUnlock = shouldRequireUnlock,
                 pinDigits = if (shouldRequireUnlock) current.pinDigits else List(4) { "" },
@@ -163,6 +163,20 @@ class AppSecurityViewModel @Inject constructor(
         )
     }
 
+    fun completeAuthenticatedEntry() {
+        val state = _uiState.value
+        if (state.session == null) return
+        suppressSignupReentry = true
+        _uiState.value = state.copy(
+            authEntryDestination = null,
+            requiresUnlock = false,
+            promptBiometric = false,
+            pinDigits = List(4) { "" },
+            pinError = null,
+            pinErrorCount = 0,
+        )
+    }
+
     private fun verifyPin(
         pin: String = _uiState.value.pinDigits.joinToString(""),
         expectedLockSessionId: Int = lockSessionId,
@@ -188,4 +202,18 @@ class AppSecurityViewModel @Inject constructor(
             }
         }
     }
+}
+
+internal fun resolveAuthEntryDestination(
+    currentDestination: AuthEntryDestination?,
+    hasSession: Boolean,
+    signupOnboardingPending: Boolean,
+    suppressSignupReentry: Boolean = false,
+): AuthEntryDestination? = when {
+    currentDestination == AuthEntryDestination.FORGOT_PIN -> currentDestination
+    suppressSignupReentry && hasSession -> null
+    signupOnboardingPending -> AuthEntryDestination.SIGNUP
+    hasSession -> null
+    currentDestination != null -> currentDestination
+    else -> AuthEntryDestination.LOGIN
 }

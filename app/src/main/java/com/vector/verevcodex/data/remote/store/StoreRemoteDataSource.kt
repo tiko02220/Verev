@@ -1,5 +1,6 @@
 package com.vector.verevcodex.data.remote.store
 
+import com.vector.verevcodex.common.phone.normalizePhoneNumber
 import com.vector.verevcodex.data.remote.api.store.CreateStoreRequestDto
 import com.vector.verevcodex.data.remote.api.store.StoreViewDto
 import com.vector.verevcodex.data.remote.api.store.UpdateStoreRequestDto
@@ -7,6 +8,7 @@ import com.vector.verevcodex.data.remote.api.store.VerevStoresApi
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyAction
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyDomain
 import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
+import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.business.StoreDraft
@@ -18,7 +20,7 @@ class StoreRemoteDataSource @Inject constructor(
     private val api: VerevStoresApi,
 ) {
 
-    suspend fun list(ownerId: String): Result<List<Store>> = runCatching {
+    suspend fun list(ownerId: String): Result<List<Store>> = remoteResult {
         val response = api.list()
         val list = response.unwrap { list: List<StoreViewDto> ->
             list.map { it.toDomain(ownerId) }
@@ -26,16 +28,17 @@ class StoreRemoteDataSource @Inject constructor(
         list
     }
 
-    suspend fun get(storeId: String, ownerId: String): Result<Store> = runCatching {
+    suspend fun get(storeId: String, ownerId: String): Result<Store> = remoteResult {
         val response = api.get(storeId)
         response.unwrap { dto -> dto.toDomain(ownerId) }
     }
 
-    suspend fun create(draft: StoreDraft, ownerId: String): Result<Store> = runCatching {
+    suspend fun create(draft: StoreDraft, ownerId: String): Result<Store> = remoteResult {
+        val normalizedContactInfo = normalizePhoneNumber(draft.contactInfo)
         val request = CreateStoreRequestDto(
             name = draft.name.trim(),
             address = draft.address.trim(),
-            contactInfo = draft.contactInfo.trim(),
+            contactInfo = normalizedContactInfo,
             category = draft.category.trim(),
             workingHours = draft.workingHours.trim(),
             logoUrl = "",
@@ -48,7 +51,7 @@ class StoreRemoteDataSource @Inject constructor(
                 action = RemoteIdempotencyAction.CREATE,
                 draft.name,
                 draft.address,
-                draft.contactInfo,
+                normalizedContactInfo,
                 draft.category,
                 draft.workingHours,
                 draft.primaryColor,
@@ -58,11 +61,12 @@ class StoreRemoteDataSource @Inject constructor(
         response.unwrap { dto -> dto.toDomain(ownerId) }
     }
 
-    suspend fun update(store: Store): Result<Store> = runCatching {
+    suspend fun update(store: Store): Result<Store> = remoteResult {
+        val normalizedContactInfo = normalizePhoneNumber(store.contactInfo)
         val request = UpdateStoreRequestDto(
             name = store.name,
             address = store.address,
-            contactInfo = store.contactInfo,
+            contactInfo = normalizedContactInfo,
             category = store.category,
             workingHours = store.workingHours,
             logoUrl = store.logoUrl,
@@ -77,7 +81,7 @@ class StoreRemoteDataSource @Inject constructor(
                 store.id,
                 store.name,
                 store.address,
-                store.contactInfo,
+                normalizedContactInfo,
                 store.category,
                 store.workingHours,
                 store.logoUrl,
@@ -88,7 +92,7 @@ class StoreRemoteDataSource @Inject constructor(
         response.unwrap { dto -> dto.toDomain(store.ownerId) }
     }
 
-    suspend fun setActive(storeId: String, active: Boolean, ownerId: String): Result<Store> = runCatching {
+    suspend fun setActive(storeId: String, active: Boolean, ownerId: String): Result<Store> = remoteResult {
         val response = if (active) {
             api.activate(
                 storeId = storeId,

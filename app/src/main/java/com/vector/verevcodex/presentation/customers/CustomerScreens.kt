@@ -28,16 +28,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.common.state.UiState
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
 fun CustomerListScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onOpenCustomer: (String) -> Unit = {},
+    onOpenAddCustomer: () -> Unit = {},
     viewModel: CustomerViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    var showSortSheet by rememberSaveable { mutableStateOf(false) }
 
     CustomerFeatureScaffold(
         title = stringResource(R.string.merchant_customers_title),
@@ -53,9 +58,12 @@ fun CustomerListScreen(
                 totalRevenue = state.filteredRevenue,
                 query = state.searchQuery,
                 selectedTier = state.selectedTier,
+                selectedSort = state.selectedSort,
                 hasActiveTierProgram = state.hasActiveTierProgram,
+                onOpenAddCustomer = onOpenAddCustomer,
+                onOpenFilter = { showFilterSheet = true },
+                onOpenSort = { showSortSheet = true },
                 onQueryChange = viewModel::onSearchQueryChanged,
-                onTierSelected = viewModel::onTierSelected,
             )
         },
         body = {
@@ -72,11 +80,7 @@ fun CustomerListScreen(
                 when (val dataState = state.dataState) {
                     UiState.Loading -> {
                         item {
-                            MerchantEmptyStateCard(
-                                title = stringResource(R.string.merchant_customers_loading_title),
-                                subtitle = stringResource(R.string.merchant_customers_loading_subtitle),
-                                icon = Icons.Default.Person,
-                            )
+                            CustomerListSkeleton()
                         }
                     }
                     UiState.Empty -> {
@@ -120,12 +124,30 @@ fun CustomerListScreen(
             }
         },
     )
+
+    if (showFilterSheet) {
+        CustomerTierFilterSheet(
+            hasActiveTierProgram = state.hasActiveTierProgram,
+            selectedTier = state.selectedTier,
+            onDismiss = { showFilterSheet = false },
+            onTierSelected = viewModel::onTierSelected,
+        )
+    }
+
+    if (showSortSheet) {
+        CustomerSortSheet(
+            selectedSort = state.selectedSort,
+            onDismiss = { showSortSheet = false },
+            onSortSelected = viewModel::onSortSelected,
+        )
+    }
 }
 
 @Composable
 fun CustomerProfileScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit = {},
+    onOpenCustomer: (String) -> Unit = {},
     onOpenTransaction: (String) -> Unit = {},
     onManageCredentials: (String) -> Unit = {},
     viewModel: CustomerProfileViewModel = hiltViewModel(),
@@ -137,6 +159,8 @@ fun CustomerProfileScreen(
     var showAdjustPoints by rememberSaveable { mutableStateOf(false) }
     var showAddTransactionSheet by rememberSaveable { mutableStateOf(false) }
     var showTagsSheet by rememberSaveable { mutableStateOf(false) }
+    var showMergeSheet by rememberSaveable { mutableStateOf(false) }
+    var showSplitSheet by rememberSaveable { mutableStateOf(false) }
     var selectedTab by rememberSaveable { mutableStateOf(CustomerProfileTab.OVERVIEW) }
     val hasActiveTierProgram = state.storePrograms.any { it.active && it.configuration.tierTrackingEnabled }
     val availablePointsPrograms = state.storePrograms.eligibleActivePrograms()
@@ -204,10 +228,57 @@ fun CustomerProfileScreen(
         )
     }
 
+    if (showMergeSheet && customer != null) {
+        CustomerMergeDuplicateSheet(
+            currentCustomer = customer,
+            candidates = state.availableDuplicateCustomers,
+            preview = state.mergePreview,
+            isLoading = state.isDuplicateResolutionLoading,
+            onDismiss = {
+                showMergeSheet = false
+                viewModel.clearMergePreview()
+            },
+            onSelectCandidate = viewModel::previewMerge,
+            onConfirm = {
+                viewModel.mergeWithPreviewTarget()
+                showMergeSheet = false
+            },
+        )
+    }
+
+    if (showSplitSheet && customer != null) {
+        CustomerSplitIdentitySheet(
+            customer = customer,
+            preview = state.splitPreview,
+            isLoading = state.isDuplicateResolutionLoading,
+            onDismiss = {
+                showSplitSheet = false
+                viewModel.clearSplitPreview()
+            },
+            onSubmit = { firstName, lastName, phoneNumber, email, notes ->
+                viewModel.splitIdentity(firstName, lastName, phoneNumber, email, notes)
+                showSplitSheet = false
+            },
+        )
+    }
+
     LaunchedEffect(state.feedbackMessageRes) {
         if (state.feedbackMessageRes != null) {
             kotlinx.coroutines.delay(2500)
             viewModel.consumeFeedback()
+        }
+    }
+
+    LaunchedEffect(showSplitSheet) {
+        if (showSplitSheet) {
+            viewModel.previewSplit()
+        }
+    }
+
+    LaunchedEffect(state.duplicateResolutionNavigationCustomerId) {
+        state.duplicateResolutionNavigationCustomerId?.let { customerId ->
+            viewModel.consumeDuplicateResolutionNavigation()
+            onOpenCustomer(customerId)
         }
     }
 
@@ -312,6 +383,22 @@ fun CustomerProfileScreen(
                                                 onEditContact = { showEditContact = true },
                                             )
                                         }
+                                        if (state.canManageDuplicates) {
+                                            item {
+                                                CustomerDuplicateResolutionSection(
+                                                    mergePreview = state.mergePreview,
+                                                    splitPreview = state.splitPreview,
+                                                    onOpenMerge = {
+                                                        viewModel.clearMergePreview()
+                                                        showMergeSheet = true
+                                                    },
+                                                    onOpenSplit = {
+                                                        viewModel.clearSplitPreview()
+                                                        showSplitSheet = true
+                                                    },
+                                                )
+                                            }
+                                        }
                                         item { CustomerProfileNotesPreviewSection(state.relation, onEditNotes = { showEditCrm = true }) }
                                         if (state.activities.isNotEmpty()) {
                                             item {
@@ -401,6 +488,20 @@ fun CustomerProfileScreen(
             subtitle = stringResource(R.string.merchant_loader_customer_profile_subtitle),
         )
     }
+
+    state.duplicateResolutionSuccessMessageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            onDismiss = viewModel::clearDuplicateResolutionFeedback,
+        )
+    }
+
+    state.duplicateResolutionErrorMessage?.let { message ->
+        MerchantErrorDialog(
+            message = message,
+            onDismiss = viewModel::clearDuplicateResolutionFeedback,
+        )
+    }
 }
 
 @Composable
@@ -447,9 +548,41 @@ fun CustomerTransactionDetailScreen(
                             icon = Icons.Default.CreditCard,
                         )
                     }
-                    else -> item { CustomerTransactionDetailSection(transaction) }
+                    else -> item {
+                        CustomerTransactionDetailSection(
+                            transaction = transaction,
+                            voidRequest = state.voidRequest,
+                            canRequestVoid = state.canRequestVoid,
+                            onRequestVoid = viewModel::showVoidDialog,
+                        )
+                    }
                 }
             }
         },
     )
+
+    if (state.showVoidDialog && transaction != null) {
+        RequestTransactionVoidDialog(
+            reason = state.voidReason,
+            reasonError = state.voidReasonError?.let { stringResource(it) },
+            isSubmitting = state.isSubmittingVoid,
+            onDismiss = viewModel::dismissVoidDialog,
+            onReasonChange = viewModel::updateVoidReason,
+            onSubmit = viewModel::submitVoidRequest,
+        )
+    }
+
+    state.successMessageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            onDismiss = viewModel::clearFeedback,
+        )
+    }
+
+    state.errorMessageRes?.let { messageRes ->
+        MerchantErrorDialog(
+            message = stringResource(messageRes),
+            onDismiss = viewModel::clearFeedback,
+        )
+    }
 }

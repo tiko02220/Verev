@@ -83,6 +83,8 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantInteractiveCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
+import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonBlock
+import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonCard
 import com.vector.verevcodex.presentation.merchant.common.displayName
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCurrency
@@ -516,56 +518,56 @@ internal fun AnalyticsEmptyStateCard(
 
 @Composable
 internal fun AnalyticsLoadingStateCard() {
-    MerchantPrimaryCard(contentPadding = PaddingValues(24.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                VerevColors.Gold.copy(alpha = 0.18f),
-                                VerevColors.Moss.copy(alpha = 0.12f),
-                            ),
-                        ),
-                    ),
-                contentAlignment = Alignment.Center,
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        MerchantSkeletonCard(contentPadding = PaddingValues(18.dp), shape = RoundedCornerShape(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Default.QueryStats,
-                    contentDescription = null,
-                    tint = VerevColors.Forest,
-                    modifier = Modifier.size(30.dp),
-                )
+                repeat(2) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        MerchantSkeletonBlock(
+                            modifier = Modifier.fillMaxWidth().height(116.dp),
+                            shape = RoundedCornerShape(22.dp),
+                        )
+                    }
+                }
             }
-            Text(
-                text = stringResource(R.string.merchant_analytics_loading_title),
-                color = VerevColors.Forest,
-                fontSize = 18.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = stringResource(R.string.merchant_analytics_loading_subtitle),
-                color = VerevColors.Forest.copy(alpha = 0.62f),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(3) { index ->
-                    Box(
-                        modifier = Modifier
-                            .size(if (index == 1) 12.dp else 10.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (index == 1) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.18f),
-                            ),
+        }
+        MerchantSkeletonCard(contentPadding = PaddingValues(18.dp), shape = RoundedCornerShape(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                repeat(3) {
+                    MerchantSkeletonBlock(
+                        modifier = Modifier.weight(1f).height(54.dp),
+                        shape = RoundedCornerShape(18.dp),
                     )
                 }
+            }
+        }
+        MerchantSkeletonCard(contentPadding = PaddingValues(18.dp), shape = RoundedCornerShape(24.dp)) {
+            MerchantSkeletonBlock(
+                modifier = Modifier.fillMaxWidth(0.34f).height(16.dp),
+            )
+            MerchantSkeletonBlock(
+                modifier = Modifier.fillMaxWidth().height(220.dp),
+                shape = RoundedCornerShape(20.dp),
+            )
+        }
+        MerchantSkeletonCard(contentPadding = PaddingValues(18.dp), shape = RoundedCornerShape(24.dp)) {
+            MerchantSkeletonBlock(
+                modifier = Modifier.fillMaxWidth(0.34f).height(16.dp),
+            )
+            repeat(3) {
+                MerchantSkeletonBlock(
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                    shape = RoundedCornerShape(18.dp),
+                )
             }
         }
     }
@@ -688,8 +690,23 @@ internal fun CustomerAnalyticsDetailContent(
 @Composable
 internal fun RevenueAnalyticsDetailContent(
     analytics: RevenueAnalyticsDrillDown,
+    selectedRange: AnalyticsTimeRange,
     chartAnimationEpoch: Int,
 ) {
+    val timeBucketTitleRes = when (selectedRange) {
+        AnalyticsTimeRange.WEEK -> R.string.merchant_analytics_hourly_revenue_title
+        AnalyticsTimeRange.MONTH -> R.string.merchant_analytics_daily_revenue_title
+        AnalyticsTimeRange.QUARTER,
+        AnalyticsTimeRange.YEAR,
+        -> R.string.merchant_analytics_period_revenue_title
+    }
+    val timeBucketSubtitleRes = when (selectedRange) {
+        AnalyticsTimeRange.WEEK -> R.string.merchant_analytics_time_bucket_subtitle
+        AnalyticsTimeRange.MONTH -> R.string.merchant_analytics_daily_bucket_subtitle
+        AnalyticsTimeRange.QUARTER,
+        AnalyticsTimeRange.YEAR,
+        -> R.string.merchant_analytics_period_bucket_subtitle
+    }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AnalyticsDetailHeroCard(
             title = stringResource(R.string.merchant_analytics_total_revenue),
@@ -717,8 +734,8 @@ internal fun RevenueAnalyticsDetailContent(
             animationEpoch = chartAnimationEpoch,
         )
         AnalyticsComparisonCard(
-            title = stringResource(R.string.merchant_analytics_hourly_revenue_title),
-            subtitle = stringResource(R.string.merchant_analytics_time_bucket_subtitle),
+            title = stringResource(timeBucketTitleRes),
+            subtitle = stringResource(timeBucketSubtitleRes),
             points = analytics.timeBucketTrend,
             accent = VerevColors.ForestBright,
             legendLeftLabel = stringResource(R.string.merchant_metric_revenue),
@@ -2272,7 +2289,7 @@ internal fun AnalyticsAreaChartFromPoints(
                 Row(modifier = Modifier.weight(1f)) {
                     val labelStyle = if (chartPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
                         else MaterialTheme.typography.labelSmall
-                    chartPoints.forEach {
+                    chartPoints.forEachIndexed { index, point ->
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -2280,7 +2297,11 @@ internal fun AnalyticsAreaChartFromPoints(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = formatChartLabel(it.label),
+                                text = if (shouldShowChartLabel(index, chartPoints.size)) {
+                                    formatChartLabel(point.label)
+                                } else {
+                                    ""
+                                },
                                 style = labelStyle,
                                 color = VerevColors.Forest.copy(alpha = 0.62f),
                                 maxLines = 1,
@@ -2391,7 +2412,7 @@ internal fun AnalyticsBarChartFromPoints(
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val labelStyle = if (displayPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
                         else MaterialTheme.typography.labelSmall
-                    displayPoints.forEach { point ->
+                    displayPoints.forEachIndexed { index, point ->
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -2399,7 +2420,11 @@ internal fun AnalyticsBarChartFromPoints(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = formatChartLabel(point.label),
+                                text = if (shouldShowChartLabel(index, displayPoints.size)) {
+                                    formatChartLabel(point.label)
+                                } else {
+                                    ""
+                                },
                                 style = labelStyle,
                                 color = VerevColors.Forest.copy(alpha = 0.62f),
                                 maxLines = 1,
@@ -2534,7 +2559,7 @@ internal fun AnalyticsGroupedBarChartFromPoints(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     val labelFontSize = if (chartPoints.size > 14) 8.sp else 10.sp
-                    chartPoints.forEach { point ->
+                    chartPoints.forEachIndexed { index, point ->
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -2542,7 +2567,11 @@ internal fun AnalyticsGroupedBarChartFromPoints(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = formatChartLabel(point.label),
+                                text = if (shouldShowChartLabel(index, chartPoints.size)) {
+                                    formatChartLabel(point.label)
+                                } else {
+                                    ""
+                                },
                                 fontSize = labelFontSize,
                                 lineHeight = (labelFontSize.value + 2).sp,
                                 color = VerevColors.Forest.copy(alpha = 0.66f),
@@ -2677,6 +2706,18 @@ private fun AnalyticsTimeRange.labelRes(): Int = when (this) {
     AnalyticsTimeRange.MONTH -> R.string.merchant_range_month
     AnalyticsTimeRange.QUARTER -> R.string.merchant_range_quarter
     AnalyticsTimeRange.YEAR -> R.string.merchant_range_year
+}
+
+private fun shouldShowChartLabel(index: Int, totalCount: Int): Boolean {
+    if (totalCount <= 8) return true
+    if (index == 0 || index == totalCount - 1) return true
+    val step = when {
+        totalCount <= 12 -> 2
+        totalCount <= 24 -> 3
+        totalCount <= 40 -> 4
+        else -> 6
+    }
+    return index % step == 0
 }
 
 /** Formats chart labels: "2026-03-16" -> "03.16", "09:00" stays as-is, empty stays empty */

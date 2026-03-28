@@ -4,4 +4,5 @@ data class SecurityConfig(
     val accountId: String,
     val pin: String,
     val biometricEnabled: Boolean,
+    val hasQuickPin: Boolean = pin.isNotBlank(),
 )

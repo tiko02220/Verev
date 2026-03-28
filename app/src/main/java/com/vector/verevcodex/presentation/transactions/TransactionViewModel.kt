@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.input.sanitizeDecimalInput
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.transactions.Transaction
@@ -413,29 +414,9 @@ class TransactionViewModel @Inject constructor(
         return filtered.take(8)
     }
 
-    private companion object {
-        fun newLineItemDraft() = CheckoutLineItemDraft(id = UUID.randomUUID().toString())
-
-        fun sanitizeDecimalInput(value: String): String {
-            val filtered = buildString {
-                value.forEach { char ->
-                    if (char.isDigit() || char == '.') append(char)
-                }
-            }
-            val firstDot = filtered.indexOf('.')
-            return if (firstDot == -1) {
-                filtered.take(9)
-            } else {
-                val integerPart = filtered.substring(0, firstDot).take(6)
-                val decimalPart = filtered.substring(firstDot + 1).replace(".", "").take(2)
-                buildString {
-                    append(integerPart)
-                    append('.')
-                    append(decimalPart)
-                }
-            }
-        }
-    }
+private companion object {
+    fun newLineItemDraft() = CheckoutLineItemDraft(id = UUID.randomUUID().toString())
+}
 }
 
 private fun Campaign.isPaymentPromotion(today: LocalDate = LocalDate.now()): Boolean =

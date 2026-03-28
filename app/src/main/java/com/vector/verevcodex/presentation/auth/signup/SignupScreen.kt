@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,16 +22,12 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.auth.common.AuthBackRow
 import com.vector.verevcodex.presentation.auth.common.AuthCenteredSection
 import com.vector.verevcodex.presentation.auth.common.AuthGradientScreenScaffold
-import com.vector.verevcodex.presentation.auth.common.showBiometricPrompt
-import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
-import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 
 @Composable
 fun SignupScreen(
     onBack: () -> Unit,
     onLoginRequested: () -> Unit,
     onForgotPasswordRequested: () -> Unit,
-    onSignupCompleted: () -> Unit,
     viewModel: SignupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -41,19 +35,25 @@ fun SignupScreen(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val activity = context as? FragmentActivity
-    var industrySheetInstance by remember { mutableIntStateOf(0) }
     var showIndustrySheet by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    val submissionErrorMessage = state.submissionError?.let { errorKey: String ->
+        com.vector.verevcodex.presentation.auth.common.authErrorRes(errorKey)?.let { messageRes: Int ->
+            stringResource(messageRes)
+        } ?: errorKey
+    }
 
     LaunchedEffect(state.shouldNavigateToApp) {
-        if (state.shouldNavigateToApp) onSignupCompleted()
+        if (state.shouldNavigateToApp) {
+            viewModel.navigationHandled()
+        }
     }
 
     LaunchedEffect(state.requestBiometricPrompt) {
         if (state.requestBiometricPrompt && activity != null) {
             kotlinx.coroutines.delay(250)
-            showBiometricPrompt(
+            com.vector.verevcodex.presentation.auth.common.showBiometricPrompt(
                 activity = activity,
                 titleRes = R.string.auth_biometric_title,
                 subtitleRes = R.string.auth_biometric_subtitle,
@@ -108,6 +108,9 @@ fun SignupScreen(
                         onAddStaff = viewModel::startStaffSetup,
                     )
                     SignupFlowStage.STAFF_FORM -> StaffSetupCard(state = state, viewModel = viewModel)
+                    SignupFlowStage.COMPLETE -> SignupCompletionCard(
+                        onEnterApp = viewModel::enterApp,
+                    )
                 }
             }
 
@@ -122,9 +125,9 @@ fun SignupScreen(
         }
 
         if (showIndustrySheet) {
-            AppBottomSheetDialog(
+            SignupIndustryDialog(
                 onDismissRequest = { showIndustrySheet = false },
-                allowSwipeToDismiss = true) { dismiss, _ ->
+            ) { dismiss ->
                 IndustrySelectionSheet(
                     industries = industries,
                     selectedIndustry = state.industry,
@@ -136,7 +139,7 @@ fun SignupScreen(
             }
         }
 
-        MerchantLoadingOverlay(
+        com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay(
             isVisible = state.isLoading,
             title = stringResource(
                 when (state.stage) {
@@ -147,7 +150,9 @@ fun SignupScreen(
                     SignupFlowStage.BIOMETRIC,
                     -> R.string.auth_loader_security_title
                     SignupFlowStage.STAFF_FORM -> R.string.auth_loader_staff_title
-                    SignupFlowStage.STAFF_PROMPT -> R.string.auth_loader_finish_title
+                    SignupFlowStage.STAFF_PROMPT,
+                    SignupFlowStage.COMPLETE,
+                    -> R.string.auth_loader_finish_title
                 }
             ),
             subtitle = stringResource(
@@ -159,9 +164,18 @@ fun SignupScreen(
                     SignupFlowStage.BIOMETRIC,
                     -> R.string.auth_loader_security_subtitle
                     SignupFlowStage.STAFF_FORM -> R.string.auth_loader_staff_subtitle
-                    SignupFlowStage.STAFF_PROMPT -> R.string.auth_loader_finish_subtitle
+                    SignupFlowStage.STAFF_PROMPT,
+                    SignupFlowStage.COMPLETE,
+                    -> R.string.auth_loader_finish_subtitle
                 }
             ),
         )
+
+        submissionErrorMessage?.let { message ->
+            com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog(
+                message = message,
+                onDismiss = viewModel::dismissSubmissionError,
+            )
+        }
     }
 }

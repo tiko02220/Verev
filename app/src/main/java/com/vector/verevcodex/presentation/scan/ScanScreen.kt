@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
@@ -22,8 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.scan.ScanMethod
+import com.vector.verevcodex.presentation.customers.resolveDisplayedTier
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -33,15 +36,24 @@ fun ScanScreen(
     initialMethod: ScanMethod? = null,
     onBack: () -> Unit = {},
     onOpenCustomer: (String) -> Unit = {},
+    onOpenPrograms: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
     val amount = rememberSaveable { mutableStateOf("") }
     val points = rememberSaveable { mutableStateOf("") }
+    var finishAfterDialogDismiss by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(initialMethod) {
         viewModel.prepareScanEntry(initialMethod)
+    }
+
+    LaunchedEffect(state.successDialogMessageRes, finishAfterDialogDismiss) {
+        if (finishAfterDialogDismiss && state.successDialogMessageRes == null) {
+            finishAfterDialogDismiss = false
+            onBack()
+        }
     }
 
     if (state.contentMode == ScanContentMode.ACTIVE_SCAN && state.activeScanMethod != null) {
@@ -85,15 +97,6 @@ fun ScanScreen(
                 ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                state.messageRes?.let { messageRes ->
-                    item {
-                        ScanInlineBanner(
-                            title = stringResource(messageRes),
-                            subtitle = stringResource(R.string.merchant_scan_success_supporting),
-                            positive = true,
-                        )
-                    }
-                }
                 state.errorRes?.let { errorRes ->
                     item {
                         ScanInlineBanner(
@@ -116,7 +119,15 @@ fun ScanScreen(
                     }
 
                     state.contentMode == ScanContentMode.CUSTOMER && state.customer != null -> {
-                        item { ScanCustomerCard(customer = state.customer!!) }
+                        val activeTierProgram = state.activePrograms.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
+                        val displayCustomer = state.customer!!.resolveDisplayedTier(activeTierProgram?.configuration?.tierRule)
+                        item {
+                            ScanCustomerCard(
+                                customer = displayCustomer,
+                                showTier = displayCustomer.loyaltyTierLabel.isNotBlank(),
+                                rewardHighlights = state.customerRewardHighlights,
+                            )
+                        }
                         item {
                             ScanActionComposerCard(
                                 activePrograms = state.activePrograms,
@@ -140,13 +151,14 @@ fun ScanScreen(
                                     focusManager.clearFocus(force = true)
                                     viewModel.submitAction(amountInput = amount.value, pointsInput = points.value)
                                 },
-                                onOpenProfile = { onOpenCustomer(state.customer!!.id) },
+                                onClose = onBack,
                                 onScanAnother = {
                                     amount.value = ""
                                     points.value = ""
                                     focusManager.clearFocus(force = true)
                                     viewModel.requestScan()
                                 },
+                                onOpenPrograms = onOpenPrograms,
                             )
                         }
                     }
@@ -173,6 +185,23 @@ fun ScanScreen(
                 stringResource(R.string.merchant_loader_scan_action_subtitle)
             } else {
                 stringResource(R.string.merchant_loader_scan_lookup_subtitle)
+            },
+        )
+    }
+
+    state.successDialogMessageRes?.let { messageRes ->
+        MerchantSuccessDialog(
+            message = stringResource(messageRes),
+            title = stringResource(R.string.merchant_success_dialog_title),
+            actionLabel = stringResource(R.string.auth_continue),
+            secondaryActionLabel = stringResource(R.string.merchant_finish),
+            onDismiss = {
+                finishAfterDialogDismiss = false
+                viewModel.dismissSuccessDialog()
+            },
+            onSecondaryAction = {
+                finishAfterDialogDismiss = true
+                viewModel.dismissSuccessDialog()
             },
         )
     }

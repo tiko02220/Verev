@@ -163,10 +163,24 @@ data class DashboardTransactionSummaryViewDto(
     @SerializedName("occurredAt") val occurredAt: String? = null,
 )
 
+data class DashboardHealthCheckViewDto(
+    @SerializedName("code") val code: String? = null,
+    @SerializedName("severity") val severity: String? = null,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("message") val message: String? = null,
+    @SerializedName("affectedCount") val affectedCount: Int? = null,
+)
+
+data class DashboardHealthSnapshotViewDto(
+    @SerializedName("healthy") val healthy: Boolean? = null,
+    @SerializedName("checks") val checks: List<DashboardHealthCheckViewDto>? = null,
+)
+
 data class MerchantDashboardSnapshotViewDto(
     @SerializedName("scopeStoreId") val scopeStoreId: String? = null,
     @SerializedName("stores") val stores: List<com.vector.verevcodex.data.remote.api.store.StoreViewDto>? = null,
     @SerializedName("analytics") val analytics: BusinessAnalyticsViewDto? = null,
+    @SerializedName("health") val health: DashboardHealthSnapshotViewDto? = null,
     @SerializedName("activePrograms") val activePrograms: List<DashboardProgramSummaryViewDto>? = null,
     @SerializedName("activeCampaigns") val activeCampaigns: List<DashboardCampaignSummaryViewDto>? = null,
     @SerializedName("topStaff") val topStaff: List<StaffAnalyticsViewDto>? = null,

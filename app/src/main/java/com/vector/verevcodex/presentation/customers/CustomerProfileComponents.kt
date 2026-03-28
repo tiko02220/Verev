@@ -50,6 +50,8 @@ import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
+import com.vector.verevcodex.domain.model.customer.CustomerMergePreview
+import com.vector.verevcodex.domain.model.customer.CustomerSplitPreview
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
 import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
@@ -106,7 +108,7 @@ internal fun CustomerProfileHero(
                     )
                     if (showTierBadge) {
                         MerchantStatusPill(
-                            text = customer.loyaltyTier.displayName(),
+                            text = customer.loyaltyTierLabel,
                             backgroundColor = customer.loyaltyTier.toUiColors().background,
                             contentColor = customer.loyaltyTier.toUiColors().content,
                         )
@@ -556,6 +558,50 @@ internal fun CustomerProfileContactSection(
 }
 
 @Composable
+internal fun CustomerDuplicateResolutionSection(
+    mergePreview: CustomerMergePreview?,
+    splitPreview: CustomerSplitPreview?,
+    onOpenMerge: () -> Unit,
+    onOpenSplit: () -> Unit,
+) {
+    CustomerBodySection {
+        MerchantSectionTitle(text = stringResource(R.string.merchant_customer_duplicate_resolution_title))
+        Text(
+            text = stringResource(R.string.merchant_customer_duplicate_resolution_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest.copy(alpha = 0.62f),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CustomerDuplicateActionCard(
+                title = stringResource(R.string.merchant_customer_duplicate_merge_title),
+                subtitle = mergePreview?.targetCustomer?.displayName()
+                    ?: stringResource(R.string.merchant_customer_duplicate_merge_subtitle),
+                badge = when {
+                    mergePreview == null -> null
+                    mergePreview.canMerge -> stringResource(R.string.merchant_customer_duplicate_ready_badge)
+                    else -> stringResource(R.string.merchant_customer_duplicate_review_badge)
+                },
+                onClick = onOpenMerge,
+            )
+            CustomerDuplicateActionCard(
+                title = stringResource(R.string.merchant_customer_duplicate_split_title),
+                subtitle = when {
+                    splitPreview == null -> stringResource(R.string.merchant_customer_duplicate_split_subtitle)
+                    splitPreview.canSplit -> stringResource(R.string.merchant_customer_duplicate_ready_to_split)
+                    else -> stringResource(R.string.merchant_customer_duplicate_split_blocked)
+                },
+                badge = when {
+                    splitPreview == null -> null
+                    splitPreview.canSplit -> stringResource(R.string.merchant_customer_duplicate_ready_badge)
+                    else -> stringResource(R.string.merchant_customer_duplicate_review_badge)
+                },
+                onClick = onOpenSplit,
+            )
+        }
+    }
+}
+
+@Composable
 internal fun CustomerProfileCredentialSection(
     credentials: List<CustomerCredential>,
     onManageCredentials: (() -> Unit)?,
@@ -828,6 +874,65 @@ private fun CustomerProfileInfoRow(
                 Text(text = it, style = MaterialTheme.typography.bodySmall, color = VerevColors.Forest.copy(alpha = 0.56f))
             }
         }
+    }
+}
+
+@Composable
+private fun CustomerDuplicateActionCard(
+    title: String,
+    subtitle: String,
+    badge: String?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(VerevColors.AppBackground)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(VerevColors.Gold.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+            )
+        }
+        badge?.let {
+            MerchantStatusPill(
+                text = it,
+                backgroundColor = VerevColors.Gold.copy(alpha = 0.16f),
+                contentColor = VerevColors.Forest,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = VerevColors.Forest.copy(alpha = 0.6f),
+        )
     }
 }
 

@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.theme.VerevColors
+import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -540,8 +541,14 @@ internal fun rememberSettingsImageBitmap(uriString: String): ImageBitmap? {
         } else {
             withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.use { input ->
-                        BitmapFactory.decodeStream(input)?.asImageBitmap()
+                    if (uriString.startsWith("http://") || uriString.startsWith("https://")) {
+                        URL(uriString).openStream().use { input ->
+                            BitmapFactory.decodeStream(input)?.asImageBitmap()
+                        }
+                    } else {
+                        context.contentResolver.openInputStream(android.net.Uri.parse(uriString))?.use { input ->
+                            BitmapFactory.decodeStream(input)?.asImageBitmap()
+                        }
                     }
                 }.getOrNull()
             }

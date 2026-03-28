@@ -6,4 +6,5 @@ data class CustomerDraft(
     val phoneNumber: String,
     val email: String,
     val loyaltyId: String? = null,
+    val gender: CustomerGender? = null,
 )

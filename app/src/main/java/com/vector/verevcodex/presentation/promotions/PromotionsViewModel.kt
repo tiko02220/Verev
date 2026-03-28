@@ -3,11 +3,13 @@ package com.vector.verevcodex.presentation.promotions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.input.sanitizeDecimalInput
 import com.vector.verevcodex.domain.model.billing.SavedPaymentMethod
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomersUseCase
 import com.vector.verevcodex.domain.model.promotions.PromotionType
 import com.vector.verevcodex.domain.model.promotions.PromotionBoostLevel
 import com.vector.verevcodex.domain.model.promotions.PromotionVisibility
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
 import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
 import com.vector.verevcodex.domain.usecase.promotions.DeletePromotionUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveCampaignsUseCase
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
 class PromotionsViewModel @Inject constructor(
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     observeCampaignsUseCase: ObserveCampaignsUseCase,
+    observeProgramsUseCase: ObserveProgramsUseCase,
     observeTransactionsUseCase: ObserveTransactionsUseCase,
     observeCustomersUseCase: ObserveCustomersUseCase,
     observePaymentMethodsUseCase: ObservePaymentMethodsUseCase,
@@ -48,15 +51,17 @@ class PromotionsViewModel @Inject constructor(
             .flatMapLatest { store ->
                 combine(
                     observeCampaignsUseCase(store?.id),
+                    observeProgramsUseCase(store?.id),
                     observeTransactionsUseCase(store?.id),
                     observeCustomersUseCase(store?.id),
                     observePaymentMethodsUseCase(store?.ownerId.orEmpty()),
-                ) { promotions, transactions, customers, paymentMethods ->
+                ) { promotions, programs, transactions, customers, paymentMethods ->
                     PromotionsStoreSnapshot(
                         storeId = store?.id,
                         ownerId = store?.ownerId,
                         storeName = store?.name.orEmpty(),
                         promotions = promotions,
+                        programs = programs,
                         transactions = transactions,
                         customers = customers,
                         paymentMethods = paymentMethods,
@@ -70,6 +75,7 @@ class PromotionsViewModel @Inject constructor(
                     selectedOwnerId = snapshot.ownerId,
                     selectedStoreName = snapshot.storeName,
                     promotions = snapshot.promotions,
+                    programs = snapshot.programs,
                     transactions = snapshot.transactions,
                     customers = snapshot.customers,
                     paymentMethods = snapshot.paymentMethods,
@@ -132,8 +138,8 @@ class PromotionsViewModel @Inject constructor(
     fun updateStartDate(value: String) = updateEditor { copy(startDate = value) }
     fun updateEndDate(value: String) = updateEditor { copy(endDate = value) }
     fun updatePromotionType(value: PromotionType) = updateEditor { copy(promotionType = value) }
-    fun updatePromotionValue(value: String) = updateEditor { copy(promotionValue = value.filter { it.isDigit() || it == '.' }) }
-    fun updateMinimumPurchaseAmount(value: String) = updateEditor { copy(minimumPurchaseAmount = value.filter { it.isDigit() || it == '.' }) }
+    fun updatePromotionValue(value: String) = updateEditor { copy(promotionValue = sanitizeDecimalInput(value)) }
+    fun updateMinimumPurchaseAmount(value: String) = updateEditor { copy(minimumPurchaseAmount = sanitizeDecimalInput(value)) }
     fun updateUsageLimit(value: String) = updateEditor { copy(usageLimit = value.filter(Char::isDigit)) }
     fun updatePromoCode(value: String) = updateEditor { copy(promoCode = value.uppercase()) }
     fun updateVisibility(value: PromotionVisibility) = updateEditor {
@@ -247,6 +253,7 @@ private data class PromotionsStoreSnapshot(
     val ownerId: String?,
     val storeName: String,
     val promotions: List<com.vector.verevcodex.domain.model.promotions.Campaign>,
+    val programs: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
     val transactions: List<com.vector.verevcodex.domain.model.transactions.Transaction>,
     val customers: List<com.vector.verevcodex.domain.model.customer.Customer>,
     val paymentMethods: List<SavedPaymentMethod>,

@@ -8,16 +8,19 @@ import com.vector.verevcodex.data.remote.api.analytics.VerevAnalyticsApi
 import com.vector.verevcodex.data.remote.api.billing.VerevBillingApi
 import com.vector.verevcodex.data.remote.api.customer.VerevCustomersApi
 import com.vector.verevcodex.data.remote.api.engagement.VerevCheckInsApi
+import com.vector.verevcodex.data.remote.api.media.VerevMediaApi
 import com.vector.verevcodex.data.remote.api.reports.VerevReportsApi
 import com.vector.verevcodex.data.remote.api.store.VerevStoresApi
 import com.vector.verevcodex.data.remote.api.loyalty.VerevCampaignsApi
 import com.vector.verevcodex.data.remote.api.loyalty.VerevProgramsApi
 import com.vector.verevcodex.data.remote.api.loyalty.VerevRewardsApi
+import com.vector.verevcodex.data.remote.api.notifications.VerevNotificationsApi
 import com.vector.verevcodex.data.remote.api.staff.VerevStaffApi
 import com.vector.verevcodex.data.remote.api.transactions.VerevTransactionsApi
 import com.vector.verevcodex.data.remote.auth.AuthInterceptor
 import com.vector.verevcodex.data.remote.auth.IdempotencyKeyInterceptor
 import com.vector.verevcodex.data.remote.auth.TokenRefreshAuthenticator
+import com.vector.verevcodex.data.remote.core.BackendEndpoint
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,45 +36,49 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    private const val NETWORK_TIMEOUT_SECONDS = 30L
 
     @Provides
     @Singleton
-    fun provideBackendBaseUrl(): String = BuildConfig.VEREV_BACKEND_BASE_URL
+    fun provideBackendEndpoint(): BackendEndpoint = BackendEndpoint.from(BuildConfig.VEREV_BACKEND_BASE_URL)
+
+    @Provides
+    @Singleton
+    fun provideBackendBaseUrl(backendEndpoint: BackendEndpoint): String = backendEndpoint.httpBaseUrl
 
     @Provides
     @Singleton
     fun provideGson(): Gson = GsonBuilder().serializeNulls().create()
 
-    private fun baseUrl(): String =
-        BuildConfig.VEREV_BACKEND_BASE_URL
-            .takeIf { it.isNotBlank() }
-            ?.trimEnd('/')
-            ?.plus("/")
-            ?: "http://localhost/"
+    private fun newClientBuilder(): OkHttpClient.Builder =
+        OkHttpClient.Builder()
+            .connectTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply { setLevel(HttpLoggingInterceptor.Level.BODY) },
+                    )
+                }
+            }
 
     /** OkHttp without auth – used only for token refresh to avoid sending expired Bearer. */
     @Provides
     @Singleton
     @Named("refresh")
-    fun provideRefreshOkHttpClient(): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-        if (BuildConfig.DEBUG) {
-            builder.addInterceptor(
-                HttpLoggingInterceptor().apply { setLevel(HttpLoggingInterceptor.Level.BODY) }
-            )
-        }
-        return builder.build()
-    }
+    fun provideRefreshOkHttpClient(): OkHttpClient = newClientBuilder().build()
 
     @Provides
     @Singleton
     @Named("refresh")
-    fun provideRefreshRetrofit(gson: Gson, @Named("refresh") okHttpClient: OkHttpClient): Retrofit =
+    fun provideRefreshRetrofit(
+        backendBaseUrl: String,
+        gson: Gson,
+        @Named("refresh") okHttpClient: OkHttpClient,
+    ): Retrofit =
         Retrofit.Builder()
-            .baseUrl(baseUrl())
+            .baseUrl(backendBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
@@ -88,27 +95,22 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         idempotencyKeyInterceptor: IdempotencyKeyInterceptor,
         tokenRefreshAuthenticator: TokenRefreshAuthenticator,
-    ): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+    ): OkHttpClient =
+        newClientBuilder()
             .addInterceptor(idempotencyKeyInterceptor)
             .addInterceptor(authInterceptor)
             .authenticator(tokenRefreshAuthenticator)
-        if (BuildConfig.DEBUG) {
-            builder.addInterceptor(
-                HttpLoggingInterceptor().apply { setLevel(HttpLoggingInterceptor.Level.BODY) }
-            )
-        }
-        return builder.build()
-    }
+            .build()
 
     @Provides
     @Singleton
-    fun provideRetrofit(gson: Gson, okHttpClient: OkHttpClient): Retrofit =
+    fun provideRetrofit(
+        backendBaseUrl: String,
+        gson: Gson,
+        okHttpClient: OkHttpClient,
+    ): Retrofit =
         Retrofit.Builder()
-            .baseUrl(baseUrl())
+            .baseUrl(backendBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
@@ -160,4 +162,12 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideVerevBillingApi(retrofit: Retrofit): VerevBillingApi = retrofit.create(VerevBillingApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideVerevNotificationsApi(retrofit: Retrofit): VerevNotificationsApi = retrofit.create(VerevNotificationsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideVerevMediaApi(retrofit: Retrofit): VerevMediaApi = retrofit.create(VerevMediaApi::class.java)
 }

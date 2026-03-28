@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.StarOutline
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.Storefront
@@ -133,6 +134,9 @@ internal fun PromotionEditorDialog(
     isSubmitting: Boolean,
     paymentMethods: List<SavedPaymentMethod>,
     selectedStoreId: String,
+    selectedStoreName: String,
+    existingPromotions: List<Campaign>,
+    existingPrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
     onDismiss: () -> Unit,
     onPickImage: () -> Unit,
     onNameChange: (String) -> Unit,
@@ -164,6 +168,13 @@ internal fun PromotionEditorDialog(
     val previewPromotion = remember(editorState, selectedStoreId) { editorState.toPreviewCampaign(selectedStoreId) }
     val previewBreakdown = remember(editorState.startDate, editorState.endDate, editorState.visibility, editorState.boostLevel) {
         previewPromotion.toNetworkPromotionBreakdown()
+    }
+    val operationalSnapshot = remember(editorState, selectedStoreId, existingPromotions, existingPrograms) {
+        editorState.toOperationalSnapshot(
+            storeId = selectedStoreId,
+            existingPromotions = existingPromotions,
+            existingPrograms = existingPrograms,
+        )
     }
 
     if (showPaymentDialog) {
@@ -213,6 +224,12 @@ internal fun PromotionEditorDialog(
                             PromotionUploadSection(
                                 imageUri = editorState.imageUri,
                                 onUpload = onPickImage,
+                            )
+                        }
+                        item {
+                            PromotionCustomerPreviewCard(
+                                editorState = editorState,
+                                selectedStoreName = selectedStoreName,
                             )
                         }
                         item {
@@ -336,6 +353,17 @@ internal fun PromotionEditorDialog(
                             ),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
+                            item {
+                                PromotionBranchImpactCard(
+                                    storeName = selectedStoreName,
+                                    editorState = editorState,
+                                )
+                            }
+                            item {
+                                PromotionGuardrailCard(
+                                    snapshot = operationalSnapshot,
+                                )
+                            }
                             item {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     PromotionSectionLabel(stringResource(R.string.merchant_promotion_campaign_duration_label))
@@ -743,6 +771,169 @@ private fun PromotionHeaderIconButton(
             .background(background),
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+    }
+}
+
+@Composable
+private fun PromotionCustomerPreviewCard(
+    editorState: PromotionEditorState,
+    selectedStoreName: String,
+) {
+    PromotionInsightCard(
+        icon = Icons.Default.LocalOffer,
+        accent = VerevColors.Forest,
+        title = stringResource(R.string.merchant_promotion_preview_title),
+        body = promotionCustomerPreview(editorState),
+        supporting = stringResource(
+            R.string.merchant_promotion_preview_supporting,
+            editorState.targetSegment.displayLabel(),
+            selectedStoreName.ifBlank { stringResource(R.string.merchant_select_store) },
+        ),
+    )
+}
+
+@Composable
+private fun PromotionGuardrailCard(snapshot: PromotionOperationalSnapshot) {
+    if (snapshot.overlapWarnings.isEmpty()) return
+    PromotionInsightCard(
+        icon = Icons.Default.WarningAmber,
+        accent = VerevColors.Gold,
+        title = stringResource(R.string.merchant_promotion_guardrails_title),
+        body = snapshot.overlapWarnings.firstOrNull()?.let { warning ->
+            when (warning) {
+                is PromotionOverlapWarning.CampaignConflict ->
+                    stringResource(R.string.merchant_promotion_overlap_campaign_warning, warning.campaignName)
+                is PromotionOverlapWarning.LoyaltyStackingConflict ->
+                    stringResource(R.string.merchant_promotion_overlap_program_warning, warning.programName)
+            }
+        }.orEmpty(),
+        supporting = additionalGuardrailLines(snapshot.overlapWarnings.drop(1).take(2)),
+        emphasized = true,
+    )
+}
+
+@Composable
+private fun PromotionBranchImpactCard(
+    storeName: String,
+    editorState: PromotionEditorState,
+) {
+    PromotionInsightCard(
+        icon = Icons.Outlined.Storefront,
+        accent = VerevColors.Moss,
+        title = stringResource(R.string.merchant_promotion_branch_impact_title),
+        body = stringResource(
+            R.string.merchant_promotion_branch_impact_message,
+            storeName.ifBlank { stringResource(R.string.merchant_select_store) },
+            if (editorState.visibility == PromotionVisibility.NETWORK_WIDE) {
+                stringResource(R.string.merchant_promotion_visibility_network)
+            } else {
+                stringResource(R.string.merchant_promotion_visibility_business_only)
+            },
+        ),
+    )
+}
+
+@Composable
+private fun promotionCustomerPreview(editorState: PromotionEditorState): String = when (editorState.promotionType) {
+    PromotionType.POINTS_MULTIPLIER -> stringResource(
+        R.string.merchant_promotion_preview_points_multiplier,
+        editorState.promotionValue.toDoubleOrNull() ?: 0.0,
+    )
+    PromotionType.PERCENT_DISCOUNT -> stringResource(
+        R.string.merchant_promotion_preview_percent_discount,
+        editorState.promotionValue.toIntOrNull() ?: 0,
+    )
+    PromotionType.FIXED_DISCOUNT -> stringResource(
+        R.string.merchant_promotion_preview_fixed_discount,
+        editorState.promotionValue.toIntOrNull() ?: 0,
+    )
+    PromotionType.BONUS_POINTS -> stringResource(
+        R.string.merchant_promotion_preview_bonus_points,
+        editorState.promotionValue.toIntOrNull() ?: 0,
+    )
+    PromotionType.BUY_ONE_GET_ONE -> stringResource(R.string.merchant_promotion_preview_bogo)
+    PromotionType.FREE_ITEM -> stringResource(R.string.merchant_promotion_preview_free_item)
+}
+
+@Composable
+private fun CampaignSegment.displayLabel(): String = stringResource(displayLabelRes())
+
+@Composable
+private fun additionalGuardrailLines(warnings: List<PromotionOverlapWarning>): String? {
+    if (warnings.isEmpty()) return null
+    val lines = buildList {
+        warnings.forEach { warning ->
+            add(
+                when (warning) {
+                    is PromotionOverlapWarning.CampaignConflict ->
+                        stringResource(R.string.merchant_promotion_overlap_campaign_warning, warning.campaignName)
+                    is PromotionOverlapWarning.LoyaltyStackingConflict ->
+                        stringResource(R.string.merchant_promotion_overlap_program_warning, warning.programName)
+                },
+            )
+        }
+    }
+    return lines.joinToString(separator = "\n").ifBlank { null }
+}
+
+@Composable
+private fun PromotionInsightCard(
+    icon: ImageVector,
+    accent: Color,
+    title: String,
+    body: String,
+    supporting: String? = null,
+    emphasized: Boolean = false,
+) {
+    Surface(
+        color = if (emphasized) Color(0xFFFFF6E8) else accent.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(24.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = if (emphasized) 0.18f else 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest,
+                )
+                supporting?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.66f),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -13,6 +13,7 @@ import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
+import com.vector.verevcodex.domain.model.customer.CustomerGender
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import java.time.Instant
 import java.time.LocalDate
@@ -31,8 +32,12 @@ fun CustomerDetailResponseDto.toCustomer() = Customer(
     totalSpent = profile?.totalSpent ?: 0.0,
     currentPoints = profile?.currentPoints ?: 0,
     loyaltyTier = runCatching { LoyaltyTier.valueOf(profile?.loyaltyTier.orEmpty().trim().uppercase()) }.getOrElse { LoyaltyTier.BRONZE },
+    loyaltyTierLabel = profile?.loyaltyTier?.trim().orEmpty(),
     lastVisit = null,
     favoriteStoreId = profile?.homeStoreId,
+    gender = customer?.gender?.let { raw ->
+        runCatching { CustomerGender.valueOf(raw.trim().uppercase()) }.getOrNull()
+    },
 )
 
 fun CustomerMembershipViewDto.toRelation() = CustomerBusinessRelation(

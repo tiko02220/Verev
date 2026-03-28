@@ -3,6 +3,7 @@ package com.vector.verevcodex.presentation.promotions
 import androidx.annotation.StringRes
 import com.vector.verevcodex.domain.model.billing.SavedPaymentMethod
 import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.transactions.Transaction
 
@@ -11,6 +12,7 @@ data class PromotionsUiState(
     val selectedOwnerId: String? = null,
     val selectedStoreName: String = "",
     val promotions: List<Campaign> = emptyList(),
+    val programs: List<RewardProgram> = emptyList(),
     val customers: List<Customer> = emptyList(),
     val transactions: List<Transaction> = emptyList(),
     val paymentMethods: List<SavedPaymentMethod> = emptyList(),

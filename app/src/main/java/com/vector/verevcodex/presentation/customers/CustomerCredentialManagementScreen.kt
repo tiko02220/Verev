@@ -106,11 +106,6 @@ fun CustomerCredentialManagementScreen(
                 activationLink = state.activationLink,
                 option = selectedOption,
             )
-            fun launchWalletSave() {
-                val activity = context.findActivity() ?: return
-                viewModel.launchWalletSave(activity)
-            }
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -138,11 +133,9 @@ fun CustomerCredentialManagementScreen(
                         onOpenEmail = { emailProvisioningPayload(context, sharePayload) },
                         onOpenSms = { smsProvisioningPayload(context, sharePayload) },
                         onShareLink = { shareProvisioningPayload(context, sharePayload) },
-                        onLaunchGoogleWallet = ::launchWalletSave,
                         onStartNfcWrite = viewModel::startNfcWrite,
                         onRetryNfcWrite = viewModel::retryNfcWrite,
-                        onClearNfcState = viewModel::clearTransientState,
-                        onRefreshWalletStatus = viewModel::refreshWalletAvailability,
+                        onNfcDone = viewModel::clearTransientState,
                     )
                     ProvisioningInfoCard(
                         title = stringResource(R.string.merchant_add_customer_code_label),

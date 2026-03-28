@@ -85,7 +85,11 @@ class ReportRepositoryImpl @Inject constructor(
         return ReportExport(
             fileName = file.name,
             format = format,
-            summary = "Business report generated from backend export",
+            summary = buildString {
+                append("Business growth report ready in ")
+                append(format.name)
+                append(". Includes KPI highlights, revenue trend, customer value signals, loyalty activity, and recommended actions.")
+            },
             absolutePath = file.absolutePath,
             mimeType = remote.mimeType,
             generatedAt = remote.generatedAt,

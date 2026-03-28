@@ -6,6 +6,7 @@ import com.vector.verevcodex.data.remote.api.engagement.VerevCheckInsApi
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyAction
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyDomain
 import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
+import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import java.time.Instant
 import javax.inject.Inject
@@ -21,7 +22,7 @@ data class CheckInResult(
 class CheckInRemoteDataSource @Inject constructor(
     private val api: VerevCheckInsApi,
 ) {
-    suspend fun create(storeId: String, customerId: String): Result<CheckInResult> = runCatching {
+    suspend fun create(storeId: String, customerId: String): Result<CheckInResult> = remoteResult {
         val occurredAt = Instant.now().toString()
         api.create(
             CheckInRequestDto(

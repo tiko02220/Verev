@@ -18,13 +18,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
@@ -77,6 +80,12 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
+import com.vector.verevcodex.presentation.settings.billing.BillingPlanUiCatalog
+import com.vector.verevcodex.presentation.settings.billing.PaymentMethodsViewModel
+import com.vector.verevcodex.presentation.settings.branding.BrandingViewModel
+import com.vector.verevcodex.presentation.settings.branches.BranchStaffConfigScreen
+import com.vector.verevcodex.presentation.settings.branches.AddBranchScreen
+import com.vector.verevcodex.presentation.settings.branches.EditBranchScreen
 import com.vector.verevcodex.presentation.theme.VerevColors
 import java.io.OutputStreamWriter
 import kotlinx.coroutines.Dispatchers
@@ -97,162 +106,165 @@ fun BusinessDetailsScreen(
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
     val selectedStore = shellState.selectedStore
 
-    SettingsDetailInnerScaffold(
-        title = stringResource(R.string.merchant_business_details_title),
-        subtitle = stringResource(R.string.merchant_business_details_subtitle),
-        onBack = onBack,
-        contentPadding = contentPadding,
-    ) {
-        item {
-            SettingsPageIntro(
-                title = stringResource(R.string.merchant_business_details_locations_heading),
-                subtitle = stringResource(R.string.merchant_business_details_locations_subtitle),
-            )
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(shellState.stores, key = { it.id }) { store ->
-                    SettingsBranchCard(
-                        name = store.name,
-                        address = store.address,
-                        isSelected = store.id == selectedStore?.id,
-                        isMain = store.id == shellState.stores.firstOrNull()?.id,
-                        active = store.active,
-                        onClick = { shellViewModel.selectStore(store.id) },
-                    )
-                }
+    Column(modifier = Modifier.fillMaxSize()) {
+        SettingsStudioHeader(
+            title = stringResource(R.string.merchant_business_details_title),
+            subtitle = stringResource(R.string.merchant_business_details_subtitle),
+            icon = Icons.Default.Business,
+            onBack = onBack,
+            colors = listOf(VerevColors.Forest, Color(0xFF1A5C47)),
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 20.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                SettingsPageIntro(
+                    title = stringResource(R.string.merchant_business_details_locations_heading),
+                    subtitle = stringResource(R.string.merchant_business_details_locations_subtitle),
+                )
             }
-        }
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Brush.linearGradient(listOf(VerevColors.Forest, VerevColors.Moss)))
-                    .padding(18.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = selectedStore?.name ?: stringResource(R.string.merchant_select_store),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = selectedStore?.address ?: stringResource(R.string.merchant_settings_value_unavailable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.78f),
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(shellState.stores, key = { it.id }) { store ->
+                        SettingsBranchCard(
+                            name = store.name,
+                            address = store.address,
+                            isSelected = store.id == selectedStore?.id,
+                            isMain = store.id == shellState.stores.firstOrNull()?.id,
+                            active = store.active,
+                            onClick = { shellViewModel.selectStore(store.id) },
                         )
                     }
-                    SettingsSectionBadge(
-                        text = if (selectedStore?.active == true) {
-                            stringResource(R.string.merchant_store_active)
-                        } else {
-                            stringResource(R.string.merchant_store_disabled)
-                        },
-                    )
                 }
             }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_business_details_current_location)) {
-                SettingsDetailRow(
-                    label = stringResource(R.string.merchant_business_details_category_label),
-                    value = selectedStore?.category ?: stringResource(R.string.merchant_settings_value_unavailable),
-                )
-                HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
-                SettingsDetailRow(
-                    label = stringResource(R.string.merchant_business_details_contact_label),
-                    value = selectedStore?.contactInfo ?: stringResource(R.string.merchant_settings_value_unavailable),
-                )
-                HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
-                SettingsDetailRow(
-                    label = stringResource(R.string.merchant_business_details_hours_label),
-                    value = selectedStore?.workingHours ?: stringResource(R.string.merchant_settings_value_unavailable),
+            item {
+                SettingsDashedActionCard(
+                    icon = Icons.Default.Add,
+                    title = stringResource(R.string.merchant_add_branch),
+                    subtitle = stringResource(R.string.merchant_business_details_add_branch_subtitle),
+                    onClick = onOpenAddBranch,
                 )
             }
-        }
-        item {
-            SettingsPageIntro(
-                title = stringResource(R.string.merchant_business_details_branch_tools_title),
-                subtitle = stringResource(R.string.merchant_business_details_branch_tools_subtitle),
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Add,
-                        title = stringResource(R.string.merchant_add_branch),
-                        subtitle = stringResource(R.string.merchant_business_details_add_branch_subtitle),
-                        accent = VerevColors.Gold,
-                        onClick = onOpenAddBranch,
-                    )
-                    SettingsActionTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Description,
-                        title = stringResource(R.string.merchant_edit_branch),
-                        subtitle = stringResource(R.string.merchant_store_edit_branch_subtitle),
-                        accent = VerevColors.Moss,
-                        onClick = { selectedStore?.id?.let(onOpenEditBranch) },
-                    )
+            selectedStore?.let { store ->
+                item {
+                    SettingsSelectedStoreDivider(name = store.name)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Business,
-                        title = stringResource(R.string.merchant_manage_locations),
-                        subtitle = stringResource(R.string.merchant_business_details_manage_locations_subtitle),
-                        accent = VerevColors.Forest,
-                        onClick = onOpenStoreManagement,
-                    )
-                    SettingsActionTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Tune,
-                        title = stringResource(R.string.merchant_branch_staff_config_title),
-                        subtitle = stringResource(R.string.merchant_business_details_branch_staff_subtitle),
-                        accent = VerevColors.Tan,
-                        onClick = { selectedStore?.id?.let(onOpenBranchStaffConfig) },
-                    )
-                }
-                SettingsActionTile(
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Default.Palette,
-                    title = stringResource(R.string.merchant_branch_programs_title),
-                    subtitle = stringResource(R.string.merchant_business_details_branch_programs_subtitle),
-                    accent = VerevColors.Moss,
-                    onClick = { selectedStore?.id?.let(onOpenBranchProgramsConfig) },
-                )
-            }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_business_details_branding_title)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SettingsColorSwatch(
-                            hex = selectedStore?.primaryColor ?: VerevColors.Gold.toHexString(),
-                            color = parseHexColor(selectedStore?.primaryColor, VerevColors.Gold),
+                item {
+                    SettingsDetailSection(title = stringResource(R.string.merchant_business_details_basic_information_title)) {
+                        SettingsDetailRow(
+                            label = stringResource(R.string.merchant_business_details_name_label),
+                            value = store.name,
                         )
-                        SettingsColorSwatch(
-                            hex = selectedStore?.secondaryColor ?: VerevColors.Moss.toHexString(),
-                            color = parseHexColor(selectedStore?.secondaryColor, VerevColors.Moss),
+                        HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
+                        SettingsDetailRow(
+                            label = stringResource(R.string.merchant_business_details_address_label),
+                            value = store.address,
+                        )
+                        HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
+                        SettingsDetailRow(
+                            label = stringResource(R.string.merchant_business_details_category_label),
+                            value = store.category,
+                            trailing = {
+                                SettingsSectionBadge(
+                                    text = if (store.active) {
+                                        stringResource(R.string.merchant_store_active)
+                                    } else {
+                                        stringResource(R.string.merchant_store_disabled)
+                                    },
+                                )
+                            },
                         )
                     }
-                    TextButton(onClick = onOpenBranding) {
-                        Text(stringResource(R.string.merchant_open_branding))
+                }
+                item {
+                    SettingsDetailSection(title = stringResource(R.string.merchant_business_details_contact_information_title)) {
+                        SettingsDetailRow(
+                            label = stringResource(R.string.merchant_business_details_contact_label),
+                            value = store.contactInfo,
+                        )
+                        HorizontalDivider(color = VerevColors.Inactive.copy(alpha = 0.16f))
+                        SettingsDetailRow(
+                            label = stringResource(R.string.merchant_business_details_hours_label),
+                            value = store.workingHours,
+                        )
+                    }
+                }
+            }
+            item {
+                SettingsPageIntro(
+                    title = stringResource(R.string.merchant_business_details_branch_tools_title),
+                    subtitle = stringResource(R.string.merchant_business_details_branch_tools_subtitle),
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Description,
+                            title = stringResource(R.string.merchant_edit_branch),
+                            subtitle = stringResource(R.string.merchant_store_edit_branch_subtitle),
+                            accent = VerevColors.Moss,
+                            onClick = { selectedStore?.id?.let(onOpenEditBranch) },
+                        )
+                        SettingsActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Business,
+                            title = stringResource(R.string.merchant_manage_locations),
+                            subtitle = stringResource(R.string.merchant_business_details_manage_locations_subtitle),
+                            accent = VerevColors.Forest,
+                            onClick = onOpenStoreManagement,
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Tune,
+                            title = stringResource(R.string.merchant_branch_staff_config_title),
+                            subtitle = stringResource(R.string.merchant_business_details_branch_staff_subtitle),
+                            accent = VerevColors.Tan,
+                            onClick = { selectedStore?.id?.let(onOpenBranchStaffConfig) },
+                        )
+                        SettingsActionTile(
+                            modifier = Modifier.weight(1f),
+                            icon = Icons.Default.Palette,
+                            title = stringResource(R.string.merchant_branch_programs_title),
+                            subtitle = stringResource(R.string.merchant_business_details_branch_programs_subtitle),
+                            accent = VerevColors.Gold,
+                            onClick = { selectedStore?.id?.let(onOpenBranchProgramsConfig) },
+                        )
+                    }
+                }
+            }
+            selectedStore?.let { store ->
+                item {
+                    SettingsDetailSection(title = stringResource(R.string.merchant_business_details_branding_title)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                SettingsColorSwatch(
+                                    hex = store.primaryColor.ifBlank { VerevColors.Gold.toHexString() },
+                                    color = parseHexColor(store.primaryColor, VerevColors.Gold),
+                                )
+                                SettingsColorSwatch(
+                                    hex = store.secondaryColor.ifBlank { VerevColors.Moss.toHexString() },
+                                    color = parseHexColor(store.secondaryColor, VerevColors.Moss),
+                                )
+                            }
+                            TextButton(onClick = onOpenBranding) {
+                                Text(stringResource(R.string.merchant_open_branding))
+                            }
+                        }
                     }
                 }
             }
@@ -501,7 +513,9 @@ fun BrandingScreen(
     val selectedPalette = state.palettes.firstOrNull { it.id == state.selectedPaletteId }
     val context = LocalContext.current
     val activity = context as? MainActivity
-    val logoBitmap = rememberSettingsImageBitmap(state.logoUri)
+    val logoBitmap = rememberSettingsImageBitmap(
+        if (state.logoUri.isNotBlank()) state.logoUri else shellState.selectedStore?.logoUrl.orEmpty(),
+    )
     val logoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching {
@@ -511,141 +525,252 @@ fun BrandingScreen(
         }
     }
 
-    SettingsDetailInnerScaffold(
-        title = stringResource(R.string.merchant_branding_title),
-        subtitle = stringResource(R.string.merchant_branding_subtitle),
-        onBack = onBack,
-        contentPadding = contentPadding,
-    ) {
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_branding_preview_title)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(
-                            Brush.linearGradient(
+    Column(modifier = Modifier.fillMaxSize()) {
+        SettingsStudioHeader(
+            title = stringResource(R.string.merchant_branding_title),
+            subtitle = stringResource(R.string.merchant_branding_subtitle),
+            icon = Icons.Default.Palette,
+            onBack = onBack,
+            colors = listOf(VerevColors.Forest, Color(0xFF1A5C47)),
+        )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 20.dp,
+                bottom = contentPadding.calculateBottomPadding() + 96.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                SettingsDetailSection(title = stringResource(R.string.merchant_branding_preview_title)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        selectedPalette?.primary ?: VerevColors.Gold,
+                                        selectedPalette?.secondary ?: VerevColors.Moss,
+                                    ),
+                                ),
+                            )
+                            .padding(20.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(Color.White.copy(alpha = 0.16f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (logoBitmap != null) {
+                                        Image(
+                                            bitmap = logoBitmap,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop,
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = shellState.selectedStore?.name ?: stringResource(R.string.merchant_settings_title),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.merchant_branding_preview_subtitle),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.78f),
+                                    )
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 listOf(
                                     selectedPalette?.primary ?: VerevColors.Gold,
+                                    selectedPalette?.secondary ?: VerevColors.Moss,
                                     selectedPalette?.accent ?: VerevColors.Tan,
-                                ),
-                            ),
-                        )
-                        .padding(20.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(Color.White.copy(alpha = 0.16f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(Icons.Default.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                                ).forEach { color ->
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(10.dp)
+                                            .clip(RoundedCornerShape(99.dp))
+                                            .background(color),
+                                    )
+                                }
+                            }
                         }
-                        Text(
-                            text = shellState.selectedStore?.name ?: stringResource(R.string.merchant_settings_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = stringResource(R.string.merchant_branding_preview_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f),
-                        )
                     }
                 }
             }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_branding_logo_title)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFFF6F7F4)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (logoBitmap != null) {
-                            Image(
-                                bitmap = logoBitmap,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Storefront,
-                                contentDescription = null,
-                                tint = VerevColors.Forest.copy(alpha = 0.58f),
-                                modifier = Modifier.size(30.dp),
-                            )
+            item {
+                SettingsDetailSection(title = stringResource(R.string.merchant_branding_logo_title)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFFF8F9FA), Color.White)))
+                                .border(1.dp, VerevColors.Inactive.copy(alpha = 0.14f), RoundedCornerShape(24.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (logoBitmap != null) {
+                                Image(
+                                    bitmap = logoBitmap,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(24.dp),
+                                    contentScale = ContentScale.Fit,
+                                )
+                            } else {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(RoundedCornerShape(24.dp))
+                                            .background(VerevColors.Forest.copy(alpha = 0.06f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            tint = VerevColors.Forest.copy(alpha = 0.42f),
+                                            modifier = Modifier.size(34.dp),
+                                        )
+                                    }
+                                    Text(
+                                        text = stringResource(R.string.merchant_branding_logo_empty_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = VerevColors.Forest.copy(alpha = 0.78f),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.merchant_branding_logo_empty_subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = VerevColors.Forest.copy(alpha = 0.56f),
+                                    )
+                                }
+                            }
                         }
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.merchant_branding_logo_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = VerevColors.Forest.copy(alpha = 0.72f),
-                        )
-                        TextButton(
+                        Button(
                             onClick = {
                                 activity?.suppressRelockForTransientSystemUi()
                                 logoPickerLauncher.launch(arrayOf("image/*"))
                             },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = VerevColors.Gold,
+                                contentColor = Color.White,
+                            ),
                         ) {
                             Text(stringResource(R.string.merchant_branding_upload_logo))
                         }
+                        Text(
+                            text = stringResource(R.string.merchant_branding_logo_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VerevColors.Forest.copy(alpha = 0.56f),
+                        )
                     }
                 }
             }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_branding_theme_title)) {
-                SettingsChipRow(
-                    options = listOf(
-                        ThemeModeUi.LIGHT to stringResource(R.string.merchant_branding_theme_light),
-                        ThemeModeUi.DARK to stringResource(R.string.merchant_branding_theme_dark),
-                        ThemeModeUi.AUTO to stringResource(R.string.merchant_branding_theme_auto),
-                    ),
-                    selected = state.themeMode,
-                    onSelected = viewModel::setTheme,
-                )
-            }
-        }
-        item {
-            SettingsDetailSection(title = stringResource(R.string.merchant_branding_palette_title)) {
-                state.palettes.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        pair.forEach { palette ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                SettingsPaletteCard(
-                                    palette = palette,
-                                    selected = palette.id == state.selectedPaletteId,
-                                    onClick = { viewModel.selectPalette(palette.id) },
-                                )
+            item {
+                SettingsDetailSection(title = stringResource(R.string.merchant_branding_palette_title)) {
+                    state.palettes.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                            pair.forEach { palette ->
+                                Box(modifier = Modifier.weight(1f)) {
+                                    BrandingPaletteStudioCard(
+                                        palette = palette,
+                                        selected = palette.id == state.selectedPaletteId,
+                                        onClick = { viewModel.selectPalette(palette.id) },
+                                    )
+                                }
+                            }
+                            if (pair.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
-                        if (pair.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
                     }
                 }
-                TextButton(onClick = viewModel::reset) {
-                    Icon(Icons.Default.Tune, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.merchant_branding_reset),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
+            }
+            item {
+                SettingsDetailSection(title = stringResource(R.string.merchant_branding_theme_title)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        BrandingThemeCard(
+                            modifier = Modifier.weight(1f),
+                            title = stringResource(R.string.merchant_branding_theme_light),
+                            icon = Icons.Default.Storefront,
+                            selected = state.themeMode == ThemeModeUi.LIGHT,
+                            onClick = { viewModel.setTheme(ThemeModeUi.LIGHT) },
+                        )
+                        BrandingThemeCard(
+                            modifier = Modifier.weight(1f),
+                            title = stringResource(R.string.merchant_branding_theme_dark),
+                            icon = Icons.Default.Palette,
+                            selected = state.themeMode == ThemeModeUi.DARK,
+                            onClick = { viewModel.setTheme(ThemeModeUi.DARK) },
+                        )
+                        BrandingThemeCard(
+                            modifier = Modifier.weight(1f),
+                            title = stringResource(R.string.merchant_branding_theme_auto),
+                            icon = Icons.Default.AutoAwesome,
+                            selected = state.themeMode == ThemeModeUi.AUTO,
+                            onClick = { viewModel.setTheme(ThemeModeUi.AUTO) },
+                        )
+                    }
+                }
+            }
+            item {
+                SettingsDetailSection(title = stringResource(R.string.merchant_business_details_branding_title)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SettingsColorSwatch(
+                                hex = (selectedPalette?.primary ?: VerevColors.Gold).toHexString(),
+                                color = selectedPalette?.primary ?: VerevColors.Gold,
+                            )
+                            SettingsColorSwatch(
+                                hex = (selectedPalette?.secondary ?: VerevColors.Moss).toHexString(),
+                                color = selectedPalette?.secondary ?: VerevColors.Moss,
+                            )
+                            SettingsColorSwatch(
+                                hex = (selectedPalette?.accent ?: VerevColors.Tan).toHexString(),
+                                color = selectedPalette?.accent ?: VerevColors.Tan,
+                            )
+                        }
+                        TextButton(onClick = viewModel::reset) {
+                            Icon(Icons.Default.Tune, contentDescription = null)
+                            Text(
+                                text = stringResource(R.string.merchant_branding_reset),
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -799,6 +924,237 @@ fun PrivacyTermsScreen(
                 onClick = { expandedSectionId = if (expandedSectionId == section.id) "" else section.id },
                 tab = activeTab,
                 bullets = section.bullets,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsStudioHeader(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onBack: () -> Unit,
+    colors: List<Color>,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+            .background(Brush.linearGradient(colors))
+            .padding(bottom = 4.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .clickable(onClick = onBack)
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+                Text(
+                    text = stringResource(R.string.auth_back),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.White.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.74f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsDashedActionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(listOf(VerevColors.Gold.copy(alpha = 0.08f), VerevColors.Tan.copy(alpha = 0.06f))))
+            .border(1.dp, VerevColors.Gold.copy(alpha = 0.28f), RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(VerevColors.Gold.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = VerevColors.Gold)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSelectedStoreDivider(name: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = VerevColors.Inactive.copy(alpha = 0.14f))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(99.dp))
+                .background(VerevColors.Moss.copy(alpha = 0.10f))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelLarge,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        HorizontalDivider(modifier = Modifier.weight(1f), color = VerevColors.Inactive.copy(alpha = 0.14f))
+    }
+}
+
+@Composable
+private fun BrandingPaletteStudioCard(
+    palette: BrandingPaletteUi,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(listOf(palette.primary, palette.accent)))
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf(palette.primary, palette.secondary, palette.accent).forEach { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(color)
+                            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(9.dp)),
+                    )
+                }
+            }
+            Text(
+                text = stringResource(palette.nameRes),
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (selected) {
+                SettingsSectionBadge(text = stringResource(R.string.merchant_selected))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrandingThemeCard(
+    title: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (selected) VerevColors.Gold.copy(alpha = 0.12f) else Color.White)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) VerevColors.Gold.copy(alpha = 0.38f) else VerevColors.Inactive.copy(alpha = 0.18f),
+                shape = RoundedCornerShape(20.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (selected) VerevColors.Gold.copy(alpha = 0.18f) else VerevColors.Forest.copy(alpha = 0.06f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (selected) VerevColors.Gold else VerevColors.Forest,
+                )
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
             )
         }
     }

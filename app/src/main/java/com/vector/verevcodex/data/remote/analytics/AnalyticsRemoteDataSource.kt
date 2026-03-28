@@ -3,6 +3,8 @@ package com.vector.verevcodex.data.remote.analytics
 import com.vector.verevcodex.data.remote.api.analytics.BusinessAnalyticsViewDto
 import com.vector.verevcodex.data.remote.api.analytics.CustomerAnalyticsDrillDownViewDto
 import com.vector.verevcodex.data.remote.api.analytics.DashboardCampaignSummaryViewDto
+import com.vector.verevcodex.data.remote.api.analytics.DashboardHealthCheckViewDto
+import com.vector.verevcodex.data.remote.api.analytics.DashboardHealthSnapshotViewDto
 import com.vector.verevcodex.data.remote.api.analytics.DashboardProgramSummaryViewDto
 import com.vector.verevcodex.data.remote.api.analytics.DashboardTransactionSummaryViewDto
 import com.vector.verevcodex.data.remote.api.analytics.MerchantDashboardSnapshotViewDto
@@ -16,8 +18,13 @@ import com.vector.verevcodex.data.remote.core.orFalse
 import com.vector.verevcodex.data.remote.core.orZero
 import com.vector.verevcodex.data.remote.core.parseRemoteInstant
 import com.vector.verevcodex.data.remote.core.parseRemoteLocalDate
+import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
+import com.vector.verevcodex.domain.model.analytics.DashboardHealth
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthCheck
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthCode
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthSeverity
 import com.vector.verevcodex.domain.model.analytics.DashboardSnapshot
 import com.vector.verevcodex.domain.model.business.BusinessOwner
 import com.vector.verevcodex.domain.model.business.StaffMember
@@ -42,37 +49,37 @@ class AnalyticsRemoteDataSource @Inject constructor(
     private val api: VerevAnalyticsApi,
 ) {
 
-    suspend fun dashboardSnapshot(storeId: String?, range: AnalyticsTimeRange): Result<MerchantDashboardSnapshotViewDto> = runCatching {
+    suspend fun dashboardSnapshot(storeId: String?, range: AnalyticsTimeRange): Result<MerchantDashboardSnapshotViewDto> = remoteResult {
         val response = api.dashboardSnapshot(storeId, range.name)
         response.unwrap { it }
     }
 
-    suspend fun business(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.analytics.BusinessAnalytics> = runCatching {
+    suspend fun business(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.analytics.BusinessAnalytics> = remoteResult {
         val response = api.business(storeId, range.name)
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun customers(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.customer.CustomerAnalyticsDrillDown> = runCatching {
+    suspend fun customers(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.customer.CustomerAnalyticsDrillDown> = remoteResult {
         val response = api.customers(storeId, range.name)
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun revenue(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.analytics.RevenueAnalyticsDrillDown> = runCatching {
+    suspend fun revenue(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.analytics.RevenueAnalyticsDrillDown> = remoteResult {
         val response = api.revenue(storeId, range.name)
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun promotions(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.promotions.PromotionAnalyticsDrillDown> = runCatching {
+    suspend fun promotions(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.promotions.PromotionAnalyticsDrillDown> = remoteResult {
         val response = api.promotions(storeId, range.name)
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun programs(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.loyalty.ProgramAnalyticsDrillDown> = runCatching {
+    suspend fun programs(storeId: String?, range: AnalyticsTimeRange): Result<com.vector.verevcodex.domain.model.loyalty.ProgramAnalyticsDrillDown> = remoteResult {
         val response = api.programs(storeId, range.name)
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun staff(storeId: String?, range: AnalyticsTimeRange): Result<List<com.vector.verevcodex.domain.model.analytics.StaffAnalytics>> = runCatching {
+    suspend fun staff(storeId: String?, range: AnalyticsTimeRange): Result<List<com.vector.verevcodex.domain.model.analytics.StaffAnalytics>> = remoteResult {
         val response = api.staff(storeId, range.name)
         response.unwrap { list -> list.map { it.toDomain() } }
     }
@@ -96,6 +103,7 @@ class AnalyticsRemoteDataSource @Inject constructor(
             stores = stores,
             analytics = dto.analytics?.toDomain()?.copy(scopeStoreId = selectedStore.id)
                 ?: com.vector.verevcodex.domain.model.analytics.BusinessAnalytics.empty(selectedStore.id),
+            health = dto.health.toDomain(),
             activePrograms = dto.activePrograms.orEmpty().map { it.toDomain() },
             activeCampaigns = dto.activeCampaigns.orEmpty().map { it.toDomain() },
             topStaff = topStaff,
@@ -104,6 +112,22 @@ class AnalyticsRemoteDataSource @Inject constructor(
     }
 
 }
+
+fun DashboardHealthSnapshotViewDto?.toDomain(): DashboardHealth = DashboardHealth(
+    healthy = this?.healthy ?: true,
+    checks = this?.checks.orEmpty().map { it.toDomain() },
+)
+
+private fun DashboardHealthCheckViewDto.toDomain(): DashboardHealthCheck =
+    DashboardHealthCheck(
+        code = DashboardHealthCode.entries.firstOrNull { it.name.equals(code.orEmpty(), ignoreCase = true) }
+            ?: DashboardHealthCode.UNKNOWN,
+        severity = DashboardHealthSeverity.entries.firstOrNull { it.name.equals(severity.orEmpty(), ignoreCase = true) }
+            ?: DashboardHealthSeverity.WARNING,
+        title = title.orEmpty(),
+        message = message.orEmpty(),
+        affectedCount = affectedCount.orZero(),
+    )
 
 private fun BusinessAnalyticsViewDto.toDomain() = com.vector.verevcodex.domain.model.analytics.BusinessAnalytics(
     id = id.orEmpty(),
@@ -259,6 +283,10 @@ private fun DashboardProgramSummaryViewDto.toDomain(): RewardProgram {
         type = progType,
         rulesSummary = "",
         active = active.orFalse(),
+        autoScheduleEnabled = false,
+        scheduleStartDate = null,
+        scheduleEndDate = null,
+        annualRepeatEnabled = false,
         configuration = config.copy(scanActions = if (mappedScanActions.isEmpty()) config.scanActions else mappedScanActions),
     )
 }
@@ -300,4 +328,3 @@ private fun DashboardTransactionSummaryViewDto.toDomain(): Transaction {
         items = emptyList(),
     )
 }
-

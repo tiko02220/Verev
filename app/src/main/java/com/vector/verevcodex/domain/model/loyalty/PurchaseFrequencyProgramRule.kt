@@ -5,4 +5,9 @@ data class PurchaseFrequencyProgramRule(
     val windowDays: Int = 30,
     val rewardPoints: Int = 50,
     val rewardName: String = "Repeat purchase reward",
+    val rewardOutcome: ProgramRewardOutcome = ProgramRewardOutcome(
+        type = ProgramRewardOutcomeType.POINTS,
+        label = "Repeat purchase reward",
+        pointsAmount = 50,
+    ),
 )

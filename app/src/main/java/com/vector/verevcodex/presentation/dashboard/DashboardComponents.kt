@@ -1,5 +1,11 @@
 package com.vector.verevcodex.presentation.dashboard
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocalActivity
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VolunteerActivism
@@ -27,9 +37,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,8 +55,29 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthCheck
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthCode
+import com.vector.verevcodex.domain.model.analytics.DashboardHealthSeverity
 import com.vector.verevcodex.domain.model.analytics.DashboardSnapshot
 import com.vector.verevcodex.presentation.theme.VerevColors
+
+@Composable
+internal fun DashboardLoadingContent(
+    showQuickActions: Boolean,
+    showPromotions: Boolean,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        DashboardOverviewSkeletonCard()
+        DashboardBranchHealthSkeletonCard()
+        if (showQuickActions) {
+            DashboardQuickActionsSkeleton()
+        }
+        if (showPromotions) {
+            DashboardPromotionSkeletonCard()
+        }
+        DashboardTodayStatsSkeleton()
+    }
+}
 
 @Composable
 internal fun DashboardOverviewCard(snapshot: DashboardSnapshot) {
@@ -101,34 +134,115 @@ internal fun DashboardOverviewCard(snapshot: DashboardSnapshot) {
 }
 
 @Composable
+internal fun DashboardBranchHealthCard(snapshot: DashboardSnapshot) {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.merchant_branch_health_title),
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            letterSpacing = 0.9.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = VerevColors.Forest.copy(alpha = 0.58f),
+                    )
+                    Text(
+                        text = snapshot.selectedStore.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                DashboardHealthBadge(
+                    healthy = snapshot.health.healthy,
+                    issueCount = snapshot.health.checks.size,
+                )
+            }
+
+            if (snapshot.health.healthy) {
+                DashboardHealthyStateRow()
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    snapshot.health.checks.forEach { issue ->
+                        DashboardHealthIssueRow(issue = issue)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun DashboardQuickActions(
+    showScanAction: Boolean,
+    showAddCustomerAction: Boolean,
     onOpenScan: () -> Unit,
     onOpenAddCustomer: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         DashboardSectionTitle(text = stringResource(R.string.merchant_quick_actions))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            DashboardActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_action_scan_card),
-                subtitle = stringResource(R.string.merchant_action_scan_card_subtitle),
-                icon = Icons.Default.CreditCard,
-                gradient = listOf(VerevColors.Gold, VerevColors.Tan),
-                iconGlow = Color(0x4DFFBA00),
-                onClick = onOpenScan,
-            )
-            DashboardActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.merchant_action_add_member),
-                subtitle = stringResource(R.string.merchant_action_add_member_subtitle),
-                icon = Icons.Default.PersonAdd,
-                gradient = listOf(VerevColors.Moss, VerevColors.Forest),
-                iconGlow = Color(0x4D6B9773),
-                onClick = onOpenAddCustomer,
-            )
+        when {
+            showScanAction && showAddCustomerAction -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    DashboardActionCard(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.merchant_action_scan_card),
+                        subtitle = stringResource(R.string.merchant_action_scan_card_subtitle),
+                        icon = Icons.Default.CreditCard,
+                        gradient = listOf(VerevColors.Gold, VerevColors.Tan),
+                        iconGlow = Color(0x4DFFBA00),
+                        onClick = onOpenScan,
+                    )
+                    DashboardActionCard(
+                        modifier = Modifier.weight(1f),
+                        title = stringResource(R.string.merchant_action_add_customer),
+                        subtitle = stringResource(R.string.merchant_action_add_member_subtitle),
+                        icon = Icons.Default.PersonAdd,
+                        gradient = listOf(VerevColors.Moss, VerevColors.Forest),
+                        iconGlow = Color(0x4D6B9773),
+                        onClick = onOpenAddCustomer,
+                    )
+                }
+            }
+            showScanAction -> {
+                DashboardActionCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = stringResource(R.string.merchant_action_scan_card),
+                    subtitle = stringResource(R.string.merchant_action_scan_card_subtitle),
+                    icon = Icons.Default.CreditCard,
+                    gradient = listOf(VerevColors.Gold, VerevColors.Tan),
+                    iconGlow = Color(0x4DFFBA00),
+                    onClick = onOpenScan,
+                )
+            }
+            showAddCustomerAction -> {
+                DashboardActionCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = stringResource(R.string.merchant_action_add_customer),
+                    subtitle = stringResource(R.string.merchant_action_add_member_subtitle),
+                    icon = Icons.Default.PersonAdd,
+                    gradient = listOf(VerevColors.Moss, VerevColors.Forest),
+                    iconGlow = Color(0x4D6B9773),
+                    onClick = onOpenAddCustomer,
+                )
+            }
         }
     }
 }
@@ -491,6 +605,138 @@ private fun DashboardPromotionStatCard(
 }
 
 @Composable
+private fun DashboardHealthBadge(
+    healthy: Boolean,
+    issueCount: Int,
+) {
+    val background = if (healthy) {
+        VerevColors.Moss.copy(alpha = 0.14f)
+    } else {
+        VerevColors.Gold.copy(alpha = 0.18f)
+    }
+    val tint = if (healthy) VerevColors.Moss else VerevColors.Gold
+    val label = if (healthy) {
+        stringResource(R.string.merchant_branch_health_good)
+    } else {
+        stringResource(R.string.merchant_branch_health_issue_count, issueCount)
+    }
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(background)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (healthy) Icons.Default.CheckCircle else Icons.Default.Storefront,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = label,
+            style = TextStyle(
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = tint,
+        )
+    }
+}
+
+@Composable
+private fun DashboardHealthyStateRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(VerevColors.Moss.copy(alpha = 0.1f))
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = VerevColors.Moss,
+            modifier = Modifier.size(20.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.merchant_branch_health_healthy_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.merchant_branch_health_healthy_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardHealthIssueRow(issue: DashboardHealthCheck) {
+    val accent = when (issue.severity) {
+        DashboardHealthSeverity.ACTION_REQUIRED -> VerevColors.Gold
+        DashboardHealthSeverity.WARNING -> VerevColors.Forest
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(accent.copy(alpha = 0.08f))
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = dashboardHealthIcon(issue.code),
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = issue.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = issue.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.68f),
+            )
+        }
+    }
+}
+
+private fun dashboardHealthIcon(code: DashboardHealthCode): ImageVector = when (code) {
+    DashboardHealthCode.PROGRAMS_INACTIVE -> Icons.Default.Campaign
+    DashboardHealthCode.REPORTS_FAILING -> Icons.Default.Description
+    DashboardHealthCode.NOTIFICATIONS_DISABLED -> Icons.Default.NotificationsOff
+    DashboardHealthCode.STAFF_NOT_ACTIVATED -> Icons.Default.PersonAdd
+    DashboardHealthCode.STAFF_WITHOUT_PIN -> Icons.Default.Lock
+    DashboardHealthCode.UNKNOWN -> Icons.Default.Storefront
+}
+
+@Composable
 private fun DashboardTodayStatCard(
     label: String,
     value: String,
@@ -594,4 +840,322 @@ private fun dashboardGrowth(value: Double): String? {
     val rounded = kotlin.math.round(value).toInt()
     val prefix = if (rounded > 0) "+" else ""
     return "$prefix$rounded%"
+}
+
+@Composable
+private fun DashboardOverviewSkeletonCard() {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            DashboardSkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth(0.34f)
+                    .height(14.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(4) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.72f)
+                                .height(12.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.58f)
+                                .height(22.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.46f)
+                                .height(10.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardBranchHealthSkeletonCard() {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DashboardSkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.28f)
+                            .height(12.dp),
+                    )
+                    DashboardSkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.42f)
+                            .height(18.dp),
+                    )
+                }
+                DashboardSkeletonBlock(
+                    modifier = Modifier
+                        .fillMaxWidth(0.2f)
+                        .height(28.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    cornerRadius = 999.dp,
+                )
+            }
+            repeat(2) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(VerevColors.Forest.copy(alpha = 0.04f))
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    DashboardSkeletonBlock(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        cornerRadius = 12.dp,
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.48f)
+                                .height(16.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.92f)
+                                .height(12.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.74f)
+                                .height(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardQuickActionsSkeleton() {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        DashboardSkeletonBlock(
+            modifier = Modifier
+                .fillMaxWidth(0.28f)
+                .height(18.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            repeat(2) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            cornerRadius = 14.dp,
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.62f)
+                                .height(16.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .height(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardPromotionSkeletonCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .background(Brush.verticalGradient(listOf(VerevColors.Gold, VerevColors.Tan)))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DashboardSkeletonBlock(
+                    modifier = Modifier
+                        .fillMaxWidth(0.46f)
+                        .height(22.dp),
+                    baseColor = Color.White.copy(alpha = 0.2f),
+                    highlightColor = Color.White.copy(alpha = 0.42f),
+                )
+                DashboardSkeletonBlock(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    cornerRadius = 16.dp,
+                    baseColor = Color.White.copy(alpha = 0.2f),
+                    highlightColor = Color.White.copy(alpha = 0.42f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                repeat(3) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.72f)
+                                .height(12.dp),
+                            baseColor = Color.White.copy(alpha = 0.22f),
+                            highlightColor = Color.White.copy(alpha = 0.46f),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.56f)
+                                .height(18.dp),
+                            baseColor = Color.White.copy(alpha = 0.22f),
+                            highlightColor = Color.White.copy(alpha = 0.46f),
+                        )
+                    }
+                }
+            }
+            DashboardSkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth(0.82f)
+                    .height(14.dp),
+                baseColor = Color.White.copy(alpha = 0.2f),
+                highlightColor = Color.White.copy(alpha = 0.42f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardTodayStatsSkeleton() {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        DashboardSkeletonBlock(
+            modifier = Modifier
+                .fillMaxWidth(0.24f)
+                .height(18.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            repeat(2) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.68f)
+                                .height(14.dp),
+                        )
+                        DashboardSkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.42f)
+                                .height(22.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardSkeletonBlock(
+    modifier: Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp = 12.dp,
+    baseColor: Color = VerevColors.Forest.copy(alpha = 0.08f),
+    highlightColor: Color = VerevColors.White,
+) {
+    val transition = rememberInfiniteTransition(label = "dashboard_shimmer")
+    val shimmerOffset by transition.animateFloat(
+        initialValue = -320f,
+        targetValue = 960f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "dashboard_shimmer_offset",
+    )
+    val brush = Brush.linearGradient(
+        colors = listOf(baseColor, highlightColor.copy(alpha = 0.65f), baseColor),
+        start = Offset(shimmerOffset - 280f, 0f),
+        end = Offset(shimmerOffset, 280f),
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(brush),
+    )
 }

@@ -17,8 +17,17 @@ val localProperties: Properties by lazy {
     }
 }
 
-fun localProperty(key: String): String =
-    localProperties.getProperty(key).orEmpty()
+fun configValue(key: String, envKey: String = key.replace('.', '_').uppercase()): String =
+    localProperties.getProperty(key)
+        ?.takeIf { it.isNotBlank() }
+        ?: System.getenv(envKey)
+            ?.takeIf { it.isNotBlank() }
+        ?: ""
+
+fun asBuildConfigString(value: String): String =
+    "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"") + "\""
 
 android {
     namespace = "com.vector.verevcodex"
@@ -31,11 +40,15 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField("String", "GOOGLE_WALLET_ISSUER_EMAIL", "\"${localProperty("google.wallet.issuerEmail")}\"")
-        buildConfigField("String", "GOOGLE_WALLET_LOYALTY_CLASS_ID", "\"${localProperty("google.wallet.loyaltyClassId")}\"")
-        buildConfigField("String", "GOOGLE_WALLET_PROGRAM_NAME", "\"${localProperty("google.wallet.programName")}\"")
-        buildConfigField("String", "GOOGLE_WALLET_ISSUER_NAME", "\"${localProperty("google.wallet.issuerName")}\"")
-        buildConfigField("String", "VEREV_BACKEND_BASE_URL", "\"${localProperty("verev.backend.baseUrl")}\"")
+        buildConfigField("String", "GOOGLE_WALLET_ISSUER_EMAIL", asBuildConfigString(configValue("google.wallet.issuerEmail")))
+        buildConfigField("String", "GOOGLE_WALLET_LOYALTY_CLASS_ID", asBuildConfigString(configValue("google.wallet.loyaltyClassId")))
+        buildConfigField("String", "GOOGLE_WALLET_PROGRAM_NAME", asBuildConfigString(configValue("google.wallet.programName")))
+        buildConfigField("String", "GOOGLE_WALLET_ISSUER_NAME", asBuildConfigString(configValue("google.wallet.issuerName")))
+        buildConfigField("String", "VEREV_BACKEND_BASE_URL", asBuildConfigString(configValue("verev.backend.baseUrl")))
+        buildConfigField("String", "FIREBASE_PROJECT_ID", asBuildConfigString(configValue("firebase.projectId")))
+        buildConfigField("String", "FIREBASE_APPLICATION_ID", asBuildConfigString(configValue("firebase.applicationId")))
+        buildConfigField("String", "FIREBASE_API_KEY", asBuildConfigString(configValue("firebase.apiKey")))
+        buildConfigField("String", "FIREBASE_GCM_SENDER_ID", asBuildConfigString(configValue("firebase.gcmSenderId")))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -91,8 +104,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.org.jetbrains.kotlinx.coroutines.android)
     implementation(libs.androidx.compose.ui)
@@ -110,6 +121,8 @@ dependencies {
     implementation(libs.google.mlkit.barcode.scanning)
     implementation(libs.google.play.services.pay)
     implementation(libs.google.zxing.core)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     implementation(libs.airbnb.lottie.compose)
     implementation(libs.hilt.android)
     implementation(libs.retrofit)
@@ -118,15 +131,12 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
 
-    ksp(libs.androidx.room.compiler)
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
-    testImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

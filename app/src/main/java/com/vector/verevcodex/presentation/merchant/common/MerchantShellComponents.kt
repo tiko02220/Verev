@@ -57,7 +57,9 @@ fun MerchantTopBar(
     currentUser: AuthUser?,
     selectedStore: Store?,
     stores: List<Store>,
+    unreadNotifications: Int,
     onStoreSelected: (String) -> Unit,
+    onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showUserMenu by remember { mutableStateOf(false) }
@@ -250,7 +252,7 @@ fun MerchantTopBar(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable { }
+                    .clickable(onClick = onNotificationsClick)
                     .background(Color.Transparent),
                 contentAlignment = Alignment.Center,
             ) {
@@ -260,24 +262,26 @@ fun MerchantTopBar(
                     tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 1.dp, end = 1.dp)
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(VerevColors.Gold),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "3",
-                        color = VerevColors.Forest,
-                        style = TextStyle(
-                            fontSize = 10.sp,
-                            lineHeight = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
+                if (unreadNotifications > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 1.dp, end = 1.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(VerevColors.Gold),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = unreadNotifications.coerceAtMost(9).toString(),
+                            color = VerevColors.Forest,
+                            style = TextStyle(
+                                fontSize = 10.sp,
+                                lineHeight = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                        )
+                    }
                 }
             }
         }

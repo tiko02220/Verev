@@ -15,7 +15,8 @@ fun showBiometricPrompt(
     onResult: (Boolean) -> Unit,
 ) {
     val biometricManager = BiometricManager.from(activity)
-    if (biometricManager.canAuthenticate() != BiometricManager.BIOMETRIC_SUCCESS) {
+    val authenticators = BiometricManager.Authenticators.BIOMETRIC_WEAK
+    if (biometricManager.canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
         onResult(false)
         return
     }
@@ -33,15 +34,14 @@ fun showBiometricPrompt(
                     onResult(false)
                 }
 
-                override fun onAuthenticationFailed() {
-                    onResult(false)
-                }
+                override fun onAuthenticationFailed() = Unit
             },
         )
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(activity.getString(titleRes))
             .setSubtitle(activity.getString(subtitleRes))
             .setConfirmationRequired(false)
+            .setAllowedAuthenticators(authenticators)
             .setNegativeButtonText(activity.getString(negativeRes))
             .build()
         prompt.authenticate(promptInfo)

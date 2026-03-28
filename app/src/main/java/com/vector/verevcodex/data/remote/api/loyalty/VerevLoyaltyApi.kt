@@ -90,6 +90,13 @@ interface VerevRewardsApi {
         @Path("rewardId") rewardId: String,
         @Header("X-Idempotency-Key") idempotencyKey: String? = null,
     ): Response<ApiEnvelope<Map<String, Boolean>>>
+
+    @POST("v1/rewards/{rewardId}/inventory-adjustments")
+    suspend fun adjustInventory(
+        @Path("rewardId") rewardId: String,
+        @Body request: RewardInventoryAdjustmentRequestDto,
+        @Header("X-Idempotency-Key") idempotencyKey: String? = null,
+    ): Response<ApiEnvelope<RewardViewDto>>
 }
 
 interface VerevCampaignsApi {

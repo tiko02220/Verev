@@ -3,17 +3,27 @@ package com.vector.verevcodex.presentation.auth.signup
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,9 +49,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +71,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.presentation.auth.common.AuthFormField
@@ -71,6 +86,56 @@ import com.vector.verevcodex.presentation.auth.common.AuthPrimaryButton
 import com.vector.verevcodex.presentation.auth.common.AuthProgressPill
 import com.vector.verevcodex.presentation.auth.common.AuthSelectField
 import com.vector.verevcodex.presentation.auth.common.SignupStep
+
+@Composable
+internal fun SignupIndustryDialog(
+    onDismissRequest: () -> Unit,
+    content: @Composable (dismiss: () -> Unit) -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+            dismissOnClickOutside = true,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.28f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismissRequest,
+                    ),
+            )
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.94f),
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                color = Color.White,
+                shadowElevation = 18.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                ) {
+                    content(onDismissRequest)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun SignupHeader(step: SignupStep) {
@@ -114,7 +179,14 @@ internal fun SignupFormCard(
         colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier
+                .imePadding()
+                .padding(
+                    start = 24.dp,
+                    top = 24.dp,
+                    end = 24.dp,
+                    bottom = 24.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
@@ -165,6 +237,17 @@ internal fun SignupFormCard(
                     errorKey = state.errors["city"],
                     hint = stringResource(R.string.auth_hint_city),
                     keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next,
+                    onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
+                )
+                SignupField(
+                    label = stringResource(R.string.auth_business_email_label),
+                    value = state.businessEmail,
+                    onValueChange = viewModel::updateBusinessEmail,
+                    icon = Icons.Default.Email,
+                    errorKey = state.errors["businessEmail"],
+                    hint = stringResource(R.string.auth_business_email_hint),
+                    keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
                     onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
                 )
@@ -318,26 +401,30 @@ internal fun IndustrySelectionSheet(
     selectedIndustry: String,
     onIndustrySelected: (String) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = stringResource(R.string.auth_select_industry),
-            style = MaterialTheme.typography.headlineSmall,
-            color = colorResource(R.color.text_primary),
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stringResource(R.string.auth_select_your_industry),
-            style = MaterialTheme.typography.bodyLarge,
-            color = colorResource(R.color.text_secondary),
-        )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            industries.forEach { industry ->
+        item {
+            Text(
+                text = stringResource(R.string.auth_select_industry),
+                style = MaterialTheme.typography.headlineSmall,
+                color = colorResource(R.color.text_primary),
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        item {
+            Text(
+                text = stringResource(R.string.auth_select_your_industry),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colorResource(R.color.text_secondary),
+            )
+        }
+        items(industries.size) { index ->
+            val industry = industries[index]
                 val selected = industry == selectedIndustry
                 Row(
                     modifier = Modifier
@@ -391,7 +478,6 @@ internal fun IndustrySelectionSheet(
                         )
                     }
                 }
-            }
         }
     }
 }
@@ -415,62 +501,83 @@ internal fun PinSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
             verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AuthHeroIcon(
-                backgroundBrush = Brush.linearGradient(listOf(colorResource(R.color.brand_green), colorResource(R.color.brand_forest))),
-                icon = { Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(36.dp)) },
-            )
-            Text(
-                text = if (state.pinSetupStep == PinSetupStep.CREATE) stringResource(R.string.auth_pin_setup_title) else stringResource(R.string.auth_pin_confirm_title),
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = if (state.pinSetupStep == PinSetupStep.CREATE) stringResource(R.string.auth_pin_setup_subtitle) else stringResource(R.string.auth_pin_confirm_subtitle),
-                color = colorResource(R.color.text_secondary),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-            )
-            AuthPinBoxes(
-                value = if (state.pinSetupStep == PinSetupStep.CREATE) state.pin else state.confirmPin,
-                isError = state.pinError != null,
-                focusResetKey = state.pinSetupStep,
-                onValueChange = if (state.pinSetupStep == PinSetupStep.CREATE) viewModel::updatePin else viewModel::updateConfirmPin,
-            )
-            if (state.pinConfirmed) {
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AuthHeroIcon(
+                    backgroundBrush = Brush.linearGradient(listOf(colorResource(R.color.brand_green), colorResource(R.color.brand_forest))),
+                    icon = { Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(36.dp)) },
+                )
+                Text(
+                    text = if (state.pinSetupStep == PinSetupStep.CREATE) stringResource(R.string.auth_pin_setup_title) else stringResource(R.string.auth_pin_confirm_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = if (state.pinSetupStep == PinSetupStep.CREATE) stringResource(R.string.auth_pin_setup_subtitle) else stringResource(R.string.auth_pin_confirm_subtitle),
+                    color = colorResource(R.color.text_secondary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+                AuthPinBoxes(
+                    value = if (state.pinSetupStep == PinSetupStep.CREATE) state.pin else state.confirmPin,
+                    isError = state.pinError != null,
+                    focusResetKey = state.pinSetupStep,
+                    onValueChange = if (state.pinSetupStep == PinSetupStep.CREATE) viewModel::updatePin else viewModel::updateConfirmPin,
+                )
+                if (state.pinConfirmed) {
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Default.CheckCircle, null, tint = colorResource(R.color.brand_green))
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = stringResource(R.string.auth_pin_created_success),
-                            color = colorResource(R.color.brand_green),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(Icons.Default.CheckCircle, null, tint = colorResource(R.color.brand_green))
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = stringResource(R.string.auth_pin_created_success),
+                                color = colorResource(R.color.brand_green),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
                     }
+                } else {
+                    AuthErrorMessage(state.pinError, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 }
-            } else {
-                AuthErrorMessage(state.pinError, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    AuthProgressPill(active = state.pinSetupStep == PinSetupStep.CREATE)
+                    Spacer(Modifier.width(8.dp))
+                    AuthProgressPill(active = state.pinSetupStep == PinSetupStep.CONFIRM)
+                }
+                Button(
+                    onClick = viewModel::skipPinSetup,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(R.color.surface_white),
+                        contentColor = colorResource(R.color.text_secondary),
+                    ),
+                ) {
+                    Text(stringResource(R.string.auth_skip_for_now), style = MaterialTheme.typography.titleMedium)
+                }
+                AuthInfoPanel(text = stringResource(R.string.auth_pin_info_note))
+                Text(
+                    text = stringResource(R.string.auth_pin_secure_note),
+                    color = colorResource(R.color.text_secondary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
             }
-            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                AuthProgressPill(active = state.pinSetupStep == PinSetupStep.CREATE)
-                Spacer(Modifier.width(8.dp))
-                AuthProgressPill(active = state.pinSetupStep == PinSetupStep.CONFIRM)
-            }
-            AuthInfoPanel(text = stringResource(R.string.auth_pin_info_note))
-            Text(
-                text = "\uD83D\uDD12 ${stringResource(R.string.auth_pin_secure_note)}",
-                color = colorResource(R.color.text_secondary),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }
@@ -567,16 +674,60 @@ internal fun StaffPromptCard(state: SignupUiState, onSkip: () -> Unit, onAddStaf
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             AuthHeroIcon(icon = { Icon(Icons.Default.PersonAdd, null, tint = Color.White, modifier = Modifier.size(32.dp)) })
-            Text(stringResource(R.string.auth_staff_prompt_title), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-            Text(stringResource(R.string.auth_staff_prompt_subtitle), color = colorResource(R.color.text_secondary), textAlign = TextAlign.Center)
-            AuthPrimaryButton(text = stringResource(R.string.auth_add_staff_members), loading = state.isLoading, onClick = onAddStaff)
+            Text(
+                stringResource(
+                    if (state.staffMembers.isEmpty()) {
+                        R.string.auth_staff_prompt_title
+                    } else {
+                        R.string.auth_staff_prompt_with_members_title
+                    }
+                ),
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                stringResource(
+                    if (state.staffMembers.isEmpty()) {
+                        R.string.auth_staff_prompt_subtitle
+                    } else {
+                        R.string.auth_staff_prompt_with_members_subtitle
+                    }
+                ),
+                color = colorResource(R.color.text_secondary),
+                textAlign = TextAlign.Center,
+            )
+            if (state.staffMembers.isNotEmpty()) {
+                StaffMemberSummaryCard(
+                    count = state.staffMembers.size,
+                    staffMembers = state.staffMembers,
+                )
+            }
+            AuthPrimaryButton(
+                text = stringResource(
+                    if (state.staffMembers.isEmpty()) {
+                        R.string.auth_create_staff_member
+                    } else {
+                        R.string.auth_staff_add_another
+                    }
+                ),
+                loading = state.isLoading,
+                onClick = onAddStaff,
+            )
             Button(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.surface_white), contentColor = colorResource(R.color.text_primary)),
             ) {
-                Text(stringResource(R.string.auth_skip_for_now))
+                Text(
+                    stringResource(
+                        if (state.staffMembers.isEmpty()) {
+                            R.string.auth_skip_for_now
+                        } else {
+                            R.string.auth_continue_to_dashboard
+                        }
+                    )
+                )
             }
         }
     }
@@ -589,12 +740,29 @@ internal fun StaffSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
     ) {
-        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+            modifier = Modifier.padding(
+                start = 24.dp,
+                top = 24.dp,
+                end = 24.dp,
+                bottom = 24.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             AuthHeroIcon(icon = { Icon(Icons.Default.PersonAdd, null, tint = Color.White, modifier = Modifier.size(32.dp)) })
             Text(stringResource(R.string.auth_staff_title), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(R.string.auth_staff_subtitle), color = colorResource(R.color.text_secondary))
             SignupField(stringResource(R.string.auth_full_name), state.staffName, viewModel::updateStaffName, Icons.Default.Person, null, stringResource(R.string.auth_hint_full_name))
             SignupField(stringResource(R.string.auth_email_label), state.staffEmail, viewModel::updateStaffEmail, Icons.Default.Email, null, stringResource(R.string.auth_hint_email), keyboardType = KeyboardType.Email)
+            SignupField(
+                stringResource(R.string.auth_phone),
+                state.staffPhone,
+                viewModel::updateStaffPhone,
+                Icons.Default.Phone,
+                null,
+                stringResource(R.string.auth_hint_phone),
+                keyboardType = KeyboardType.Phone,
+            )
             SignupField(stringResource(R.string.auth_staff_temporary_password), state.staffPassword, viewModel::updateStaffPassword, Icons.Default.Lock, null, stringResource(R.string.auth_hint_password), isPassword = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(
@@ -633,53 +801,75 @@ internal fun StaffSetupCard(state: SignupUiState, viewModel: SignupViewModel) {
                 }
             }
             AuthErrorMessage(state.staffError)
-            if (state.staffMembers.isNotEmpty()) {
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            stringResource(R.string.auth_staff_added_count, state.staffMembers.size),
-                            color = colorResource(R.color.brand_green),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        state.staffMembers.takeLast(3).forEach { member ->
-                            Text(
-                                stringResource(roleSummaryRes(member.role), member.fullName),
-                                color = colorResource(R.color.text_secondary),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                }
+            AuthPrimaryButton(
+                text = stringResource(R.string.auth_create_staff_member),
+                loading = state.isLoading,
+                onClick = viewModel::createStaffMember,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StaffMemberSummaryCard(
+    count: Int,
+    staffMembers: List<StaffOnboardingMember>,
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.app_background)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                stringResource(R.string.auth_staff_added_count, count),
+                color = colorResource(R.color.brand_green),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            staffMembers.takeLast(3).forEach { member ->
+                Text(
+                    stringResource(roleSummaryRes(member.role), member.fullName),
+                    color = colorResource(R.color.text_secondary),
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = viewModel::addStaffMember,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.app_background), contentColor = colorResource(R.color.text_primary)),
-                ) { Text(stringResource(R.string.auth_staff_add_another)) }
-                Button(
-                    onClick = viewModel::completeStaffSetup,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Brush.horizontalGradient(listOf(colorResource(R.color.brand_green), colorResource(R.color.brand_forest))))
-                            .padding(vertical = 14.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(stringResource(R.string.auth_staff_complete_setup), color = Color.White)
-                    }
-                }
-            }
+        }
+    }
+}
+
+@Composable
+internal fun SignupCompletionCard(
+    onEnterApp: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AuthHeroIcon(icon = { Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(32.dp)) })
+            Text(
+                text = stringResource(R.string.auth_onboarding_complete_title),
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.auth_onboarding_complete_subtitle),
+                color = colorResource(R.color.text_secondary),
+                textAlign = TextAlign.Center,
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.auth_enter_dashboard),
+                loading = false,
+                onClick = onEnterApp,
+            )
         }
     }
 }
@@ -764,7 +954,10 @@ private fun signupPermissionOptions(): List<SignupPermissionOption> = listOf(
         icon = Icons.Default.Business,
         labelRes = R.string.merchant_staff_permission_programs,
         selected = { it.managePrograms },
-        toggle = { it.copy(managePrograms = !it.managePrograms) },
+        toggle = {
+            val nextValue = !it.managePrograms
+            it.copy(viewPrograms = nextValue, managePrograms = nextValue)
+        },
     ),
     SignupPermissionOption(
         icon = Icons.Default.CheckCircle,
@@ -783,12 +976,6 @@ private fun signupPermissionOptions(): List<SignupPermissionOption> = listOf(
         labelRes = R.string.merchant_staff_permission_staff,
         selected = { it.manageStaff },
         toggle = { it.copy(manageStaff = !it.manageStaff) },
-    ),
-    SignupPermissionOption(
-        icon = Icons.Default.Settings,
-        labelRes = R.string.merchant_staff_permission_settings,
-        selected = { it.viewSettings },
-        toggle = { it.copy(viewSettings = !it.viewSettings) },
     ),
 )
 

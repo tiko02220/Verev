@@ -2,84 +2,97 @@ package com.vector.verevcodex.data.repository.store
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import com.vector.verevcodex.data.db.AppDatabase
-import com.vector.verevcodex.data.db.DatabaseSeeder
+import com.vector.verevcodex.common.errors.AppStateException
+import com.vector.verevcodex.data.preferences.AccountPreferenceKeys
 import com.vector.verevcodex.data.preferences.merchantPreferenceStore
 import com.vector.verevcodex.data.remote.auth.AuthRemoteDataSource
 import com.vector.verevcodex.data.remote.store.StoreRemoteDataSource
-import com.vector.verevcodex.data.repository.settings.BusinessSettingsRepositoryImpl
-import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.business.StoreDraft
+import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.repository.store.StoreRepository
 import com.vector.verevcodex.domain.repository.auth.AuthRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 
 @Singleton
 class StoreRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
     @ApplicationContext context: Context,
     private val authRepository: AuthRepository,
     private val authRemote: AuthRemoteDataSource,
-    private val businessSettingsRepository: BusinessSettingsRepositoryImpl,
     private val storeRemote: StoreRemoteDataSource,
-    seeder: DatabaseSeeder,
 ) : StoreRepository {
 
     private val dataStore = context.merchantPreferenceStore
-    private val storeRefreshTrigger = MutableSharedFlow<Unit>(replay = 0)
-
-    init {
-        runBlocking { seeder.seedIfNeeded() }
-    }
+    private val storeRefreshTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun observeStores(): Flow<List<Store>> {
-        return combine(
-            authRepository.observeSession(),
-            merge(flowOf(Unit), storeRefreshTrigger),
-        ) { session, _ -> session }
-            .flatMapLatest { session ->
-                if (session == null) return@flatMapLatest flowOf(emptyList<Store>())
-                val ownerId = resolveOwnerId(session)
-                kotlinx.coroutines.flow.flow {
-                    val list = storeRemote.list(ownerId).getOrElse { emptyList() }
-                    emit(list)
-                }
+    private val storesFlow = combine(
+        authRepository.observeSession(),
+        storeRefreshTrigger.onStart { emit(Unit) },
+    ) { session, _ -> session }
+        .flatMapLatest { session ->
+            if (session == null) return@flatMapLatest flowOf(emptyList<Store>())
+            val ownerId = resolveOwnerId(session)
+            kotlinx.coroutines.flow.flow {
+                emit(storeRemote.list(ownerId).getOrElse { emptyList() })
             }
-    }
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = repositoryScope,
+            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+            initialValue = emptyList(),
+        )
 
-    override fun observeSelectedStore(): Flow<Store?> = combine(
-        observeStores(),
+    private val selectedStoreFlow = combine(
+        storesFlow,
         authRepository.observeSession(),
         dataStore.data,
     ) { stores, session, preferences ->
-        val selectedStoreKey = stringPreferencesKey("${session?.user?.id ?: "anonymous"}_selected_store_id")
+        val selectedStoreKey = AccountPreferenceKeys.selectedStoreId(session?.user?.id)
         val selectedId = preferences[selectedStoreKey]
         stores.firstOrNull { it.id == selectedId } ?: stores.firstOrNull()
     }
+        .distinctUntilChanged()
+        .stateIn(
+        scope = repositoryScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = null,
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeStores(): Flow<List<Store>> = storesFlow
+
+    override fun observeSelectedStore(): Flow<Store?> = selectedStoreFlow
 
     override suspend fun selectStore(storeId: String) {
         authRemote.updateSelectedStore(storeId).getOrThrow()
-        val sessionId = authRepository.observeSession().first()?.user?.id ?: "anonymous"
-        val selectedStoreKey = stringPreferencesKey("${sessionId}_selected_store_id")
+        val sessionId = authRepository.observeSession().first()?.user?.id
+        val selectedStoreKey = AccountPreferenceKeys.selectedStoreId(sessionId)
         dataStore.edit { prefs -> prefs[selectedStoreKey] = storeId }
     }
 
     override suspend fun createStore(draft: StoreDraft): Result<Store> {
-        val session = authRepository.observeSession().first() ?: return Result.failure(IllegalStateException("No active session"))
+        val session = authRepository.observeSession().first()
+            ?: return Result.failure(AppStateException(AppStateException.Reason.NoActiveSession))
         val ownerId = if (session.user.role == StaffRole.OWNER) {
             session.user.relatedEntityId
         } else {
@@ -95,7 +108,8 @@ class StoreRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setStoreActive(storeId: String, active: Boolean): Result<Unit> {
-        val session = authRepository.observeSession().first() ?: return Result.failure(IllegalStateException("No active session"))
+        val session = authRepository.observeSession().first()
+            ?: return Result.failure(AppStateException(AppStateException.Reason.NoActiveSession))
         val ownerId = resolveOwnerId(session)
         val result = storeRemote.setActive(storeId, active, ownerId)
         if (result.isSuccess) storeRefreshTrigger.emit(Unit)
@@ -104,5 +118,5 @@ class StoreRepositoryImpl @Inject constructor(
 
     private suspend fun resolveOwnerId(session: com.vector.verevcodex.domain.model.auth.AuthSession): String =
         if (session.user.role == StaffRole.OWNER) session.user.relatedEntityId
-        else kotlin.runCatching { database.ownerDao().getOwner().id }.getOrElse { "" }
+        else ""
 }

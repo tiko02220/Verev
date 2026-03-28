@@ -3,6 +3,7 @@ package com.vector.verevcodex.domain.model.customer
 enum class CustomerBonusActionType {
     DISCOUNT_APPLIED,
     TIER_BENEFIT_RECORDED,
+    TIER_LEVEL_REWARD,
     MANUAL_VISITS_ADDED,
     MANUAL_VISITS_REMOVED,
     MANUAL_POINTS_ADDED,

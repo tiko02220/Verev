@@ -2,9 +2,11 @@ package com.vector.verevcodex.presentation.common.sheets
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,6 +28,8 @@ fun AppBottomSheetDialog(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     allowSwipeToDismiss: Boolean = true,
+    enableSheetGestures: Boolean = allowSwipeToDismiss,
+    fullHeight: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
     content: @Composable ColumnScope.(dismiss: () -> Unit, dismissAfter: (() -> Unit) -> Unit) -> Unit,
 ) {
@@ -52,7 +56,7 @@ fun AppBottomSheetDialog(
             }
         },
         sheetState = sheetState,
-        sheetGesturesEnabled = allowSwipeToDismiss,
+        sheetGesturesEnabled = enableSheetGestures,
         dragHandle = null,
         sheetMaxWidth = Dp.Unspecified,
         containerColor = Color.Transparent,
@@ -60,7 +64,9 @@ fun AppBottomSheetDialog(
         tonalElevation = 0.dp,
     ) {
         Surface(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .then(if (fullHeight) Modifier.fillMaxHeight() else Modifier),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
             color = Color.White,
             shadowElevation = 18.dp,
@@ -68,6 +74,7 @@ fun AppBottomSheetDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .imePadding()
                     .padding(contentPadding),
             ) {

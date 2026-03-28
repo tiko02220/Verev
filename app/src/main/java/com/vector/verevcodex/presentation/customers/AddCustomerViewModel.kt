@@ -1,11 +1,13 @@
 package com.vector.verevcodex.presentation.customers
 
-import android.app.Activity
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
 import com.vector.verevcodex.common.identifiers.LoyaltyIdCodec
+import com.vector.verevcodex.common.phone.isValidPhoneNumber
+import com.vector.verevcodex.common.phone.normalizePhoneNumber
+import com.vector.verevcodex.common.phone.sanitizePhoneNumberInput
 import com.vector.verevcodex.platform.nfc.NfcCardWriteCoordinator
 import com.vector.verevcodex.platform.nfc.NfcCardWriteRequest
 import com.vector.verevcodex.platform.nfc.NfcCardWriteState
@@ -15,6 +17,7 @@ import com.vector.verevcodex.platform.wallet.GoogleWalletProvisioningManager
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialMethod
 import com.vector.verevcodex.domain.model.customer.CustomerCredentialStatus
 import com.vector.verevcodex.domain.model.customer.CustomerDraft
+import com.vector.verevcodex.domain.model.customer.CustomerGender
 import com.vector.verevcodex.domain.usecase.customer.CreateCustomerUseCase
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerCredentialsUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
@@ -93,12 +96,16 @@ class AddCustomerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(lastName = sanitize(value), errorRes = null)
     }
 
+    fun onGenderSelected(value: CustomerGender?) {
+        _uiState.value = _uiState.value.copy(gender = value, errorRes = null)
+    }
+
     fun onEmailChanged(value: String) {
         _uiState.value = _uiState.value.copy(email = sanitize(value), errorRes = null)
     }
 
     fun onPhoneChanged(value: String) {
-        _uiState.value = _uiState.value.copy(phoneNumber = sanitize(value), errorRes = null)
+        _uiState.value = _uiState.value.copy(phoneNumber = sanitizePhoneNumberInput(value), errorRes = null)
     }
 
     fun createCustomer() {
@@ -109,8 +116,9 @@ class AddCustomerViewModel @Inject constructor(
             state.firstName.isBlank() -> publishError(R.string.merchant_add_customer_error_first_name)
             state.lastName.isBlank() -> publishError(R.string.merchant_add_customer_error_last_name)
             state.email.isBlank() -> publishError(R.string.merchant_add_customer_error_email)
-            state.phoneNumber.isBlank() -> publishError(R.string.merchant_add_customer_error_phone)
+            !isValidPhoneNumber(state.phoneNumber) -> publishError(R.string.merchant_add_customer_error_phone)
             else -> {
+                val normalizedPhoneNumber = normalizePhoneNumber(state.phoneNumber)
                 viewModelScope.launch {
                     _uiState.value = state.copy(isSaving = true, errorRes = null)
                     runCatching {
@@ -118,8 +126,9 @@ class AddCustomerViewModel @Inject constructor(
                             CustomerDraft(
                                 firstName = state.firstName,
                                 lastName = state.lastName,
-                                phoneNumber = state.phoneNumber,
+                                phoneNumber = normalizedPhoneNumber,
                                 email = state.email,
+                                gender = state.gender,
                             ),
                             storeId,
                         )
@@ -156,13 +165,6 @@ class AddCustomerViewModel @Inject constructor(
 
     fun selectProvisioningOption(option: CustomerCardProvisioningOption) {
         _uiState.value = _uiState.value.copy(selectedProvisioningOption = option)
-        when (option) {
-            CustomerCardProvisioningOption.GOOGLE_WALLET -> googleWalletProvisioningManager.refreshAvailability()
-            CustomerCardProvisioningOption.NFC_CARD -> {
-                if (_uiState.value.nfcWritePhase == NfcWritePhase.IDLE) startNfcWrite()
-            }
-            CustomerCardProvisioningOption.BARCODE_IMAGE -> Unit
-        }
     }
 
     fun startNfcWrite() {
@@ -179,20 +181,6 @@ class AddCustomerViewModel @Inject constructor(
 
     fun retryNfcWrite() {
         nfcCardWriteCoordinator.retry()
-    }
-
-    fun clearNfcState() {
-        nfcCardWriteCoordinator.clear()
-    }
-
-    fun refreshWalletAvailability() {
-        googleWalletProvisioningManager.refreshAvailability()
-    }
-
-    fun launchWalletSave(activity: Activity) {
-        _uiState.value.walletPassRequest?.let { request ->
-            googleWalletProvisioningManager.launchSave(activity, request)
-        }
     }
 
     fun clearWalletTransientState() {

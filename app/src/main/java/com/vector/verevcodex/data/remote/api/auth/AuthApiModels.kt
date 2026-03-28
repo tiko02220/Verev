@@ -92,6 +92,10 @@ data class ChangePasswordRequestDto(
     @SerializedName("newPassword") val newPassword: String,
 )
 
+data class ActivateInvitedPasswordRequestDto(
+    @SerializedName("newPassword") val newPassword: String,
+)
+
 data class SecuritySetupRequestDto(
     @SerializedName("pin") val pin: String,
     @SerializedName("biometricEnabled") val biometricEnabled: Boolean,
@@ -150,6 +154,7 @@ data class MerchantSecurityPreferencesViewDto(
     @SerializedName("selectedStoreId") val selectedStoreId: String? = null,
     @SerializedName("quickPinConfigured") val quickPinConfigured: Boolean? = null,
     @SerializedName("biometricEnabled") val biometricEnabled: Boolean? = null,
+    @SerializedName("activationRequired") val activationRequired: Boolean? = null,
 )
 
 data class QuickPinVerificationResponseDto(

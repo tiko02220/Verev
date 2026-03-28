@@ -1,18 +1,21 @@
 package com.vector.verevcodex.presentation.customers
 
 import androidx.annotation.StringRes
+import com.vector.verevcodex.common.phone.defaultPhoneNumberInput
 import com.vector.verevcodex.platform.wallet.GoogleWalletAvailability
 import com.vector.verevcodex.platform.wallet.GoogleWalletPassRequest
 import com.vector.verevcodex.platform.wallet.GoogleWalletSaveResult
 import com.vector.verevcodex.domain.model.customer.CustomerCredential
+import com.vector.verevcodex.domain.model.customer.CustomerGender
 
 data class AddCustomerUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
     val firstName: String = "",
     val lastName: String = "",
+    val gender: CustomerGender? = null,
     val email: String = "",
-    val phoneNumber: String = "",
+    val phoneNumber: String = defaultPhoneNumberInput(),
     val isSaving: Boolean = false,
     @StringRes val errorRes: Int? = null,
     val createdCustomerId: String? = null,

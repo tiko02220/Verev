@@ -1,10 +1,9 @@
 package com.vector.verevcodex.presentation.analytics
 
-import android.app.Activity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +53,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -65,15 +63,12 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
-import com.vector.verevcodex.domain.model.reports.ReportExport
 import com.vector.verevcodex.domain.model.reports.ReportFormat
 import com.vector.verevcodex.domain.model.reports.ReportSection
 import com.vector.verevcodex.domain.model.reports.ReportWeekday
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantPrimaryCard
 import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
-import com.vector.verevcodex.presentation.reports.createSaveReportIntent
-import com.vector.verevcodex.presentation.reports.saveReportToUri
 import com.vector.verevcodex.presentation.reports.ReportsUiState
 import com.vector.verevcodex.presentation.reports.descriptionRes
 import com.vector.verevcodex.presentation.reports.labelRes
@@ -89,29 +84,16 @@ internal fun AnalyticsExportSheet(
     onExport: (ReportFormat) -> Unit,
     onClearError: () -> Unit,
 ) {
-    val context = LocalContext.current
     var selectedFormat by rememberSaveable { mutableStateOf(uiState.autoSettings.format) }
     var exportRequested by rememberSaveable { mutableStateOf(false) }
-    var pendingSaveReport by remember { mutableStateOf<ReportExport?>(null) }
     val selectedSections = remember { mutableStateListOf(*uiState.autoSettings.includedSections.toTypedArray()) }
 
-    val saveReportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val report = pendingSaveReport
-        if (report != null && result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { destinationUri ->
-                saveReportToUri(context, report, destinationUri)
-            }
-        }
-        pendingSaveReport = null
-        onDismiss()
-    }
-
     LaunchedEffect(exportRequested, uiState.isExporting, uiState.latestExport) {
-        val report = uiState.latestExport ?: return@LaunchedEffect
         if (!exportRequested || uiState.isExporting) return@LaunchedEffect
-        if (pendingSaveReport != null) return@LaunchedEffect
-        pendingSaveReport = report
-        saveReportLauncher.launch(createSaveReportIntent(report))
+        if (uiState.latestExport != null) {
+            exportRequested = false
+            onDismiss()
+        }
     }
 
     AnalyticsBottomSheetFrame(
@@ -644,21 +626,53 @@ private fun AnalyticsSelectableTile(
     subtitle: String,
     onClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     MerchantPrimaryCard(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) VerevColors.Gold.copy(alpha = 0.85f) else VerevColors.Forest.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (selected) VerevColors.Forest else VerevColors.Forest.copy(alpha = 0.7f),
-                fontWeight = FontWeight.SemiBold,
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .background(VerevColors.Gold.copy(alpha = 0.14f), RoundedCornerShape(999.dp))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.merchant_reports_selected),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = VerevColors.Forest,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = VerevColors.Forest.copy(alpha = 0.6f),
+                color = VerevColors.Forest.copy(alpha = 0.66f),
             )
         }
     }

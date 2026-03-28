@@ -2,6 +2,7 @@ package com.vector.verevcodex.domain.model.loyalty
 
 import com.vector.verevcodex.domain.model.common.Identifiable
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import java.time.LocalDate
 
 data class RewardProgram(
     override val id: String,
@@ -11,5 +12,9 @@ data class RewardProgram(
     val type: LoyaltyProgramType,
     val rulesSummary: String,
     val active: Boolean,
+    val autoScheduleEnabled: Boolean,
+    val scheduleStartDate: LocalDate?,
+    val scheduleEndDate: LocalDate?,
+    val annualRepeatEnabled: Boolean,
     val configuration: RewardProgramConfiguration,
 ) : Identifiable

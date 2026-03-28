@@ -6,11 +6,14 @@ import com.vector.verevcodex.data.remote.api.reports.ReportAutoSettingsViewDto
 import com.vector.verevcodex.data.remote.api.reports.ReportExportViewDto
 import com.vector.verevcodex.data.remote.api.reports.ReportFiltersRequestDto
 import com.vector.verevcodex.data.remote.api.reports.VerevReportsApi
-import com.vector.verevcodex.data.remote.auth.ApiException
+import com.vector.verevcodex.data.remote.core.BackendEndpoint
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyAction
 import com.vector.verevcodex.data.remote.core.RemoteIdempotencyDomain
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
 import com.vector.verevcodex.data.remote.core.parseRemoteInstant
+import com.vector.verevcodex.data.remote.core.remoteResult
+import com.vector.verevcodex.data.remote.core.resolveBackendAbsoluteUrl
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
@@ -36,13 +39,13 @@ data class RemoteReportDownload(
 @Singleton
 class ReportsRemoteDataSource @Inject constructor(
     private val api: VerevReportsApi,
-    private val backendBaseUrl: String,
+    private val backendEndpoint: BackendEndpoint,
 ) {
-    suspend fun getAutoSettings(): Result<ReportAutoSettings> = runCatching {
+    suspend fun getAutoSettings(): Result<ReportAutoSettings> = remoteResult {
         api.autoSettings().unwrap { it.toDomain() }
     }
 
-    suspend fun saveAutoSettings(settings: ReportAutoSettings, selectedStoreId: String?): Result<ReportAutoSettings> = runCatching {
+    suspend fun saveAutoSettings(settings: ReportAutoSettings, selectedStoreId: String?): Result<ReportAutoSettings> = remoteResult {
         api.upsertAutoSettings(
             request = settings.toRequestDto(selectedStoreId),
             idempotencyKey = reportIdempotencyKey(
@@ -61,7 +64,7 @@ class ReportsRemoteDataSource @Inject constructor(
         ).unwrap { it.toDomain() }
     }
 
-    suspend fun exportBusinessSummary(storeId: String?, format: ReportFormat): Result<RemoteReportDownload> = runCatching {
+    suspend fun exportBusinessSummary(storeId: String?, format: ReportFormat): Result<RemoteReportDownload> = remoteResult {
         val now = LocalDate.now()
         val initial = api.requestExport(
             ReportExportRequestDto(
@@ -84,12 +87,24 @@ class ReportsRemoteDataSource @Inject constructor(
         ).unwrap { it }
 
         val completed = waitForCompletedExport(initial.id.orEmpty())
-        val downloadUrl = completed.downloadUrl ?: throw ApiException(500, "Report download URL is missing")
+        val downloadUrl = completed.downloadUrl ?: throw RemoteException(
+            kind = RemoteException.Kind.Data,
+            message = "Report download URL is missing.",
+            httpStatus = 500,
+        )
         val response = api.download(resolveUrl(downloadUrl))
         if (!response.isSuccessful) {
-            throw ApiException(response.code(), "Report download failed")
+            throw RemoteException(
+                kind = RemoteException.Kind.Api,
+                message = "Report download failed.",
+                httpStatus = response.code(),
+            )
         }
-        val bytes = response.body()?.bytes() ?: throw ApiException(response.code(), "Empty report download")
+        val bytes = response.body()?.bytes() ?: throw RemoteException(
+            kind = RemoteException.Kind.Data,
+            message = "Report download was empty.",
+            httpStatus = response.code(),
+        )
         RemoteReportDownload(
             fileName = completed.fileName.orEmpty().ifBlank { defaultFileName(format) },
             mimeType = completed.contentType.orEmpty().ifBlank { defaultMimeType(format) },
@@ -109,20 +124,24 @@ class ReportsRemoteDataSource @Inject constructor(
                 "FAILED", "EXPIRED" -> {
                     val msg = export.errorMessage?.takeIf { it.isNotBlank() }
                         ?: "Backend report export ${export.status.orEmpty().lowercase()}"
-                    throw ApiException(500, msg)
+                    throw RemoteException(
+                        kind = RemoteException.Kind.Api,
+                        message = msg,
+                        httpStatus = 500,
+                    )
                 }
             }
             delay(if (attempt < 5) 1000L else 1500L)
         }
-        throw ApiException(504, "Timed out waiting for backend report export")
+        throw RemoteException(
+            kind = RemoteException.Kind.Timeout,
+            message = "Timed out waiting for backend report export.",
+            httpStatus = 504,
+        )
     }
 
     private fun resolveUrl(downloadUrl: String): String =
-        if (downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) {
-            downloadUrl
-        } else {
-            backendBaseUrl.trimEnd('/') + "/" + downloadUrl.trimStart('/')
-        }
+        resolveBackendAbsoluteUrl(backendEndpoint, downloadUrl)
 
     private fun defaultFileName(format: ReportFormat): String =
         "business-summary.${when (format) {

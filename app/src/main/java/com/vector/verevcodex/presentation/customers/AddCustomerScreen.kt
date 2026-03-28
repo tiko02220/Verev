@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -42,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
-import com.vector.verevcodex.platform.android.findActivity
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -51,12 +49,11 @@ import com.vector.verevcodex.presentation.theme.VerevColors
 fun AddCustomerScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit,
-    onOpenProfile: (String) -> Unit,
     viewModel: AddCustomerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var copied by remember(state.activationLink) { mutableStateOf(false) }
 
     val selectedOption = state.selectedProvisioningOption ?: CustomerCardProvisioningOption.BARCODE_IMAGE
@@ -107,11 +104,6 @@ fun AddCustomerScreen(
         shareProvisioningPayload(context, payload)
     }
 
-    fun launchWalletSave() {
-        val activity = context.findActivity() ?: return
-        viewModel.launchWalletSave(activity)
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         if (state.createdCustomerId == null) {
             AddCustomerEntryScaffold(
@@ -123,6 +115,7 @@ fun AddCustomerScreen(
                     state = state,
                     onFirstNameChanged = viewModel::onFirstNameChanged,
                     onLastNameChanged = viewModel::onLastNameChanged,
+                    onGenderSelected = viewModel::onGenderSelected,
                     onEmailChanged = viewModel::onEmailChanged,
                     onPhoneChanged = viewModel::onPhoneChanged,
                     onCreateCustomer = viewModel::createCustomer,
@@ -144,17 +137,14 @@ fun AddCustomerScreen(
                     onOpenEmail = ::openEmail,
                     onOpenSms = ::openSms,
                     onShareLink = ::shareCurrentProvisioning,
-                    onOpenProfile = { state.createdCustomerId?.let(onOpenProfile) },
                     onAddAnother = {
                         copied = false
                         viewModel.resetForm()
                     },
                     onSelectProvisioningOption = viewModel::selectProvisioningOption,
-                    onLaunchGoogleWallet = ::launchWalletSave,
                     onStartNfcWrite = viewModel::startNfcWrite,
                     onRetryNfcWrite = viewModel::retryNfcWrite,
-                    onClearNfcState = viewModel::clearNfcState,
-                    onRefreshWalletStatus = viewModel::refreshWalletAvailability,
+                    onNfcDone = onBack,
                 )
             }
         }

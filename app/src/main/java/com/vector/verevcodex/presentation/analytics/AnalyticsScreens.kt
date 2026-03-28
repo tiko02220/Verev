@@ -22,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,7 +31,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
+import com.vector.verevcodex.presentation.reports.openReport
 import com.vector.verevcodex.presentation.reports.ReportsViewModel
+import com.vector.verevcodex.presentation.reports.titleRes
 import com.vector.verevcodex.presentation.theme.VerevColors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +54,7 @@ fun AnalyticsDashboardScreen(
     viewModel: AnalyticsViewModel = hiltViewModel(),
     reportsViewModel: ReportsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
     val reportsState = reportsViewModel.uiState.collectAsStateWithLifecycle().value
     val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
@@ -126,6 +131,25 @@ fun AnalyticsDashboardScreen(
             onSave = reportsViewModel::updateAutoReportSettings,
         )
     }
+
+    if (!showExportSheet && reportsState.latestExport != null && !reportsState.isExporting) {
+        val report = reportsState.latestExport
+        MerchantSuccessDialog(
+            title = stringResource(R.string.merchant_reports_ready_title),
+            message = stringResource(
+                R.string.merchant_reports_ready_message,
+                stringResource(report.format.titleRes()),
+                report.storageLocation ?: stringResource(R.string.merchant_reports_storage_location_app_files),
+            ),
+            actionLabel = stringResource(R.string.merchant_finish),
+            secondaryActionLabel = stringResource(R.string.merchant_reports_open_action),
+            onDismiss = reportsViewModel::clearLatestExport,
+            onSecondaryAction = {
+                openReport(context, report)
+                reportsViewModel.clearLatestExport()
+            },
+        )
+    }
 }
 
 @Composable
@@ -181,7 +205,7 @@ fun RevenueAnalyticsScreen(
     viewModel: RevenueAnalyticsViewModel = hiltViewModel(),
 ) {
     val state = viewModel.uiState.collectAsStateWithLifecycle().value
-    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch()
+    val chartAnimationEpoch = rememberAnalyticsChartAnimationEpoch(state.selectedRange)
     AnalyticsDetailScreenContainer(
         title = stringResource(R.string.merchant_analytics_revenue_detail_title),
         subtitle = stringResource(R.string.merchant_analytics_revenue_detail_subtitle),
@@ -191,7 +215,13 @@ fun RevenueAnalyticsScreen(
         onRangeSelected = viewModel::updateRange,
         emptyIcon = Icons.Default.Payments,
         isLoading = state.isLoading,
-        body = { analytics, animationEpoch -> RevenueAnalyticsDetailContent(analytics, animationEpoch) },
+        body = { analytics, animationEpoch ->
+            RevenueAnalyticsDetailContent(
+                analytics = analytics,
+                selectedRange = state.selectedRange,
+                chartAnimationEpoch = animationEpoch,
+            )
+        },
         chartAnimationEpoch = chartAnimationEpoch,
         analytics = state.analytics,
     )
@@ -306,9 +336,9 @@ private fun <T> AnalyticsDetailScreenContainer(
 }
 
 @Composable
-private fun rememberAnalyticsChartAnimationEpoch(): Int {
+private fun rememberAnalyticsChartAnimationEpoch(vararg keys: Any?): Int {
     val lifecycleOwner = LocalLifecycleOwner.current
-    var epoch by rememberSaveable { mutableIntStateOf(0) }
+    var epoch by rememberSaveable(*keys) { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             epoch += 1

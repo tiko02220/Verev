@@ -17,6 +17,7 @@ interface LoyaltyRepository {
     suspend fun createReward(draft: RewardDraft): Reward
     suspend fun updateReward(rewardId: String, draft: RewardDraft): Reward
     suspend fun setRewardEnabled(rewardId: String, enabled: Boolean)
+    suspend fun adjustRewardInventory(rewardId: String, delta: Int): Reward
     suspend fun deleteReward(rewardId: String)
     suspend fun createProgram(draft: RewardProgramDraft): RewardProgram
     suspend fun updateProgram(programId: String, draft: RewardProgramDraft): RewardProgram

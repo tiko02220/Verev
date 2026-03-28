@@ -7,6 +7,7 @@ data class AppSecurityUiState(
     val isInitialized: Boolean = false,
     val session: AuthSession? = null,
     val securityConfig: SecurityConfig? = null,
+    val signupOnboardingPending: Boolean = false,
     val authEntryDestination: AuthEntryDestination? = null,
     val authEntryNonce: Int = 0,
     val requiresUnlock: Boolean = false,
@@ -18,5 +19,7 @@ data class AppSecurityUiState(
 
 enum class AuthEntryDestination {
     LOGIN,
+    SIGNUP,
     FORGOT_PIN,
+    FORCE_PASSWORD_SETUP,
 }

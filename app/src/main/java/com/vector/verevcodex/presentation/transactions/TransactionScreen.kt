@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 fun TransactionEntryScreen(
     contentPadding: PaddingValues = PaddingValues(),
     onBack: () -> Unit = {},
+    onOpenTransaction: (String) -> Unit = {},
     viewModel: TransactionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -153,10 +154,13 @@ fun TransactionEntryScreen(
                     isSubmitting = state.isSubmitting,
                     onSubmit = viewModel::submitCheckout,
                 )
-            }
+                    }
 
                     item {
-                        RecentTransactionsCard(records = state.recentTransactions)
+                        RecentTransactionsCard(
+                            records = state.recentTransactions,
+                            onOpenTransaction = onOpenTransaction,
+                        )
                     }
                 }
             } 

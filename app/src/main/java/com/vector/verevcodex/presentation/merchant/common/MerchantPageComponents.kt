@@ -354,7 +354,12 @@ fun MerchantFormField(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(
             value = value,
-            onValueChange = { onValueChange(it.replace("\n", "")) },
+            onValueChange = {
+                onValueChange(
+                    if (singleLine) it.replace("\n", "")
+                    else it,
+                )
+            },
             modifier = modifier.fillMaxWidth(),
             label = { Text(label) },
             leadingIcon = { Icon(leadingIcon, contentDescription = null) },

@@ -7,4 +7,5 @@ data class BusinessRegistration(
     val city: String,
     val zipCode: String,
     val phoneNumber: String,
+    val businessEmail: String,
 )

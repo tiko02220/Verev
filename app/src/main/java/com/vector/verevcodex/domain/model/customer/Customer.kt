@@ -17,6 +17,8 @@ data class Customer(
     val totalSpent: Double,
     val currentPoints: Int,
     val loyaltyTier: LoyaltyTier,
+    val loyaltyTierLabel: String,
     val lastVisit: LocalDateTime?,
     val favoriteStoreId: String?,
+    val gender: CustomerGender? = null,
 ) : Identifiable

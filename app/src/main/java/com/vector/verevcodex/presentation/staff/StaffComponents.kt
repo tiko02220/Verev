@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.phone.sanitizePhoneNumberInput
 import com.vector.verevcodex.domain.model.business.StaffMember
 import com.vector.verevcodex.domain.model.common.StaffPermissions
 import com.vector.verevcodex.domain.model.common.StaffRole
@@ -342,7 +343,7 @@ internal fun StaffAddMemberSheet(
                 FormSection {
                     MerchantFormField(
                         value = phoneNumber,
-                        onValueChange = onPhoneNumberChanged,
+                        onValueChange = { onPhoneNumberChanged(sanitizePhoneNumberInput(it)) },
                         label = stringResource(R.string.merchant_staff_form_phone),
                         leadingIcon = Icons.Default.Phone,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -794,7 +795,10 @@ private fun permissionOptions(): List<PermissionOption> = listOf(
         icon = Icons.Default.Settings,
         labelRes = R.string.merchant_staff_permission_programs,
         selected = { it.managePrograms },
-        toggle = { it.copy(managePrograms = !it.managePrograms) },
+        toggle = {
+            val nextValue = !it.managePrograms
+            it.copy(viewPrograms = nextValue, managePrograms = nextValue)
+        },
     ),
     PermissionOption(
         icon = Icons.Default.Edit,
@@ -813,12 +817,6 @@ private fun permissionOptions(): List<PermissionOption> = listOf(
         labelRes = R.string.merchant_staff_permission_staff,
         selected = { it.manageStaff },
         toggle = { it.copy(manageStaff = !it.manageStaff) },
-    ),
-    PermissionOption(
-        icon = Icons.Default.Settings,
-        labelRes = R.string.merchant_staff_permission_settings,
-        selected = { it.viewSettings },
-        toggle = { it.copy(viewSettings = !it.viewSettings) },
     ),
 )
 

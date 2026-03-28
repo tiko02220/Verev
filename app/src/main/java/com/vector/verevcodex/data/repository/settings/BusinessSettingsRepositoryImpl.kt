@@ -9,41 +9,79 @@ import com.vector.verevcodex.domain.model.billing.SavedPaymentMethod
 import com.vector.verevcodex.domain.model.billing.SubscriptionPlan
 import com.vector.verevcodex.domain.model.billing.SubscriptionPlanOption
 import com.vector.verevcodex.domain.repository.settings.BusinessSettingsRepository
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 @Singleton
 class BusinessSettingsRepositoryImpl @Inject constructor(
     private val remote: BusinessSettingsRemoteDataSource,
 ) : BusinessSettingsRepository {
     private val refreshRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val brandingFlows = ConcurrentHashMap<String, Flow<BrandingSettings?>>()
+    private val subscriptionPlanFlows = ConcurrentHashMap<String, Flow<SubscriptionPlan?>>()
+    private val paymentMethodFlows = ConcurrentHashMap<String, Flow<List<SavedPaymentMethod>>>()
+    private val invoiceFlows = ConcurrentHashMap<String, Flow<List<BillingInvoice>>>()
+    private val branchConfigurationFlows = ConcurrentHashMap<String, Flow<BranchConfiguration?>>()
+    private val availablePlansFlow: Flow<List<SubscriptionPlanOption>> = refreshRequests
+        .onStart { emit(Unit) }
+        .map { remote.getAvailablePlans().getOrElse { emptyList() } }
+        .stateIn(
+            scope = repositoryScope,
+            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+            initialValue = emptyList(),
+        )
 
-    override fun observeBrandingSettings(storeId: String): Flow<BrandingSettings?> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getBranding(storeId).getOrNull() }
-    }
+    override fun observeBrandingSettings(storeId: String): Flow<BrandingSettings?> =
+        brandingFlows.getOrPut(storeId) {
+            refreshRequests
+                .onStart { emit(Unit) }
+                .map { remote.getBranding(storeId).getOrNull() }
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                    initialValue = null,
+                )
+        }
 
     override suspend fun saveBrandingSettings(settings: BrandingSettings): Result<Unit> = runCatching {
         remote.saveBranding(settings).getOrThrow()
+        refreshRequests.tryEmit(Unit)
     }
 
-    override fun observeSubscriptionPlan(ownerId: String): Flow<SubscriptionPlan?> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getCurrentSubscription(ownerId).getOrNull() }
-    }
+    override fun observeSubscriptionPlan(ownerId: String): Flow<SubscriptionPlan?> =
+        subscriptionPlanFlows.getOrPut(ownerId) {
+            refreshRequests
+                .onStart { emit(Unit) }
+                .map { remote.getCurrentSubscription(ownerId).getOrNull() }
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                    initialValue = null,
+                )
+        }
 
-    override fun observePaymentMethods(ownerId: String): Flow<List<SavedPaymentMethod>> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getPaymentMethods(ownerId).getOrElse { emptyList() } }
-    }
+    override fun observePaymentMethods(ownerId: String): Flow<List<SavedPaymentMethod>> =
+        paymentMethodFlows.getOrPut(ownerId) {
+            refreshRequests
+                .onStart { emit(Unit) }
+                .map { remote.getPaymentMethods(ownerId).getOrElse { emptyList() } }
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                    initialValue = emptyList(),
+                )
+        }
 
     override suspend fun addPaymentMethod(ownerId: String, draft: PaymentMethodDraft): Result<Unit> = runCatching {
         remote.addPaymentMethod(ownerId, draft).getOrThrow()
@@ -60,28 +98,36 @@ class BusinessSettingsRepositoryImpl @Inject constructor(
         refreshRequests.tryEmit(Unit)
     }
 
-    override fun observeInvoices(ownerId: String): Flow<List<BillingInvoice>> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getInvoices(ownerId).getOrElse { emptyList() } }
-    }
+    override fun observeInvoices(ownerId: String): Flow<List<BillingInvoice>> =
+        invoiceFlows.getOrPut(ownerId) {
+            refreshRequests
+                .onStart { emit(Unit) }
+                .map { remote.getInvoices(ownerId).getOrElse { emptyList() } }
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                    initialValue = emptyList(),
+                )
+        }
 
-    override fun observeAvailablePlans(): Flow<List<SubscriptionPlanOption>> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getAvailablePlans().getOrElse { emptyList() } }
-    }
+    override fun observeAvailablePlans(): Flow<List<SubscriptionPlanOption>> = availablePlansFlow
 
     override suspend fun updateSubscriptionPlan(ownerId: String, planId: String): Result<Unit> = runCatching {
         remote.updateSubscriptionPlan(ownerId, planId).getOrThrow()
         refreshRequests.tryEmit(Unit)
     }
 
-    override fun observeBranchConfiguration(storeId: String): Flow<BranchConfiguration?> {
-        return refreshRequests
-            .onStart { emit(Unit) }
-            .map { remote.getBranchConfiguration(storeId).getOrNull() }
-    }
+    override fun observeBranchConfiguration(storeId: String): Flow<BranchConfiguration?> =
+        branchConfigurationFlows.getOrPut(storeId) {
+            refreshRequests
+                .onStart { emit(Unit) }
+                .map { remote.getBranchConfiguration(storeId).getOrNull() }
+                .stateIn(
+                    scope = repositoryScope,
+                    started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                    initialValue = null,
+                )
+        }
 
     override suspend fun saveBranchConfiguration(configuration: BranchConfiguration): Result<Unit> = runCatching {
         remote.saveBranchConfiguration(configuration).getOrThrow()

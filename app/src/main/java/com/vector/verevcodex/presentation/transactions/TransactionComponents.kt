@@ -641,7 +641,10 @@ internal fun CheckoutFeedbackCard(
 }
 
 @Composable
-internal fun RecentTransactionsCard(records: List<RecentCheckoutRecord>) {
+internal fun RecentTransactionsCard(
+    records: List<RecentCheckoutRecord>,
+    onOpenTransaction: (String) -> Unit,
+) {
     TransactionSurfaceCard {
         TransactionSectionTitle(text = stringResource(R.string.merchant_transaction_recent_title))
         if (records.isEmpty()) {
@@ -654,6 +657,7 @@ internal fun RecentTransactionsCard(records: List<RecentCheckoutRecord>) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 records.forEach { record ->
                     ElevatedCard(
+                        modifier = Modifier.clickable { onOpenTransaction(record.id) },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.elevatedCardColors(containerColor = VerevColors.AppBackground),
                         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),

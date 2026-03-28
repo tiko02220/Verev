@@ -72,8 +72,8 @@ fun LoyaltyTier.displayName(): String = when (this) {
 }
 
 fun RewardType.displayName(): String = when (this) {
-    RewardType.FREE_PRODUCT -> "Free Product"
+    RewardType.FREE_PRODUCT -> "Product item"
     RewardType.DISCOUNT_COUPON -> "Discount Coupon"
-    RewardType.GIFT_ITEM -> "Gift Item"
-    RewardType.SPECIAL_PROMOTION -> "Promotion"
+    RewardType.GIFT_ITEM -> "Product item"
+    RewardType.SPECIAL_PROMOTION -> "Special Promotion"
 }

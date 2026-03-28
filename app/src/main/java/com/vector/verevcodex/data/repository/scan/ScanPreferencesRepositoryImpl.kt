@@ -1,9 +1,8 @@
 package com.vector.verevcodex.data.repository.scan
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
+import com.vector.verevcodex.data.preferences.ScanPreferenceKeys
 import com.vector.verevcodex.data.preferences.scanPreferenceStore
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.domain.model.scan.ScanPreferences
@@ -25,12 +24,12 @@ class ScanPreferencesRepositoryImpl @Inject constructor(
     private val dataStore = context.scanPreferenceStore
 
     override fun observePreferences(): Flow<ScanPreferences> = combine(
-        authRepository.observeSession().map { it?.user?.id ?: "anonymous" },
+        authRepository.observeSession().map { it?.user?.id },
         dataStore.data,
     ) { accountId, preferences ->
-        val method = preferences[stringPreferencesKey("${accountId}_preferred_scan_method")]
+        val method = preferences[ScanPreferenceKeys.preferredScanMethod(accountId)]
             ?.let { runCatching { ScanMethod.valueOf(it) }.getOrNull() }
-        val skip = preferences[booleanPreferencesKey("${accountId}_skip_scan_method_selection")] ?: false
+        val skip = preferences[ScanPreferenceKeys.skipMethodSelection(accountId)] ?: false
         ScanPreferences(
             preferredMethod = method,
             skipMethodSelection = skip && method != null,
@@ -38,18 +37,18 @@ class ScanPreferencesRepositoryImpl @Inject constructor(
     }
 
     override suspend fun savePreference(method: ScanMethod, skipMethodSelection: Boolean) {
-        val accountId = authRepository.observeSession().first()?.user?.id ?: "anonymous"
+        val accountId = authRepository.observeSession().first()?.user?.id
         dataStore.edit { preferences ->
-            preferences[stringPreferencesKey("${accountId}_preferred_scan_method")] = method.name
-            preferences[booleanPreferencesKey("${accountId}_skip_scan_method_selection")] = skipMethodSelection
+            preferences[ScanPreferenceKeys.preferredScanMethod(accountId)] = method.name
+            preferences[ScanPreferenceKeys.skipMethodSelection(accountId)] = skipMethodSelection
         }
     }
 
     override suspend fun clearPreference() {
-        val accountId = authRepository.observeSession().first()?.user?.id ?: "anonymous"
+        val accountId = authRepository.observeSession().first()?.user?.id
         dataStore.edit { preferences ->
-            preferences.remove(stringPreferencesKey("${accountId}_preferred_scan_method"))
-            preferences.remove(booleanPreferencesKey("${accountId}_skip_scan_method_selection"))
+            preferences.remove(ScanPreferenceKeys.preferredScanMethod(accountId))
+            preferences.remove(ScanPreferenceKeys.skipMethodSelection(accountId))
         }
     }
 }

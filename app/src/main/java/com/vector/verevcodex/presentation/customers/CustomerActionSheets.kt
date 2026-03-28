@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -54,11 +56,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.input.sanitizeDecimalInput
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.customer.Customer
+import com.vector.verevcodex.domain.model.customer.CustomerMergePreview
+import com.vector.verevcodex.domain.model.customer.CustomerSplitPreview
+import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
+import com.vector.verevcodex.domain.model.loyalty.displayValue
 import com.vector.verevcodex.presentation.common.sheets.AppBottomSheetDialog
 import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
+import com.vector.verevcodex.presentation.merchant.common.MerchantStatusPill
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 @Composable
@@ -266,7 +275,7 @@ internal fun CustomerTransactionSheet(
         }
         OutlinedTextField(
             value = amountText,
-            onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+            onValueChange = { amountText = sanitizeDecimalInput(it) },
             label = { Text(stringResource(R.string.merchant_customer_transaction_sheet_amount)) },
             supportingText = {
                 if (selectedProgram == null) {
@@ -421,6 +430,314 @@ internal fun CustomerTagsSheet(
 }
 
 @Composable
+internal fun CustomerMergeDuplicateSheet(
+    currentCustomer: Customer,
+    candidates: List<Customer>,
+    preview: CustomerMergePreview?,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onSelectCandidate: (String) -> Unit,
+    onConfirm: () -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val filteredCandidates = remember(query, candidates, currentCustomer.id) {
+        val normalizedQuery = query.trim().lowercase()
+        candidates
+            .filter { it.id != currentCustomer.id }
+            .filter { candidate ->
+                normalizedQuery.isBlank() ||
+                    candidate.displayName().lowercase().contains(normalizedQuery) ||
+                    candidate.phoneNumber.lowercase().contains(normalizedQuery) ||
+                    candidate.email.lowercase().contains(normalizedQuery)
+            }
+            .take(8)
+    }
+
+    CustomerActionSheetFrame(
+        title = stringResource(R.string.merchant_customer_merge_sheet_title),
+        subtitle = stringResource(R.string.merchant_customer_merge_sheet_subtitle),
+        isSaving = isLoading,
+        confirmLabel = stringResource(R.string.merchant_customer_merge_sheet_confirm),
+        confirmEnabled = preview?.canMerge == true,
+        onDismiss = onDismiss,
+        onConfirm = onConfirm,
+    ) {
+        CustomerSheetSectionTitle(
+            icon = Icons.Default.Person,
+            title = stringResource(R.string.merchant_customer_merge_sheet_target_title),
+        )
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it.replace("\n", "") },
+            label = { Text(stringResource(R.string.merchant_customer_merge_sheet_search_label)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+        if (filteredCandidates.isEmpty()) {
+            Text(
+                text = stringResource(R.string.merchant_customer_merge_sheet_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.6f),
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                filteredCandidates.forEach { candidate ->
+                    CustomerResolutionCandidateCard(
+                        customer = candidate,
+                        selected = preview?.targetCustomer?.id == candidate.id,
+                        onClick = { onSelectCandidate(candidate.id) },
+                    )
+                }
+            }
+        }
+        preview?.let {
+            CustomerSheetSectionTitle(
+                icon = Icons.Default.Check,
+                title = stringResource(R.string.merchant_customer_merge_sheet_preview_title),
+            )
+            CustomerResolutionPairCard(
+                source = it.sourceCustomer,
+                target = it.targetCustomer,
+                modeLabel = stringResource(R.string.merchant_customer_merge_sheet_mode_label),
+            )
+            CustomerResolutionSummaryCard(
+                lines = listOf(
+                    stringResource(R.string.merchant_customer_merge_sheet_summary_profiles, it.assessment.sourceOrganizationProfiles),
+                    stringResource(R.string.merchant_customer_merge_sheet_summary_memberships, it.assessment.sourceMemberships),
+                    stringResource(R.string.merchant_customer_merge_sheet_summary_credentials, it.assessment.sourceCredentials),
+                    stringResource(R.string.merchant_customer_merge_sheet_summary_transactions, it.assessment.sourceTransactions),
+                    stringResource(R.string.merchant_customer_merge_sheet_summary_points_ledger, it.assessment.sourcePointsLedgerEntries),
+                ),
+            )
+            CustomerResolutionWarningBlock(
+                title = stringResource(R.string.merchant_customer_merge_sheet_warnings_title),
+                entries = it.warnings,
+                emptyLabel = stringResource(R.string.merchant_customer_duplicate_no_warnings),
+            )
+            CustomerResolutionWarningBlock(
+                title = stringResource(R.string.merchant_customer_merge_sheet_blockers_title),
+                entries = it.blockingReasons,
+                emptyLabel = stringResource(R.string.merchant_customer_duplicate_ready_to_apply),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun CustomerSplitIdentitySheet(
+    customer: Customer,
+    preview: CustomerSplitPreview?,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (String, String, String, String, String) -> Unit,
+) {
+    var firstName by rememberSaveable(customer.id) { mutableStateOf(customer.firstName) }
+    var lastName by rememberSaveable(customer.id) { mutableStateOf(customer.lastName) }
+    var phoneNumber by rememberSaveable(customer.id) { mutableStateOf("") }
+    var email by rememberSaveable(customer.id) { mutableStateOf(customer.email) }
+    var notes by rememberSaveable(customer.id) { mutableStateOf("") }
+
+    val canSubmit = preview?.canSplit == true &&
+        firstName.isNotBlank() &&
+        lastName.isNotBlank() &&
+        phoneNumber.isNotBlank()
+
+    CustomerActionSheetFrame(
+        title = stringResource(R.string.merchant_customer_split_sheet_title),
+        subtitle = stringResource(R.string.merchant_customer_split_sheet_subtitle),
+        isSaving = isLoading,
+        confirmLabel = stringResource(R.string.merchant_customer_split_sheet_confirm),
+        confirmEnabled = canSubmit,
+        onDismiss = onDismiss,
+        onConfirm = { onSubmit(firstName, lastName, phoneNumber, email, notes) },
+    ) {
+        preview?.let {
+            CustomerSheetSectionTitle(
+                icon = Icons.Default.Check,
+                title = stringResource(R.string.merchant_customer_split_sheet_preview_title),
+            )
+            CustomerResolutionSummaryCard(
+                lines = listOf(
+                    stringResource(R.string.merchant_customer_split_sheet_summary_profiles, it.assessment.organizationProfilesToMove),
+                    stringResource(R.string.merchant_customer_split_sheet_summary_memberships, it.assessment.membershipsToMove),
+                    stringResource(R.string.merchant_customer_split_sheet_summary_credentials, it.assessment.credentialsToMove),
+                    stringResource(R.string.merchant_customer_split_sheet_summary_transactions, it.assessment.transactionsToMove),
+                    stringResource(R.string.merchant_customer_split_sheet_summary_points_ledger, it.assessment.pointsLedgerEntriesToMove),
+                ),
+            )
+            CustomerResolutionWarningBlock(
+                title = stringResource(R.string.merchant_customer_merge_sheet_warnings_title),
+                entries = it.warnings,
+                emptyLabel = stringResource(R.string.merchant_customer_duplicate_no_warnings),
+            )
+            CustomerResolutionWarningBlock(
+                title = stringResource(R.string.merchant_customer_merge_sheet_blockers_title),
+                entries = it.blockingReasons,
+                emptyLabel = stringResource(R.string.merchant_customer_duplicate_ready_to_apply),
+            )
+        }
+        CustomerSheetSectionTitle(
+            icon = Icons.Default.Person,
+            title = stringResource(R.string.merchant_customer_split_sheet_identity_title),
+        )
+        OutlinedTextField(
+            value = firstName,
+            onValueChange = { firstName = it.replace("\n", "") },
+            label = { Text(stringResource(R.string.merchant_customer_split_sheet_first_name)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+        OutlinedTextField(
+            value = lastName,
+            onValueChange = { lastName = it.replace("\n", "") },
+            label = { Text(stringResource(R.string.merchant_customer_split_sheet_last_name)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+        OutlinedTextField(
+            value = phoneNumber,
+            onValueChange = { phoneNumber = it.replace("\n", "") },
+            label = { Text(stringResource(R.string.merchant_customer_split_sheet_phone_number)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it.replace("\n", "") },
+            label = { Text(stringResource(R.string.merchant_customer_split_sheet_email)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text(stringResource(R.string.merchant_customer_split_sheet_notes)) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = customerSheetFieldColors(),
+        )
+    }
+}
+
+@Composable
+private fun CustomerResolutionCandidateCard(
+    customer: Customer,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = if (selected) VerevColors.Gold.copy(alpha = 0.14f) else VerevColors.AppBackground,
+                shape = RoundedCornerShape(18.dp),
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = customer.displayName(),
+                style = MaterialTheme.typography.titleSmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = listOf(customer.phoneNumber, customer.email).filter { it.isNotBlank() }.joinToString(" • "),
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (selected) {
+            MerchantStatusPill(
+                text = stringResource(R.string.merchant_customer_duplicate_selected_badge),
+                backgroundColor = VerevColors.Forest,
+                contentColor = VerevColors.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomerResolutionPairCard(
+    source: Customer,
+    target: Customer,
+    modeLabel: String,
+) {
+    CustomerResolutionSummaryCard(
+        lines = listOf(
+            "$modeLabel: ${source.displayName()} -> ${target.displayName()}",
+            stringResource(R.string.merchant_customer_merge_sheet_pair_source, source.phoneNumber),
+            stringResource(R.string.merchant_customer_merge_sheet_pair_target, target.phoneNumber),
+        ),
+    )
+}
+
+@Composable
+private fun CustomerResolutionSummaryCard(lines: List<String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(VerevColors.AppBackground, RoundedCornerShape(18.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        lines.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomerResolutionWarningBlock(
+    title: String,
+    entries: List<String>,
+    emptyLabel: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        if (entries.isEmpty()) {
+            Text(
+                text = emptyLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                entries.forEach { entry ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = entry.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VerevColors.Forest,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CustomerActionSheetFrame(
     title: String,
     subtitle: String,
@@ -565,30 +882,22 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                     value = stringResource(
                         R.string.merchant_customer_program_details_checkin_rule,
                         program.configuration.checkInRule.visitsRequired,
-                        program.configuration.checkInRule.rewardPoints,
+                        program.configuration.checkInRule.rewardOutcome.displayValue(),
                     ),
                 )
                 CustomerProgramDetailRow(
                     label = stringResource(R.string.merchant_customer_program_details_reward_name),
-                    value = program.configuration.checkInRule.rewardName,
+                    value = program.configuration.checkInRule.rewardOutcome.displayValue(),
                 )
             }
             LoyaltyProgramType.TIER -> {
                 CustomerProgramDetailRow(
                     label = stringResource(R.string.merchant_customer_program_details_tiers),
-                    value = stringResource(
-                        R.string.merchant_customer_program_details_tier_rule,
-                        program.configuration.tierRule.silverThreshold,
-                        program.configuration.tierRule.goldThreshold,
-                        program.configuration.tierRule.vipThreshold,
-                    ),
+                    value = program.configuration.tierRule.customerTierThresholdsSummary(),
                 )
                 CustomerProgramDetailRow(
                     label = stringResource(R.string.merchant_customer_program_details_bonus),
-                    value = stringResource(
-                        R.string.merchant_customer_program_details_tier_bonus,
-                        program.configuration.tierRule.tierBonusPercent,
-                    ),
+                    value = program.configuration.tierRule.customerTierBenefitsSummary(),
                 )
             }
             LoyaltyProgramType.COUPON -> {
@@ -616,7 +925,7 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                 )
                 CustomerProgramDetailRow(
                     label = stringResource(R.string.merchant_customer_program_details_reward),
-                    value = "${program.configuration.purchaseFrequencyRule.rewardPoints} pts",
+                    value = program.configuration.purchaseFrequencyRule.rewardOutcome.displayValue(),
                 )
             }
             LoyaltyProgramType.REFERRAL -> {
@@ -628,8 +937,8 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                     label = stringResource(R.string.merchant_customer_program_details_referral_rewards),
                     value = stringResource(
                         R.string.merchant_customer_program_details_referral_rule,
-                        program.configuration.referralRule.referrerRewardPoints,
-                        program.configuration.referralRule.refereeRewardPoints,
+                        program.configuration.referralRule.referrerRewardOutcome.displayValue(),
+                        program.configuration.referralRule.refereeRewardOutcome.displayValue(),
                     ),
                 )
             }
@@ -654,6 +963,30 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
         }
     }
 }
+
+@Composable
+private fun TierProgramRule.customerTierThresholdsSummary(): String =
+    LocalContext.current.let { context ->
+        configurableLevels.joinToString(separator = ", ") { level ->
+            context.getString(
+                R.string.merchant_customer_program_details_tier_level_format,
+                level.name,
+                level.threshold,
+            )
+        }
+    }
+
+@Composable
+private fun TierProgramRule.customerTierBenefitsSummary(): String =
+    LocalContext.current.let { context ->
+        configurableLevels.joinToString(separator = ", ") { level ->
+            context.getString(
+                R.string.merchant_customer_program_details_tier_benefit_format,
+                level.name,
+                level.bonusPercent,
+            )
+        }
+    }
 
 @Composable
 private fun CustomerProgramDetailRow(

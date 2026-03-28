@@ -1,7 +1,5 @@
 package com.vector.verevcodex.presentation.reports
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,10 +25,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,8 +65,7 @@ fun ReportExportScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pendingSaveReport by remember { mutableStateOf<ReportExport?>(null) }
     var saveFeedbackRes by rememberSaveable { mutableStateOf<Int?>(null) }
-    var promptedExportPath by rememberSaveable { mutableStateOf<String?>(null) }
-    val saveReportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val saveReportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
         val report = pendingSaveReport
         if (report != null && result.resultCode == android.app.Activity.RESULT_OK) {
             val destinationUri = result.data?.data
@@ -86,14 +82,6 @@ fun ReportExportScreen(
             saveFeedbackRes = R.string.merchant_reports_saved_cancelled
         }
         pendingSaveReport = null
-    }
-
-    LaunchedEffect(uiState.latestExport?.absolutePath) {
-        val report = uiState.latestExport ?: return@LaunchedEffect
-        if (promptedExportPath == report.absolutePath) return@LaunchedEffect
-        promptedExportPath = report.absolutePath
-        pendingSaveReport = report
-        saveReportLauncher.launch(createSaveReportIntent(report))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

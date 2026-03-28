@@ -1,7 +1,6 @@
 package com.vector.verevcodex.presentation.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -26,6 +25,7 @@ fun AppEntryScreen(
     onBiometricResult: (Boolean) -> Unit,
     onRecoverAccess: () -> Unit,
     onExitPinRecovery: () -> Unit,
+    onAuthFlowCompleted: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val merchantNavController = rememberNavController()
@@ -39,7 +39,7 @@ fun AppEntryScreen(
                 navController = authNavController,
                 startDestination = destination.startDestination,
                 onForgotPinExit = onExitPinRecovery,
-                onAuthenticated = { },
+                onAuthenticated = onAuthFlowCompleted,
             )
         }
 

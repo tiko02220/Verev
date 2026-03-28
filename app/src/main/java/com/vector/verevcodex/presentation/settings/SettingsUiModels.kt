@@ -22,6 +22,12 @@ data class PaymentMethodUi(
     val isDefault: Boolean,
 )
 
+internal data class SettingsMenuGroup(
+    val title: String,
+    val subtitle: String? = null,
+    val items: List<SettingsMenuItem>,
+)
+
 data class BillingEntryUi(
     val id: String,
     val title: String,

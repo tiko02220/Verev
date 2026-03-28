@@ -1,7 +1,5 @@
 package com.vector.verevcodex.data.repository.analytics
 
-import com.vector.verevcodex.data.db.AppDatabase
-import com.vector.verevcodex.data.mapper.toDomain
 import com.vector.verevcodex.data.remote.analytics.AnalyticsRemoteDataSource
 import com.vector.verevcodex.domain.model.analytics.AnalyticsPoint
 import com.vector.verevcodex.domain.model.analytics.AnalyticsSegment
@@ -11,6 +9,7 @@ import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange.QUARTER
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange.WEEK
 import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange.YEAR
 import com.vector.verevcodex.domain.model.analytics.BusinessAnalytics
+import com.vector.verevcodex.domain.model.analytics.DashboardHealth
 import com.vector.verevcodex.domain.model.analytics.DashboardSnapshot
 import com.vector.verevcodex.domain.model.analytics.RevenueAnalyticsDrillDown
 import com.vector.verevcodex.domain.model.analytics.StaffAnalytics
@@ -31,6 +30,7 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.promotions.PromotionAnalyticsDrillDown
 import com.vector.verevcodex.domain.model.promotions.PromotionPerformance
+import com.vector.verevcodex.domain.repository.realtime.RealtimeRepository
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.domain.repository.analytics.AnalyticsRepository
 import com.vector.verevcodex.domain.repository.auth.AuthRepository
@@ -47,71 +47,79 @@ import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.onStart
+import com.vector.verevcodex.data.remote.analytics.toDomain
 import kotlin.math.roundToInt
 
 @Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnalyticsRepositoryImpl @Inject constructor(
-    private val database: AppDatabase,
     private val storeRepository: StoreRepository,
     private val staffRepository: StaffRepository,
     private val loyaltyRepository: LoyaltyRepository,
     private val transactionRepository: TransactionRepository,
     private val authRepository: AuthRepository,
     private val analyticsRemote: AnalyticsRemoteDataSource,
+    private val realtimeRepository: RealtimeRepository,
 ) : AnalyticsRepository {
 
     override fun observeBusinessAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<BusinessAnalytics> {
-        return flow {
-            val raw = analyticsRemote.business(storeId, range).getOrElse { emptyBusinessAnalytics(storeId) }
-            val today = LocalDate.now()
-            val window = range.backendAlignedWindow(today)
-            emit(raw.copy(
-                revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
-                visitTrend = fillTrendWithDateRange(raw.visitTrend, window),
-                newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
-                returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
-            ))
-        }
+        return realtimeRepository.observeRefreshSignals()
+            .onStart { emit(Unit) }
+            .map {
+                val raw = analyticsRemote.business(storeId, range).getOrElse { emptyBusinessAnalytics(storeId) }
+                val today = LocalDate.now()
+                val window = range.backendAlignedWindow(today)
+                raw.copy(
+                    revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
+                    visitTrend = fillTrendWithDateRange(raw.visitTrend, window),
+                    newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
+                    returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
+                )
+            }
     }
 
     override fun observeCustomerAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<CustomerAnalyticsDrillDown> {
-        return flow {
-            val raw = analyticsRemote.customers(storeId, range).getOrElse { emptyCustomerAnalytics(storeId) }
-            val window = range.backendAlignedWindow(LocalDate.now())
-            emit(raw.copy(
-                newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
-                returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
-                retentionTrend = fillTrendWithDateRange(raw.retentionTrend, window),
-            ))
-        }
+        return realtimeRepository.observeRefreshSignals()
+            .onStart { emit(Unit) }
+            .map {
+                val raw = analyticsRemote.customers(storeId, range).getOrElse { emptyCustomerAnalytics(storeId) }
+                val window = range.backendAlignedWindow(LocalDate.now())
+                raw.copy(
+                    newCustomerTrend = fillTrendWithDateRange(raw.newCustomerTrend, window),
+                    returningCustomerTrend = fillTrendWithDateRange(raw.returningCustomerTrend, window),
+                    retentionTrend = fillTrendWithDateRange(raw.retentionTrend, window),
+                )
+            }
     }
 
     override fun observeRevenueAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<RevenueAnalyticsDrillDown> {
-        return flow {
-            val raw = analyticsRemote.revenue(storeId, range).getOrElse { emptyRevenueAnalytics(storeId) }
-            val window = range.backendAlignedWindow(LocalDate.now())
-            emit(raw.copy(
-                revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
-            ))
-        }
+        return realtimeRepository.observeRefreshSignals()
+            .onStart { emit(Unit) }
+            .map {
+                val raw = analyticsRemote.revenue(storeId, range).getOrElse { emptyRevenueAnalytics(storeId) }
+                val window = range.backendAlignedWindow(LocalDate.now())
+                raw.copy(
+                    revenueTrend = fillTrendWithDateRange(raw.revenueTrend, window),
+                )
+            }
     }
 
     override fun observePromotionAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<PromotionAnalyticsDrillDown> {
-        return flow {
-            emit(analyticsRemote.promotions(storeId, range).getOrElse { emptyPromotionAnalytics(storeId) })
-        }
+        return realtimeRepository.observeRefreshSignals()
+            .onStart { emit(Unit) }
+            .map { analyticsRemote.promotions(storeId, range).getOrElse { emptyPromotionAnalytics(storeId) } }
     }
 
     override fun observeProgramAnalytics(storeId: String?, range: AnalyticsTimeRange): Flow<ProgramAnalyticsDrillDown> {
-        return flow {
-            emit(analyticsRemote.programs(storeId, range).getOrElse { emptyProgramAnalytics(storeId) })
-        }
+        return realtimeRepository.observeRefreshSignals()
+            .onStart { emit(Unit) }
+            .map { analyticsRemote.programs(storeId, range).getOrElse { emptyProgramAnalytics(storeId) } }
     }
 
     override fun observeDashboardSnapshot(): Flow<DashboardSnapshot> {
@@ -122,9 +130,12 @@ class AnalyticsRepositoryImpl @Inject constructor(
             selectedStore to stores
         }
 
-        val commerceFlow = storeRepository.observeSelectedStore()
-            .map { it?.id }
-            .flatMapLatest { selectedStoreId ->
+        val activeStoreFlow: Flow<Store?> = storeSelectionFlow
+            .map { (selectedStore, stores) -> selectedStore ?: stores.firstOrNull() }
+            .distinctUntilChanged()
+
+        val commerceFlow: Flow<DashboardCommerceBundle?> = activeStoreFlow.flatMapLatest { activeStore ->
+            activeStore?.id?.let { selectedStoreId ->
                 combine(
                     observeBusinessAnalytics(selectedStoreId, WEEK),
                     loyaltyRepository.observePrograms(selectedStoreId),
@@ -133,28 +144,42 @@ class AnalyticsRepositoryImpl @Inject constructor(
                 ) { analytics, programs, campaigns, transactions ->
                     DashboardCommerceBundle(analytics, programs, campaigns, transactions)
                 }
-            }
+            } ?: flowOf<DashboardCommerceBundle?>(null)
+        }
 
-        val staffFlow = storeRepository.observeSelectedStore()
-            .map { it?.id }
-            .flatMapLatest { selectedStoreId ->
+        val staffFlow: Flow<DashboardStaffBundle?> = activeStoreFlow.flatMapLatest { activeStore ->
+            activeStore?.id?.let { selectedStoreId ->
                 combine(
                     staffRepository.observeStaff(selectedStoreId),
                     staffRepository.observeStaffAnalytics(selectedStoreId),
                 ) { staff, staffAnalytics ->
                     DashboardStaffBundle(staff, staffAnalytics)
                 }
-            }
+            } ?: flowOf<DashboardStaffBundle?>(null)
+        }
 
-        return combine(
+        val healthFlow: Flow<DashboardHealth> = activeStoreFlow.flatMapLatest { activeStore ->
+            realtimeRepository.observeRefreshSignals()
+                .onStart { emit(Unit) }
+                .map {
+                    activeStore?.id?.let { selectedStoreId ->
+                        analyticsRemote.dashboardSnapshot(selectedStoreId, WEEK)
+                            .mapCatching { snapshot -> snapshot.health.toDomain() }
+                            .getOrElse { DashboardHealth() }
+                    } ?: DashboardHealth()
+                }
+        }
+
+        val dashboardCoreFlow = combine(
             authRepository.observeSession(),
-            storeSelectionFlow,
+            storeRepository.observeStores(),
+            activeStoreFlow,
             commerceFlow,
             staffFlow,
-        ) { session, storeSelection, commerce, staffBundle ->
-            val stores = storeSelection.second
-            val currentStore = storeSelection.first ?: stores.firstOrNull()
-                ?: placeholderStore(session) // When no stores, use placeholder so dashboard/analytics still render
+        ) { session, stores, currentStore, commerce, staffBundle ->
+            if (currentStore == null || commerce == null || staffBundle == null) {
+                return@combine null
+            }
             val owner = resolveOwner(session)
             val topStaff = staffBundle.analytics
                 .sortedByDescending(StaffAnalytics::revenueHandled)
@@ -174,6 +199,10 @@ class AnalyticsRepositoryImpl @Inject constructor(
                 recentTransactions = commerce.transactions.filter { it.storeId == currentStore.id }.take(5),
             )
         }.mapNotNull { it }
+
+        return combine(dashboardCoreFlow, healthFlow) { snapshot, health ->
+            snapshot.copy(health = health)
+        }
     }
 
     private fun resolveOwner(session: AuthSession?): BusinessOwner {
@@ -187,20 +216,6 @@ class AnalyticsRepositoryImpl @Inject constructor(
             phoneNumber = user?.phoneNumber.orEmpty(),
         )
     }
-
-    private fun placeholderStore(session: AuthSession?): Store = Store(
-        id = "placeholder",
-        ownerId = session?.user?.relatedEntityId.orEmpty(),
-        name = "",
-        address = "",
-        contactInfo = "",
-        category = "",
-        workingHours = "",
-        logoUrl = "",
-        primaryColor = "#0C3B2E",
-        secondaryColor = "#FFBA00",
-        active = false,
-    )
 
     private fun emptyBusinessAnalytics(storeId: String?) = BusinessAnalytics(
         id = storeId ?: "all-stores",

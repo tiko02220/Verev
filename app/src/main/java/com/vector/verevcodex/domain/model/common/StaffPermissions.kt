@@ -2,6 +2,7 @@ package com.vector.verevcodex.domain.model.common
 
 data class StaffPermissions(
     val viewAnalytics: Boolean,
+    val viewPrograms: Boolean,
     val managePrograms: Boolean,
     val processTransactions: Boolean,
     val manageCustomers: Boolean,
@@ -10,17 +11,16 @@ data class StaffPermissions(
 )
 
 fun StaffRole.defaultPermissions(): StaffPermissions = when (this) {
-    StaffRole.OWNER -> StaffPermissions(true, true, true, true, true, true)
-    StaffRole.STORE_MANAGER -> StaffPermissions(true, true, true, true, false, false)
-    StaffRole.CASHIER -> StaffPermissions(false, false, true, false, false, false)
-    StaffRole.STAFF -> StaffPermissions(false, false, true, false, false, false)
+    StaffRole.OWNER -> StaffPermissions(true, true, true, true, true, true, true)
+    StaffRole.STORE_MANAGER -> StaffPermissions(true, true, true, true, true, false, false)
+    StaffRole.CASHIER -> StaffPermissions(false, false, false, true, false, false, false)
+    StaffRole.STAFF -> StaffPermissions(false, false, false, true, false, false, false)
 }
 
 fun StaffPermissions.summary(): String = buildList {
     if (viewAnalytics) add("Analytics")
-    if (managePrograms) add("Programs")
+    if (viewPrograms) add("Programs")
     if (processTransactions) add("Transactions")
     if (manageCustomers) add("Customers")
     if (manageStaff) add("Staff")
-    if (viewSettings) add("Settings")
 }.joinToString(", ")

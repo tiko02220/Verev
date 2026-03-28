@@ -12,6 +12,7 @@ data class DashboardSnapshot(
     val selectedStore: Store,
     val stores: List<Store>,
     val analytics: BusinessAnalytics,
+    val health: DashboardHealth = DashboardHealth(),
     val activePrograms: List<RewardProgram>,
     val activeCampaigns: List<Campaign>,
     val topStaff: List<Pair<StaffMember, StaffAnalytics>>,

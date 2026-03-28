@@ -3,6 +3,25 @@ package com.vector.verevcodex.data.remote.api.loyalty
 import com.google.gson.annotations.SerializedName
 
 // --- Programs ---
+data class ProgramRewardOutcomeDto(
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("label") val label: String? = null,
+    @SerializedName("pointsAmount") val pointsAmount: Int? = null,
+    @SerializedName("rewardId") val rewardId: String? = null,
+    @SerializedName("rewardName") val rewardName: String? = null,
+    @SerializedName("rewardType") val rewardType: String? = null,
+    @SerializedName("programId") val programId: String? = null,
+    @SerializedName("programName") val programName: String? = null,
+)
+
+data class TierLevelDto(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("threshold") val threshold: Int? = null,
+    @SerializedName("bonusPercent") val bonusPercent: Int? = null,
+    @SerializedName("rewardOutcome") val rewardOutcome: ProgramRewardOutcomeDto? = null,
+)
+
 data class LoyaltyProgramViewDto(
     @SerializedName("id") val id: String? = null,
     @SerializedName("organizationId") val organizationId: String? = null,
@@ -12,6 +31,11 @@ data class LoyaltyProgramViewDto(
     @SerializedName("type") val type: String? = null,
     @SerializedName("rulesSummary") val rulesSummary: String? = null,
     @SerializedName("active") val active: Boolean? = null,
+    @SerializedName("autoScheduleEnabled") val autoScheduleEnabled: Boolean? = null,
+    @SerializedName("scheduleStartDate") val scheduleStartDate: String? = null,
+    @SerializedName("scheduleEndDate") val scheduleEndDate: String? = null,
+    @SerializedName("scheduleDurationDays") val scheduleDurationDays: Int? = null,
+    @SerializedName("annualRepeatEnabled") val annualRepeatEnabled: Boolean? = null,
     @SerializedName("scanActions") val scanActions: List<String>? = null,
     @SerializedName("earningEnabled") val earningEnabled: Boolean? = null,
     @SerializedName("rewardRedemptionEnabled") val rewardRedemptionEnabled: Boolean? = null,
@@ -31,6 +55,7 @@ data class LoyaltyProgramViewDto(
     @SerializedName("tierGoldThreshold") val tierGoldThreshold: Int? = null,
     @SerializedName("tierVipThreshold") val tierVipThreshold: Int? = null,
     @SerializedName("tierBonusPercent") val tierBonusPercent: Int? = null,
+    @SerializedName("tierLevels") val tierLevels: List<TierLevelDto>? = null,
     @SerializedName("couponName") val couponName: String? = null,
     @SerializedName("couponPointsCost") val couponPointsCost: Int? = null,
     @SerializedName("couponDiscountAmount") val couponDiscountAmount: Double? = null,
@@ -38,12 +63,16 @@ data class LoyaltyProgramViewDto(
     @SerializedName("checkInVisitsRequired") val checkInVisitsRequired: Int? = null,
     @SerializedName("checkInRewardPoints") val checkInRewardPoints: Int? = null,
     @SerializedName("checkInRewardName") val checkInRewardName: String? = null,
+    @SerializedName("checkInReward") val checkInReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("purchaseFrequencyCount") val purchaseFrequencyCount: Int? = null,
     @SerializedName("purchaseFrequencyWindowDays") val purchaseFrequencyWindowDays: Int? = null,
     @SerializedName("purchaseFrequencyRewardPoints") val purchaseFrequencyRewardPoints: Int? = null,
     @SerializedName("purchaseFrequencyRewardName") val purchaseFrequencyRewardName: String? = null,
+    @SerializedName("purchaseFrequencyReward") val purchaseFrequencyReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralReferrerRewardPoints") val referralReferrerRewardPoints: Int? = null,
     @SerializedName("referralRefereeRewardPoints") val referralRefereeRewardPoints: Int? = null,
+    @SerializedName("referralReferrerReward") val referralReferrerReward: ProgramRewardOutcomeDto? = null,
+    @SerializedName("referralRefereeReward") val referralRefereeReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralCodePrefix") val referralCodePrefix: String? = null,
 )
 
@@ -53,6 +82,11 @@ data class LoyaltyProgramRequestDto(
     @SerializedName("description") val description: String,
     @SerializedName("type") val type: String,
     @SerializedName("active") val active: Boolean,
+    @SerializedName("autoScheduleEnabled") val autoScheduleEnabled: Boolean,
+    @SerializedName("scheduleStartDate") val scheduleStartDate: String?,
+    @SerializedName("scheduleEndDate") val scheduleEndDate: String?,
+    @SerializedName("scheduleDurationDays") val scheduleDurationDays: Int?,
+    @SerializedName("annualRepeatEnabled") val annualRepeatEnabled: Boolean,
     @SerializedName("earningEnabled") val earningEnabled: Boolean,
     @SerializedName("rewardRedemptionEnabled") val rewardRedemptionEnabled: Boolean,
     @SerializedName("visitCheckInEnabled") val visitCheckInEnabled: Boolean,
@@ -71,6 +105,7 @@ data class LoyaltyProgramRequestDto(
     @SerializedName("tierGoldThreshold") val tierGoldThreshold: Int,
     @SerializedName("tierVipThreshold") val tierVipThreshold: Int,
     @SerializedName("tierBonusPercent") val tierBonusPercent: Int,
+    @SerializedName("tierLevels") val tierLevels: List<TierLevelDto> = emptyList(),
     @SerializedName("couponName") val couponName: String,
     @SerializedName("couponPointsCost") val couponPointsCost: Int,
     @SerializedName("couponDiscountAmount") val couponDiscountAmount: Double,
@@ -78,12 +113,16 @@ data class LoyaltyProgramRequestDto(
     @SerializedName("checkInVisitsRequired") val checkInVisitsRequired: Int,
     @SerializedName("checkInRewardPoints") val checkInRewardPoints: Int,
     @SerializedName("checkInRewardName") val checkInRewardName: String,
+    @SerializedName("checkInReward") val checkInReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("purchaseFrequencyCount") val purchaseFrequencyCount: Int,
     @SerializedName("purchaseFrequencyWindowDays") val purchaseFrequencyWindowDays: Int,
     @SerializedName("purchaseFrequencyRewardPoints") val purchaseFrequencyRewardPoints: Int,
     @SerializedName("purchaseFrequencyRewardName") val purchaseFrequencyRewardName: String,
+    @SerializedName("purchaseFrequencyReward") val purchaseFrequencyReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralReferrerRewardPoints") val referralReferrerRewardPoints: Int,
     @SerializedName("referralRefereeRewardPoints") val referralRefereeRewardPoints: Int,
+    @SerializedName("referralReferrerReward") val referralReferrerReward: ProgramRewardOutcomeDto? = null,
+    @SerializedName("referralRefereeReward") val referralRefereeReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralCodePrefix") val referralCodePrefix: String,
 )
 
@@ -101,8 +140,11 @@ data class RewardViewDto(
     @SerializedName("description") val description: String? = null,
     @SerializedName("pointsRequired") val pointsRequired: Int? = null,
     @SerializedName("rewardType") val rewardType: String? = null,
+    @SerializedName("imageUri") val imageUri: String? = null,
     @SerializedName("expirationDate") val expirationDate: String? = null,
     @SerializedName("usageLimit") val usageLimit: Int? = null,
+    @SerializedName("inventoryTracked") val inventoryTracked: Boolean? = null,
+    @SerializedName("availableQuantity") val availableQuantity: Int? = null,
     @SerializedName("activeStatus") val activeStatus: Boolean? = null,
 )
 
@@ -112,9 +154,16 @@ data class RewardRequestDto(
     @SerializedName("description") val description: String,
     @SerializedName("pointsRequired") val pointsRequired: Int,
     @SerializedName("rewardType") val rewardType: String,
+    @SerializedName("imageUri") val imageUri: String?,
     @SerializedName("expirationDate") val expirationDate: String?,
     @SerializedName("usageLimit") val usageLimit: Int,
+    @SerializedName("inventoryTracked") val inventoryTracked: Boolean,
+    @SerializedName("availableQuantity") val availableQuantity: Int?,
     @SerializedName("activeStatus") val activeStatus: Boolean,
+)
+
+data class RewardInventoryAdjustmentRequestDto(
+    @SerializedName("delta") val delta: Int,
 )
 
 // --- Campaigns ---

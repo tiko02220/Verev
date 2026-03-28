@@ -45,3 +45,20 @@ data class TransactionItemRequestDto(
 data class TransactionCommitResponseDto(
     @SerializedName("transaction") val transaction: TransactionViewDto? = null,
 )
+
+data class VoidTransactionRequestDto(
+    @SerializedName("reason") val reason: String,
+)
+
+data class ApprovalRequestDto(
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("targetTransactionId") val targetTransactionId: String? = null,
+    @SerializedName("requestedByUserId") val requestedByUserId: String? = null,
+    @SerializedName("requestType") val requestType: String? = null,
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("reasonText") val reasonText: String? = null,
+    @SerializedName("decisionNotes") val decisionNotes: String? = null,
+    @SerializedName("decidedByUserId") val decidedByUserId: String? = null,
+    @SerializedName("createdAt") val createdAt: String? = null,
+    @SerializedName("decidedAt") val decidedAt: String? = null,
+)

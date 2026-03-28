@@ -9,7 +9,10 @@ data class RewardDraft(
     val description: String,
     val pointsRequired: Int,
     val rewardType: RewardType,
+    val imageUri: String?,
     val expirationDate: LocalDate?,
     val usageLimit: Int,
+    val inventoryTracked: Boolean,
+    val availableQuantity: Int?,
     val activeStatus: Boolean,
 )

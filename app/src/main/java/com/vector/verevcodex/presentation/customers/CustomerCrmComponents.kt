@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.NoteAlt
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Redeem
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.AlertDialog
@@ -58,12 +59,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
+import com.vector.verevcodex.common.phone.sanitizePhoneNumberInput
 import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
 import com.vector.verevcodex.domain.model.customer.CustomerBonusActionType
@@ -72,8 +75,12 @@ import com.vector.verevcodex.domain.model.customer.CustomerBusinessRelation
 import com.vector.verevcodex.domain.model.loyalty.PointsLedger
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
+import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.promotions.PromotionType
+import com.vector.verevcodex.domain.model.transactions.TransactionApprovalRequest
+import com.vector.verevcodex.domain.model.transactions.TransactionApprovalStatus
+import com.vector.verevcodex.domain.model.transactions.TransactionStatus
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantSectionTitle
@@ -227,12 +234,8 @@ internal fun CustomerBonusManagementSection(
     val discountCampaignToApply = campaigns.firstOrNull { it.id == discountCampaignToApplyId }
     val discountActions = bonusActions.filter { it.type == CustomerBonusActionType.DISCOUNT_APPLIED }.take(3)
     val tierActions = bonusActions.filter { it.type == CustomerBonusActionType.TIER_BENEFIT_RECORDED }.take(3)
-    val nextTierRequirement = when (customer.loyaltyTier) {
-        com.vector.verevcodex.domain.model.common.LoyaltyTier.BRONZE -> tierProgram?.configuration?.tierRule?.silverThreshold
-        com.vector.verevcodex.domain.model.common.LoyaltyTier.SILVER -> tierProgram?.configuration?.tierRule?.goldThreshold
-        com.vector.verevcodex.domain.model.common.LoyaltyTier.GOLD -> tierProgram?.configuration?.tierRule?.vipThreshold
-        com.vector.verevcodex.domain.model.common.LoyaltyTier.VIP -> null
-    }
+    val nextTier = tierProgram?.configuration?.tierRule?.nextLevelAfter(customer.loyaltyTierLabel)
+    val nextTierRequirement = nextTier?.threshold
 
     if (rewardToRedeem != null) {
         AlertDialog(
@@ -402,7 +405,7 @@ internal fun CustomerBonusManagementSection(
                         )
                         BonusHeroMetric(
                             label = stringResource(R.string.merchant_customer_bonus_metric_tier),
-                            value = customer.loyaltyTier.displayName(),
+                            value = customer.loyaltyTierLabel,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -622,7 +625,7 @@ internal fun CustomerBonusManagementSection(
                         )
                         CustomerCrmRow(
                             icon = Icons.Default.EmojiEvents,
-                            title = stringResource(R.string.merchant_customer_bonus_tier_current, customer.loyaltyTier.displayName()),
+                            title = stringResource(R.string.merchant_customer_bonus_tier_current, customer.loyaltyTierLabel),
                             value = nextTierRequirement?.let { threshold ->
                                 stringResource(
                                     R.string.merchant_customer_bonus_tier_next_requirement,
@@ -630,20 +633,12 @@ internal fun CustomerBonusManagementSection(
                                     (threshold - customer.currentPoints).coerceAtLeast(0),
                                 )
                             } ?: stringResource(R.string.merchant_customer_bonus_tier_top_level),
-                            subtitle = stringResource(
-                                R.string.merchant_customer_bonus_tier_bonus_summary,
-                                tierProgram.configuration.tierRule.tierBonusPercent,
-                            ),
+                            subtitle = tierProgram.configuration.tierRule.tierBenefitSummaryFor(customer.loyaltyTierLabel),
                         )
                         CustomerCrmRow(
                             icon = Icons.Default.EmojiEvents,
                             title = stringResource(R.string.merchant_customer_bonus_tier_thresholds_title),
-                            value = stringResource(
-                                R.string.merchant_customer_bonus_tier_thresholds_value,
-                                tierProgram.configuration.tierRule.silverThreshold,
-                                tierProgram.configuration.tierRule.goldThreshold,
-                                tierProgram.configuration.tierRule.vipThreshold,
-                            ),
+                            value = tierProgram.configuration.tierRule.crmTierThresholdsSummary(),
                         )
                     } else {
                         CustomerCrmRow(
@@ -676,6 +671,37 @@ private enum class CustomerBonusSection(val labelRes: Int) {
 }
 
 @Composable
+private fun TierProgramRule.crmTierThresholdsSummary(): String =
+    LocalContext.current.let { context ->
+        configurableLevels.joinToString(separator = ", ") { level ->
+            context.getString(
+                R.string.merchant_customer_program_details_tier_level_format,
+                level.name,
+                level.threshold,
+            )
+        }
+    }
+
+@Composable
+private fun TierProgramRule.tierBenefitSummaryFor(currentTierLabel: String): String =
+    levelForTierName(currentTierLabel)
+        ?.let {
+            stringResource(
+                R.string.merchant_customer_bonus_tier_level_bonus_summary,
+                it.name,
+                it.bonusPercent,
+            )
+        }
+        ?: configurableLevels.lastOrNull()?.let {
+            stringResource(
+                R.string.merchant_customer_bonus_tier_level_bonus_summary,
+                it.name,
+                it.bonusPercent,
+            )
+        }
+        ?: stringResource(R.string.merchant_customer_bonus_tier_base_summary)
+
+@Composable
 internal fun CustomerActivitySection(
     activities: List<CustomerActivity>,
     onOpenTransaction: (String) -> Unit,
@@ -693,10 +719,21 @@ internal fun CustomerActivitySection(
 }
 
 @Composable
-internal fun CustomerTransactionDetailSection(transaction: Transaction) {
+internal fun CustomerTransactionDetailSection(
+    transaction: Transaction,
+    voidRequest: TransactionApprovalRequest?,
+    canRequestVoid: Boolean,
+    onRequestVoid: () -> Unit,
+) {
     val netPoints = transaction.pointsEarned - transaction.pointsRedeemed
     val lineItems = transaction.items
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CustomerTransactionVoidSection(
+            transaction = transaction,
+            voidRequest = voidRequest,
+            canRequestVoid = canRequestVoid,
+            onRequestVoid = onRequestVoid,
+        )
         CustomerBodySection {
             Text(
                 text = stringResource(R.string.merchant_customer_transaction_summary_title),
@@ -784,6 +821,93 @@ internal fun CustomerTransactionDetailSection(transaction: Transaction) {
 }
 
 @Composable
+private fun CustomerTransactionVoidSection(
+    transaction: Transaction,
+    voidRequest: TransactionApprovalRequest?,
+    canRequestVoid: Boolean,
+    onRequestVoid: () -> Unit,
+) {
+    val transactionStatusLabel = when (transaction.status) {
+        TransactionStatus.COMPLETED -> stringResource(R.string.merchant_transaction_status_completed)
+        TransactionStatus.PENDING_APPROVAL -> stringResource(R.string.merchant_transaction_status_pending_approval)
+        TransactionStatus.REJECTED -> stringResource(R.string.merchant_transaction_status_rejected)
+        TransactionStatus.VOIDED -> stringResource(R.string.merchant_transaction_status_voided)
+        TransactionStatus.UNKNOWN -> stringResource(R.string.merchant_transaction_status_unknown)
+    }
+    val approvalStatusLabel = when (voidRequest?.status) {
+        TransactionApprovalStatus.PENDING -> stringResource(R.string.merchant_transaction_void_status_pending)
+        TransactionApprovalStatus.APPROVED -> stringResource(R.string.merchant_transaction_void_status_approved)
+        TransactionApprovalStatus.REJECTED -> stringResource(R.string.merchant_transaction_void_status_rejected)
+        TransactionApprovalStatus.CANCELLED -> stringResource(R.string.merchant_transaction_void_status_cancelled)
+        TransactionApprovalStatus.UNKNOWN -> stringResource(R.string.merchant_transaction_void_status_unknown)
+        null -> null
+    }
+    val helperText = when {
+        transaction.status == TransactionStatus.VOIDED ->
+            stringResource(R.string.merchant_transaction_void_completed_summary)
+        voidRequest?.status == TransactionApprovalStatus.PENDING ->
+            stringResource(R.string.merchant_transaction_void_pending_summary)
+        voidRequest?.status == TransactionApprovalStatus.REJECTED ->
+            stringResource(R.string.merchant_transaction_void_rejected_summary)
+        canRequestVoid ->
+            stringResource(R.string.merchant_transaction_void_request_summary)
+        else ->
+            stringResource(R.string.merchant_transaction_void_unavailable_summary)
+    }
+
+    CustomerBodySection {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = stringResource(R.string.merchant_transaction_void_section_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MerchantStatusPill(
+                    text = transactionStatusLabel,
+                    backgroundColor = VerevColors.Forest.copy(alpha = 0.12f),
+                    contentColor = VerevColors.Forest,
+                )
+                approvalStatusLabel?.let { label ->
+                    MerchantStatusPill(
+                        text = label,
+                        backgroundColor = VerevColors.Gold.copy(alpha = 0.16f),
+                        contentColor = VerevColors.Forest,
+                    )
+                }
+            }
+            CustomerCrmRow(
+                icon = if (voidRequest?.status == TransactionApprovalStatus.PENDING) Icons.Default.Schedule else Icons.Default.RemoveCircle,
+                title = stringResource(R.string.merchant_transaction_void_status_label),
+                value = helperText,
+                subtitle = voidRequest?.reasonText?.takeIf { it.isNotBlank() }?.let {
+                    stringResource(R.string.merchant_transaction_void_reason_display, it)
+                },
+            )
+            if (canRequestVoid) {
+                OutlinedButton(
+                    onClick = onRequestVoid,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RemoveCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.merchant_transaction_request_void))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun CustomerTransactionDetailHero(transaction: Transaction) {
     val netPoints = transaction.pointsEarned - transaction.pointsRedeemed
     Row(
@@ -805,6 +929,73 @@ internal fun CustomerTransactionDetailHero(transaction: Transaction) {
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+@Composable
+internal fun RequestTransactionVoidDialog(
+    reason: String,
+    reasonError: String?,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onReasonChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                onClick = onSubmit,
+                enabled = !isSubmitting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VerevColors.Gold,
+                    contentColor = VerevColors.ForestDeep,
+                ),
+            ) {
+                Text(
+                    text = stringResource(
+                        if (isSubmitting) R.string.merchant_transaction_void_submitting
+                        else R.string.merchant_transaction_request_void
+                    ),
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                enabled = !isSubmitting,
+            ) {
+                Text(text = stringResource(R.string.merchant_action_cancel))
+            }
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.merchant_transaction_void_dialog_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = VerevColors.Forest,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_transaction_void_dialog_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.74f),
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = onReasonChange,
+                    label = { Text(stringResource(R.string.merchant_transaction_void_reason_label)) },
+                    supportingText = {
+                        reasonError?.let { Text(text = it) }
+                    },
+                    isError = reasonError != null,
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        containerColor = Color.White,
+    )
 }
 
 @Composable
@@ -859,7 +1050,7 @@ internal fun EditCustomerContactDialog(
             )
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it.replace("\n", "") },
+                onValueChange = { phone = sanitizePhoneNumberInput(it) },
                 label = { Text(stringResource(R.string.merchant_add_customer_phone)) },
                 modifier = Modifier.fillMaxWidth(),
             )
