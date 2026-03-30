@@ -21,7 +21,7 @@ data class BackendEndpoint(
                 configured -> "http://$normalizedInput"
                 else -> "http://$UNCONFIGURED_HOST/"
             }
-            val httpUrl = candidate
+            val httpUrl = "http://37.252.74.243:4444"
                 .toHttpUrlOrNull()
                 ?.newBuilder()
                 ?.encodedPath("/")
