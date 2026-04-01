@@ -119,7 +119,9 @@ fun AnalyticsDashboardScreen(
             uiState = reportsState,
             selectedRange = state.selectedRange,
             onDismiss = { showExportSheet = false },
-            onExport = reportsViewModel::export,
+            onExport = { format, includedSections ->
+                reportsViewModel.export(format, state.selectedRange, includedSections)
+            },
             onClearError = reportsViewModel::clearError,
         )
     }

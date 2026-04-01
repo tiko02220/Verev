@@ -4,6 +4,8 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.loyalty.CashbackProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CouponProgramRule
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetPolicy
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.common.RewardType
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
@@ -51,10 +53,15 @@ fun defaultProgramEditorState(type: LoyaltyProgramType = LoyaltyProgramType.POIN
         checkInReward = ProgramRewardOutcomeEditorState(),
         purchaseFrequencyCount = configuration.purchaseFrequencyRule.purchaseCount.toString(),
         purchaseFrequencyWindowDays = configuration.purchaseFrequencyRule.windowDays.toString(),
-        purchaseFrequencyReward = ProgramRewardOutcomeEditorState(),
+        purchaseFrequencyReward = configuration.purchaseFrequencyRule.rewardOutcome.toEditorState(
+            fallbackPoints = configuration.purchaseFrequencyRule.rewardPoints,
+            fallbackLabel = configuration.purchaseFrequencyRule.rewardName,
+        ),
         referralReferrerReward = ProgramRewardOutcomeEditorState(),
         referralRefereeReward = ProgramRewardOutcomeEditorState(),
         referralCodePrefix = "",
+        benefitResetType = ProgramBenefitResetType.NEVER,
+        benefitResetCustomDays = "",
     )
 }
 
@@ -63,11 +70,20 @@ fun RewardProgram.toEditorState(): ProgramEditorState = ProgramEditorState(
     name = name,
     description = description,
     type = type,
+    targetStoreIds = listOf(storeId),
+    lockedStoreIds = listOf(storeId),
     active = active,
+    targetGender = targetGender,
+    ageTargetingEnabled = targetAgeMin != null || targetAgeMax != null,
+    targetAgeMin = targetAgeMin?.toString().orEmpty(),
+    targetAgeMax = targetAgeMax?.toString().orEmpty(),
+    oneTimePerCustomer = oneTimePerCustomer,
     autoScheduleEnabled = autoScheduleEnabled,
     scheduleStartDate = scheduleStartDate?.toString().orEmpty(),
     scheduleEndDate = scheduleEndDate?.toString().orEmpty(),
     annualRepeatEnabled = annualRepeatEnabled,
+    benefitResetType = benefitResetPolicy.type,
+    benefitResetCustomDays = benefitResetPolicy.customDays?.toString().orEmpty(),
     pointsSpendStepAmount = configuration.pointsRule.spendStepAmount.toString(),
     pointsAwardedPerStep = configuration.pointsRule.pointsAwardedPerStep.toString(),
     pointsWelcomeBonus = configuration.pointsRule.welcomeBonusPoints.toString(),
@@ -122,6 +138,14 @@ fun ProgramEditorState.toDraft(
         scheduleEndDate = scheduleEndDate.trim().takeIf { autoScheduleEnabled && it.isNotEmpty() }?.let(LocalDate::parse),
         annualRepeatEnabled = annualRepeatEnabled,
         configuration = configuration,
+        targetGender = targetGender.ifBlank { "ALL" },
+        targetAgeMin = targetAgeMin.trim().takeIf { ageTargetingEnabled && it.isNotEmpty() }?.toIntOrNull(),
+        targetAgeMax = targetAgeMax.trim().takeIf { ageTargetingEnabled && it.isNotEmpty() }?.toIntOrNull(),
+        oneTimePerCustomer = oneTimePerCustomer,
+        benefitResetPolicy = ProgramBenefitResetPolicy(
+            type = benefitResetType,
+            customDays = benefitResetCustomDays.trim().takeIf { benefitResetType == ProgramBenefitResetType.CUSTOM && it.isNotEmpty() }?.toIntOrNull(),
+        ),
     )
 }
 
@@ -129,6 +153,21 @@ fun ProgramEditorState.validate(): Map<String, Int> {
     val errors = linkedMapOf<String, Int>()
     if (name.isBlank()) errors[PROGRAM_FIELD_NAME] = R.string.merchant_program_error_name_required
     if (description.isBlank()) errors[PROGRAM_FIELD_DESCRIPTION] = R.string.merchant_program_error_description_required
+    if (ageTargetingEnabled) {
+        val minAge = nonNegativeInt(targetAgeMin)
+        val maxAge = nonNegativeInt(targetAgeMax)
+        if (targetAgeMin.isNotBlank() && minAge == null) {
+            errors[PROGRAM_FIELD_TARGET_AGE_MIN] = R.string.merchant_program_error_age_invalid
+        }
+        if (targetAgeMax.isNotBlank() && maxAge == null) {
+            errors[PROGRAM_FIELD_TARGET_AGE_MAX] = R.string.merchant_program_error_age_invalid
+        }
+        if (targetAgeMin.isBlank() && targetAgeMax.isBlank()) {
+            errors[PROGRAM_FIELD_TARGET_AGE_MIN] = R.string.merchant_program_error_age_required
+        } else if (minAge != null && maxAge != null && maxAge < minAge) {
+            errors[PROGRAM_FIELD_TARGET_AGE_MAX] = R.string.merchant_program_error_age_range
+        }
+    }
     if (autoScheduleEnabled) {
         val startDate = scheduleStartDate.trim().toLocalDateOrNull()
         val endDate = scheduleEndDate.trim().toLocalDateOrNull()
@@ -140,6 +179,9 @@ fun ProgramEditorState.validate(): Map<String, Int> {
         } else if (startDate != null && endDate.isBefore(startDate)) {
             errors[PROGRAM_FIELD_SCHEDULE_END] = R.string.merchant_program_error_schedule_end_before_start
         }
+    }
+    if (benefitResetType == ProgramBenefitResetType.CUSTOM && positiveInt(benefitResetCustomDays) == null) {
+        errors[PROGRAM_FIELD_BENEFIT_RESET_CUSTOM_DAYS] = R.string.merchant_program_error_positive_required
     }
     when (type) {
         LoyaltyProgramType.POINTS -> {
@@ -375,7 +417,7 @@ fun ProgramEditorState.toConfiguration(
             couponEnabled = false,
             purchaseFrequencyEnabled = true,
             referralEnabled = false,
-            scanActions = if (active) setOf(RewardProgramScanAction.EARN_POINTS) else emptySet(),
+            scanActions = emptySet(),
             purchaseFrequencyRule = purchaseFrequencyRule,
         )
         LoyaltyProgramType.REFERRAL -> RewardProgramConfiguration(

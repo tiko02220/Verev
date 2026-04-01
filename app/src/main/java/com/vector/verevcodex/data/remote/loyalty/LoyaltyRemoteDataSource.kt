@@ -29,6 +29,8 @@ import com.vector.verevcodex.domain.model.loyalty.CashbackProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CouponProgramRule
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetPolicy
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcome
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.PurchaseFrequencyProgramRule
@@ -152,6 +154,12 @@ class LoyaltyRemoteDataSource @Inject constructor(
             referralReferrerReward = draft.configuration.referralRule.referrerRewardOutcome.toDto(),
             referralRefereeReward = draft.configuration.referralRule.refereeRewardOutcome.toDto(),
             referralCodePrefix = draft.configuration.referralRule.referralCodePrefix,
+            targetGender = draft.targetGender,
+            targetAgeMin = draft.targetAgeMin,
+            targetAgeMax = draft.targetAgeMax,
+            oneTimePerCustomer = draft.oneTimePerCustomer,
+            benefitResetType = draft.benefitResetPolicy.type.name,
+            benefitResetCustomDays = draft.benefitResetPolicy.customDays,
         )
         val response = programsApi.create(
             request = request,
@@ -217,6 +225,12 @@ class LoyaltyRemoteDataSource @Inject constructor(
             referralReferrerReward = draft.configuration.referralRule.referrerRewardOutcome.toDto(),
             referralRefereeReward = draft.configuration.referralRule.refereeRewardOutcome.toDto(),
             referralCodePrefix = draft.configuration.referralRule.referralCodePrefix,
+            targetGender = draft.targetGender,
+            targetAgeMin = draft.targetAgeMin,
+            targetAgeMax = draft.targetAgeMax,
+            oneTimePerCustomer = draft.oneTimePerCustomer,
+            benefitResetType = draft.benefitResetPolicy.type.name,
+            benefitResetCustomDays = draft.benefitResetPolicy.customDays,
         )
         val response = programsApi.update(
             programId = programId,
@@ -621,6 +635,17 @@ private fun LoyaltyProgramViewDto.toDomain(): RewardProgram {
             },
         annualRepeatEnabled = annualRepeatEnabled ?: false,
         configuration = config,
+        targetGender = targetGender?.uppercase().orEmpty().ifBlank { "ALL" },
+        targetAgeMin = targetAgeMin,
+        targetAgeMax = targetAgeMax,
+        oneTimePerCustomer = oneTimePerCustomer ?: false,
+        benefitResetPolicy = ProgramBenefitResetPolicy(
+            type = benefitResetType
+                ?.uppercase()
+                ?.let { raw -> kotlin.runCatching { ProgramBenefitResetType.valueOf(raw) }.getOrNull() }
+                ?: ProgramBenefitResetType.NEVER,
+            customDays = benefitResetCustomDays,
+        ),
     )
 }
 

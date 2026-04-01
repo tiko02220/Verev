@@ -81,7 +81,7 @@ internal fun AnalyticsExportSheet(
     uiState: ReportsUiState,
     selectedRange: AnalyticsTimeRange,
     onDismiss: () -> Unit,
-    onExport: (ReportFormat) -> Unit,
+    onExport: (ReportFormat, Set<ReportSection>) -> Unit,
     onClearError: () -> Unit,
 ) {
     var selectedFormat by rememberSaveable { mutableStateOf(uiState.autoSettings.format) }
@@ -224,7 +224,7 @@ internal fun AnalyticsExportSheet(
             onClick = {
                 exportRequested = true
                 onClearError()
-                onExport(selectedFormat)
+                onExport(selectedFormat, selectedSections.toSet())
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,9 +25,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Loyalty
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
@@ -50,6 +55,9 @@ import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.theme.VerevColors
 
 enum class ProgramSubEditor {
+    BASICS_EDIT,
+    AUDIENCE_EDIT,
+    AVAILABILITY_EDIT,
     TIER_EDIT,
     EARN_RULES_EDIT,
     REWARD_EDIT,
@@ -58,6 +66,132 @@ enum class ProgramSubEditor {
     FREQUENCY_EDIT,
     REFERRAL_EDIT,
     BENEFIT_EDIT,
+}
+
+@Composable
+internal fun BasicsEditScreen(
+    editorState: ProgramEditorState,
+    fieldErrors: Map<String, Int>,
+    onBack: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    ProgramSubEditorLayout(
+        title = stringResource(R.string.merchant_program_basics_edit_action),
+        subtitle = stringResource(R.string.merchant_program_editor_basics_subtitle),
+        headerColors = listOf(VerevColors.Forest, VerevColors.Gold),
+        onBack = onBack,
+        onSave = onSave,
+    ) {
+        item {
+            ProgramSectionCard(
+                title = stringResource(R.string.merchant_program_editor_basics_title),
+                subtitle = "",
+            ) {
+                MerchantFormField(
+                    value = editorState.name,
+                    onValueChange = onNameChange,
+                    label = stringResource(R.string.merchant_program_form_name),
+                    leadingIcon = Icons.Default.Loyalty,
+                    isError = fieldErrors.containsKey(PROGRAM_FIELD_NAME),
+                    errorText = fieldErrors[PROGRAM_FIELD_NAME]?.let { stringResource(it) },
+                    supportingText = null,
+                )
+                MerchantFormField(
+                    value = editorState.description,
+                    onValueChange = onDescriptionChange,
+                    label = stringResource(R.string.merchant_program_form_description),
+                    leadingIcon = Icons.Default.Storefront,
+                    isError = fieldErrors.containsKey(PROGRAM_FIELD_DESCRIPTION),
+                    errorText = fieldErrors[PROGRAM_FIELD_DESCRIPTION]?.let { stringResource(it) },
+                    supportingText = null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AudienceEditScreen(
+    editorState: ProgramEditorState,
+    fieldErrors: Map<String, Int>,
+    onBack: () -> Unit,
+    onTargetGenderChange: (String) -> Unit,
+    onAgeTargetingEnabledChange: (Boolean) -> Unit,
+    onTargetAgeMinChange: (String) -> Unit,
+    onTargetAgeMaxChange: (String) -> Unit,
+    onOneTimePerCustomerChange: (Boolean) -> Unit,
+    onSave: () -> Unit,
+) {
+    ProgramSubEditorLayout(
+        title = stringResource(R.string.merchant_program_audience_edit_action),
+        subtitle = stringResource(R.string.merchant_program_audience_subtitle),
+        headerColors = listOf(VerevColors.Forest, VerevColors.Moss),
+        onBack = onBack,
+        onSave = onSave,
+    ) {
+        item {
+            ProgramAudienceSection(
+                editorState = editorState,
+                fieldErrors = fieldErrors,
+                onTargetGenderChange = onTargetGenderChange,
+                onAgeTargetingEnabledChange = onAgeTargetingEnabledChange,
+                onTargetAgeMinChange = onTargetAgeMinChange,
+                onTargetAgeMaxChange = onTargetAgeMaxChange,
+                onOneTimePerCustomerChange = onOneTimePerCustomerChange,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun AvailabilityEditScreen(
+    editorState: ProgramEditorState,
+    fieldErrors: Map<String, Int>,
+    onBack: () -> Unit,
+    onActiveChanged: (Boolean) -> Unit,
+    onAutoScheduleEnabledChange: (Boolean) -> Unit,
+    onScheduleStartDateChange: (String) -> Unit,
+    onScheduleEndDateChange: (String) -> Unit,
+    onAnnualRepeatEnabledChange: (Boolean) -> Unit,
+    onBenefitResetTypeChange: (ProgramBenefitResetType) -> Unit,
+    onBenefitResetCustomDaysChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    ProgramSubEditorLayout(
+        title = stringResource(R.string.merchant_program_availability_edit_action),
+        subtitle = stringResource(R.string.merchant_program_editor_schedule_subtitle),
+        headerColors = listOf(VerevColors.Gold, VerevColors.Tan),
+        onBack = onBack,
+        onSave = onSave,
+    ) {
+        item {
+            ProgramSectionCard(
+                title = stringResource(R.string.merchant_program_editor_schedule_title),
+                subtitle = "",
+            ) {
+                ProgramToggleRow(
+                    title = stringResource(R.string.merchant_program_form_enabled),
+                    subtitle = stringResource(R.string.merchant_program_enabled_toggle_subtitle),
+                    checked = editorState.active,
+                    onCheckedChange = onActiveChanged,
+                )
+                ProgramScheduleSection(
+                    editorState = editorState,
+                    fieldErrors = fieldErrors,
+                    onAutoScheduleEnabledChange = onAutoScheduleEnabledChange,
+                    onScheduleStartDateChange = onScheduleStartDateChange,
+                    onScheduleEndDateChange = onScheduleEndDateChange,
+                    onAnnualRepeatEnabledChange = onAnnualRepeatEnabledChange,
+                    benefitResetType = editorState.benefitResetType,
+                    benefitResetCustomDays = editorState.benefitResetCustomDays,
+                    onBenefitResetTypeChange = onBenefitResetTypeChange,
+                    onBenefitResetCustomDaysChange = onBenefitResetCustomDaysChange,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -202,7 +336,7 @@ internal fun TierProgramLevelsEditor(
 }
 
 @Composable
-private fun TierProgressExplainer() {
+internal fun TierProgressExplainer() {
     Surface(
         color = VerevColors.Gold.copy(alpha = 0.10f),
         shape = RoundedCornerShape(22.dp),
@@ -468,7 +602,10 @@ internal fun FrequencyEditScreen(
     onBack: () -> Unit,
     onPurchaseFrequencyCountChange: (String) -> Unit,
     onPurchaseFrequencyWindowDaysChange: (String) -> Unit,
-    onOpenBenefitEditor: (ProgramRewardSlot) -> Unit,
+    onRewardChoiceChange: (ProgramBenefitChoice) -> Unit,
+    onRewardPointsChange: (String) -> Unit,
+    onRewardIdChange: (String?) -> Unit,
+    onOpenRewardsCatalog: () -> Unit,
     onSave: () -> Unit,
 ) {
     ProgramSubEditorLayout(
@@ -501,14 +638,22 @@ internal fun FrequencyEditScreen(
             )
         }
         item {
-            ProgramBenefitSummarySection(
+            ProgramSectionCard(
                 title = stringResource(R.string.merchant_program_frequency_reward_title),
-                state = editorState.purchaseFrequencyReward,
-                availableRewards = availableRewards,
-                errorRes = fieldErrors[PROGRAM_FIELD_FREQUENCY_REWARD],
-                optional = false,
-                onOpenEditor = { onOpenBenefitEditor(ProgramRewardSlot.PURCHASE_FREQUENCY) },
-            )
+                subtitle = "",
+            ) {
+                ProgramBenefitEditorFields(
+                    state = editorState.purchaseFrequencyReward,
+                    availableRewards = availableRewards,
+                    errorRes = fieldErrors[PROGRAM_FIELD_FREQUENCY_REWARD],
+                    pointsLabel = stringResource(R.string.merchant_program_reward_points_frequency_label),
+                    optional = false,
+                    onChoiceChange = onRewardChoiceChange,
+                    onPointsChange = onRewardPointsChange,
+                    onRewardIdChange = onRewardIdChange,
+                    onOpenRewardsCatalog = onOpenRewardsCatalog,
+                )
+            }
         }
     }
 }
@@ -618,12 +763,13 @@ private fun ProgramSubEditorLayout(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .imePadding(),
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
                 top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
-                bottom = 112.dp,
+                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 112.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
@@ -640,15 +786,15 @@ private fun ProgramSubEditorLayout(
                 Button(
                     onClick = onSave,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = VerevColors.Forest,
+                        containerColor = VerevColors.Gold,
                         contentColor = Color.White,
                     ),
+                    contentPadding = PaddingValues(vertical = 18.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.merchant_program_subeditor_save_action),
-                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }

@@ -2,8 +2,11 @@ package com.vector.verevcodex.presentation.programs
 
 internal const val PROGRAM_FIELD_NAME = "name"
 internal const val PROGRAM_FIELD_DESCRIPTION = "description"
+internal const val PROGRAM_FIELD_TARGET_AGE_MIN = "target_age_min"
+internal const val PROGRAM_FIELD_TARGET_AGE_MAX = "target_age_max"
 internal const val PROGRAM_FIELD_SCHEDULE_START = "schedule_start"
 internal const val PROGRAM_FIELD_SCHEDULE_END = "schedule_end"
+internal const val PROGRAM_FIELD_BENEFIT_RESET_CUSTOM_DAYS = "benefit_reset_custom_days"
 internal const val PROGRAM_FIELD_POINTS_STEP = "points_step"
 internal const val PROGRAM_FIELD_POINTS_AWARDED = "points_awarded"
 internal const val PROGRAM_FIELD_POINTS_REDEEM = "points_redeem"

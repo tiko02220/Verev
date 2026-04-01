@@ -9,6 +9,7 @@ import com.vector.verevcodex.data.preferences.AccountPreferenceKeys
 import com.vector.verevcodex.data.preferences.AuthPreferenceKeys
 import com.vector.verevcodex.data.remote.auth.AuthRemoteDataSource
 import com.vector.verevcodex.data.remote.auth.TokenStore
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.data.preferences.authPreferenceStore
 import com.vector.verevcodex.data.preferences.merchantPreferenceStore
 import com.vector.verevcodex.domain.model.common.StaffRole
@@ -59,9 +60,20 @@ class AuthRepositoryImpl @Inject constructor(
                         persistSession(session)
                         syncBackendPreferences(session.user.id)
                     }
-                    .onFailure {
-                        tokenStore.clearTokens()
-                        clearStoredSession()
+                    .onFailure { error ->
+                        val remoteError = error as? RemoteException
+                        val shouldClearSession = when (remoteError?.kind) {
+                            RemoteException.Kind.Api,
+                            RemoteException.Kind.Data -> true
+                            RemoteException.Kind.Connectivity,
+                            RemoteException.Kind.Timeout,
+                            RemoteException.Kind.Unexpected,
+                            null -> false
+                        }
+                        if (shouldClearSession) {
+                            tokenStore.clearTokens()
+                            clearStoredSession()
+                        }
                     }
             }
         }
@@ -80,13 +92,15 @@ class AuthRepositoryImpl @Inject constructor(
         val session = pendingSignupSession ?: activeSession
         val accountId = session.accountIdOrNull() ?: preferences[AuthPreferenceKeys.currentAccountId]
         val securityConfig = accountId?.let {
-            val pin = preferences[AccountPreferenceKeys.quickPin(accountId)] ?: return@let null
+            val pin = preferences[AccountPreferenceKeys.quickPin(accountId)].orEmpty()
+            val hasQuickPin = preferences[AccountPreferenceKeys.quickPinConfigured(accountId)] ?: pin.isNotBlank()
+            if (!hasQuickPin) return@let null
             val biometricEnabled = preferences[AccountPreferenceKeys.biometricEnabled(accountId)] ?: false
             SecurityConfig(
                 accountId = accountId,
                 pin = pin,
                 biometricEnabled = biometricEnabled,
-                hasQuickPin = true,
+                hasQuickPin = hasQuickPin,
             )
         }
         val pendingAccountId = preferences[AuthPreferenceKeys.signupOnboardingPendingAccountId]
@@ -129,9 +143,11 @@ class AuthRepositoryImpl @Inject constructor(
                 .accountIdOrNull()
             ?: preferences[AuthPreferenceKeys.currentAccountId]
             ?: return@map null
-        val pin = preferences[AccountPreferenceKeys.quickPin(accountId)] ?: return@map null
+        val pin = preferences[AccountPreferenceKeys.quickPin(accountId)].orEmpty()
+        val hasQuickPin = preferences[AccountPreferenceKeys.quickPinConfigured(accountId)] ?: pin.isNotBlank()
+        if (!hasQuickPin) return@map null
         val biometricEnabled = preferences[AccountPreferenceKeys.biometricEnabled(accountId)] ?: false
-        SecurityConfig(accountId = accountId, pin = pin, biometricEnabled = biometricEnabled, hasQuickPin = true)
+        SecurityConfig(accountId = accountId, pin = pin, biometricEnabled = biometricEnabled, hasQuickPin = hasQuickPin)
     }
 
     override fun observeEmailNotificationSettings(): Flow<EmailNotificationSettings?> = dataStore.data.map { preferences ->
@@ -235,6 +251,7 @@ class AuthRepositoryImpl @Inject constructor(
                 it?.let { config ->
                     dataStore.edit { prefs ->
                         prefs[AccountPreferenceKeys.quickPin(config.accountId)] = setup.pin
+                        prefs[AccountPreferenceKeys.quickPinConfigured(config.accountId)] = true
                         prefs[AccountPreferenceKeys.biometricEnabled(config.accountId)] = config.biometricEnabled
                     }
                 }
@@ -282,6 +299,7 @@ class AuthRepositoryImpl @Inject constructor(
                 dataStore.edit { prefs ->
                     currentAccountId()?.let { id ->
                         prefs[AccountPreferenceKeys.quickPin(id)] = newPin
+                        prefs[AccountPreferenceKeys.quickPinConfigured(id)] = true
                     }
                 }
                 Result.success(Unit)
@@ -475,6 +493,7 @@ class AuthRepositoryImpl @Inject constructor(
     private suspend fun syncBackendPreferences(accountId: String) {
         val snapshot = authRemote.getPreferenceSnapshot().getOrNull() ?: return
         dataStore.edit { prefs ->
+            prefs[AccountPreferenceKeys.quickPinConfigured(accountId)] = snapshot.quickPinConfigured
             prefs[AccountPreferenceKeys.biometricEnabled(accountId)] = snapshot.biometricEnabled
             if (!snapshot.quickPinConfigured) {
                 prefs.remove(AccountPreferenceKeys.quickPin(accountId))

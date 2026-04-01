@@ -17,4 +17,9 @@ data class RewardProgram(
     val scheduleEndDate: LocalDate?,
     val annualRepeatEnabled: Boolean,
     val configuration: RewardProgramConfiguration,
+    val targetGender: String = "ALL",
+    val targetAgeMin: Int? = null,
+    val targetAgeMax: Int? = null,
+    val oneTimePerCustomer: Boolean = false,
+    val benefitResetPolicy: ProgramBenefitResetPolicy = ProgramBenefitResetPolicy(),
 ) : Identifiable

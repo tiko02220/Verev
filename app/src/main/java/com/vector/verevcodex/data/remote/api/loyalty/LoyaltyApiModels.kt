@@ -74,6 +74,12 @@ data class LoyaltyProgramViewDto(
     @SerializedName("referralReferrerReward") val referralReferrerReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralRefereeReward") val referralRefereeReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralCodePrefix") val referralCodePrefix: String? = null,
+    @SerializedName("targetGender") val targetGender: String? = null,
+    @SerializedName("targetAgeMin") val targetAgeMin: Int? = null,
+    @SerializedName("targetAgeMax") val targetAgeMax: Int? = null,
+    @SerializedName("oneTimePerCustomer") val oneTimePerCustomer: Boolean? = null,
+    @SerializedName("benefitResetType") val benefitResetType: String? = null,
+    @SerializedName("benefitResetCustomDays") val benefitResetCustomDays: Int? = null,
 )
 
 data class LoyaltyProgramRequestDto(
@@ -124,6 +130,12 @@ data class LoyaltyProgramRequestDto(
     @SerializedName("referralReferrerReward") val referralReferrerReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralRefereeReward") val referralRefereeReward: ProgramRewardOutcomeDto? = null,
     @SerializedName("referralCodePrefix") val referralCodePrefix: String,
+    @SerializedName("targetGender") val targetGender: String,
+    @SerializedName("targetAgeMin") val targetAgeMin: Int?,
+    @SerializedName("targetAgeMax") val targetAgeMax: Int?,
+    @SerializedName("oneTimePerCustomer") val oneTimePerCustomer: Boolean,
+    @SerializedName("benefitResetType") val benefitResetType: String,
+    @SerializedName("benefitResetCustomDays") val benefitResetCustomDays: Int?,
 )
 
 data class ActiveScanActionsResponseDto(

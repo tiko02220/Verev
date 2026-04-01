@@ -60,6 +60,7 @@ import com.vector.verevcodex.presentation.auth.common.authErrorRes
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusDirection
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 
 @Composable
@@ -156,13 +157,6 @@ fun LoginScreen(
                             loading = state.isLoading,
                             onClick = viewModel::submit,
                         )
-                        authErrorRes(state.authError)?.let { errorRes ->
-                            Text(
-                                text = stringResource(errorRes),
-                                color = colorResource(R.color.error_red),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -219,6 +213,12 @@ fun LoginScreen(
             title = stringResource(R.string.auth_loader_login_title),
             subtitle = stringResource(R.string.auth_loader_login_subtitle),
         )
+        authErrorRes(state.authError)?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::dismissAuthError,
+            )
+        }
     }
 }
 

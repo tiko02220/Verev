@@ -84,6 +84,38 @@ fun ProgramTypeManagementScreen(
     val showExclusiveCreateEditor = openEditorOnLaunch && activeEditorState != null && !activeEditorState.isEditing
     if (state.activeSubEditor != null && activeEditorState != null) {
         when (state.activeSubEditor) {
+            ProgramSubEditor.BASICS_EDIT -> BasicsEditScreen(
+                editorState = activeEditorState,
+                fieldErrors = state.editorFieldErrors,
+                onBack = viewModel::closeProgramSubEditor,
+                onNameChange = viewModel::updateEditorName,
+                onDescriptionChange = viewModel::updateEditorDescription,
+                onSave = viewModel::applyProgramSubEditorChanges,
+            )
+            ProgramSubEditor.AUDIENCE_EDIT -> AudienceEditScreen(
+                editorState = activeEditorState,
+                fieldErrors = state.editorFieldErrors,
+                onBack = viewModel::closeProgramSubEditor,
+                onTargetGenderChange = viewModel::updateEditorTargetGender,
+                onAgeTargetingEnabledChange = viewModel::updateEditorAgeTargetingEnabled,
+                onTargetAgeMinChange = viewModel::updateEditorTargetAgeMin,
+                onTargetAgeMaxChange = viewModel::updateEditorTargetAgeMax,
+                onOneTimePerCustomerChange = viewModel::updateEditorOneTimePerCustomer,
+                onSave = viewModel::applyProgramSubEditorChanges,
+            )
+            ProgramSubEditor.AVAILABILITY_EDIT -> AvailabilityEditScreen(
+                editorState = activeEditorState,
+                fieldErrors = state.editorFieldErrors,
+                onBack = viewModel::closeProgramSubEditor,
+                onActiveChanged = viewModel::updateEditorActive,
+                onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
+                onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
+                onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
+                onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+                onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
+                onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
+                onSave = viewModel::applyProgramSubEditorChanges,
+            )
             ProgramSubEditor.TIER_EDIT -> TierEditScreen(
                 editorState = activeEditorState,
                 availableRewards = state.rewards,
@@ -142,7 +174,10 @@ fun ProgramTypeManagementScreen(
                 onBack = viewModel::closeProgramSubEditor,
                 onPurchaseFrequencyCountChange = viewModel::updatePurchaseFrequencyCount,
                 onPurchaseFrequencyWindowDaysChange = viewModel::updatePurchaseFrequencyWindowDays,
-                onOpenBenefitEditor = viewModel::openBenefitEditor,
+                onRewardChoiceChange = viewModel::updatePurchaseFrequencyRewardChoice,
+                onRewardPointsChange = viewModel::updatePurchaseFrequencyRewardPoints,
+                onRewardIdChange = viewModel::updatePurchaseFrequencyRewardId,
+                onOpenRewardsCatalog = onOpenRewardsCatalog,
                 onSave = viewModel::applyProgramSubEditorChanges,
             )
             ProgramSubEditor.REFERRAL_EDIT -> ReferralEditScreen(
@@ -182,6 +217,7 @@ fun ProgramTypeManagementScreen(
         ProgramEditorSheet(
             editorState = activeEditorState,
             selectedStoreName = state.selectedStoreName,
+            availableStores = state.stores,
             availablePrograms = state.programs,
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
@@ -192,12 +228,21 @@ fun ProgramTypeManagementScreen(
             },
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
+            onApplyToAllBranchesChange = viewModel::updateEditorApplyToAllBranches,
+            onToggleStoreTarget = viewModel::toggleEditorStoreTarget,
             onTypeChange = viewModel::updateEditorType,
             onActiveChanged = viewModel::updateEditorActive,
+            onTargetGenderChange = viewModel::updateEditorTargetGender,
+            onAgeTargetingEnabledChange = viewModel::updateEditorAgeTargetingEnabled,
+            onTargetAgeMinChange = viewModel::updateEditorTargetAgeMin,
+            onTargetAgeMaxChange = viewModel::updateEditorTargetAgeMax,
+            onOneTimePerCustomerChange = viewModel::updateEditorOneTimePerCustomer,
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
             onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
+            onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
             onPointsAwardedPerStepChange = viewModel::updatePointsAwardedPerStep,
             onPointsWelcomeBonusChange = viewModel::updatePointsWelcomeBonus,
@@ -232,6 +277,7 @@ fun ProgramTypeManagementScreen(
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
             onOpenRewardsCatalog = onOpenRewardsCatalog,
+            onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
             fullScreen = true,
         )
@@ -255,6 +301,7 @@ fun ProgramTypeManagementScreen(
         ProgramEditorSheet(
             editorState = editor,
             selectedStoreName = state.selectedStoreName,
+            availableStores = state.stores,
             availablePrograms = state.programs,
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
@@ -262,12 +309,21 @@ fun ProgramTypeManagementScreen(
             onDismiss = viewModel::dismissEditor,
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
+            onApplyToAllBranchesChange = viewModel::updateEditorApplyToAllBranches,
+            onToggleStoreTarget = viewModel::toggleEditorStoreTarget,
             onTypeChange = viewModel::updateEditorType,
             onActiveChanged = viewModel::updateEditorActive,
+            onTargetGenderChange = viewModel::updateEditorTargetGender,
+            onAgeTargetingEnabledChange = viewModel::updateEditorAgeTargetingEnabled,
+            onTargetAgeMinChange = viewModel::updateEditorTargetAgeMin,
+            onTargetAgeMaxChange = viewModel::updateEditorTargetAgeMax,
+            onOneTimePerCustomerChange = viewModel::updateEditorOneTimePerCustomer,
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
             onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
+            onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
             onPointsAwardedPerStepChange = viewModel::updatePointsAwardedPerStep,
             onPointsWelcomeBonusChange = viewModel::updatePointsWelcomeBonus,
@@ -302,6 +358,7 @@ fun ProgramTypeManagementScreen(
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
             onOpenRewardsCatalog = onOpenRewardsCatalog,
+            onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
         )
     }
@@ -580,65 +637,67 @@ private fun ProgramsBackHeader(
     showAddAction: Boolean = true,
     colors: List<Color> = listOf(VerevColors.Forest, VerevColors.Moss),
 ) {
-    Surface(
-        color = Color.Transparent,
-        shape = RoundedCornerShape(30.dp),
-        shadowElevation = 6.dp,
-    ) {
-        Column(
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(colors), RoundedCornerShape(30.dp))
-                .padding(horizontal = 22.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .clickable(onClick = onBack)
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            Row(
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                text = stringResource(R.string.auth_back),
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(30.dp),
+            shadowElevation = 6.dp,
+        ) {
+            Column(
                 modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    .fillMaxWidth()
+                    .background(Brush.linearGradient(colors), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 22.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-                Text(
-                    text = stringResource(R.string.auth_back),
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = title,
-                    style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = subtitle,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.82f),
-                )
-            }
-            if (showAddAction) {
-                Button(
-                    onClick = onAddProgram,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = colors.last(),
-                    ),
-                    contentPadding = PaddingValues(vertical = 14.dp),
-                ) {
-                    androidx.compose.material3.Text(
-                        stringResource(R.string.merchant_program_add_button),
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = title,
+                        style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                     )
+                    Text(
+                        text = subtitle,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.82f),
+                    )
+                }
+                if (showAddAction) {
+                    Button(
+                        onClick = onAddProgram,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = colors.last(),
+                        ),
+                        contentPadding = PaddingValues(vertical = 14.dp),
+                    ) {
+                        androidx.compose.material3.Text(
+                            stringResource(R.string.merchant_program_add_button),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }
@@ -652,49 +711,51 @@ internal fun ProgramsScreenHeader(
     onBack: () -> Unit,
     colors: List<Color> = listOf(VerevColors.Forest, VerevColors.Moss),
 ) {
-    Surface(
-        color = Color.Transparent,
-        shape = RoundedCornerShape(30.dp),
-        shadowElevation = 6.dp,
-    ) {
-        Column(
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(colors), RoundedCornerShape(30.dp))
-                .padding(horizontal = 22.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .clickable(onClick = onBack)
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            Row(
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                text = stringResource(R.string.auth_back),
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(30.dp),
+            shadowElevation = 6.dp,
+        ) {
+            Column(
                 modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    .fillMaxWidth()
+                    .background(Brush.linearGradient(colors), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 22.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-                Text(
-                    text = stringResource(R.string.auth_back),
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = title,
-                    style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = subtitle,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.82f),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = title,
+                        style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.82f),
+                    )
+                }
             }
         }
     }

@@ -215,6 +215,7 @@ fun LoyaltyProgramManagementScreen(
         ProgramEditorSheet(
             editorState = editor,
             selectedStoreName = state.selectedStoreName,
+            availableStores = state.stores,
             availablePrograms = state.programs,
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
@@ -222,12 +223,21 @@ fun LoyaltyProgramManagementScreen(
             onDismiss = viewModel::dismissEditor,
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
+            onApplyToAllBranchesChange = viewModel::updateEditorApplyToAllBranches,
+            onToggleStoreTarget = viewModel::toggleEditorStoreTarget,
             onTypeChange = viewModel::updateEditorType,
             onActiveChanged = viewModel::updateEditorActive,
+            onTargetGenderChange = viewModel::updateEditorTargetGender,
+            onAgeTargetingEnabledChange = viewModel::updateEditorAgeTargetingEnabled,
+            onTargetAgeMinChange = viewModel::updateEditorTargetAgeMin,
+            onTargetAgeMaxChange = viewModel::updateEditorTargetAgeMax,
+            onOneTimePerCustomerChange = viewModel::updateEditorOneTimePerCustomer,
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
             onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
+            onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
             onPointsAwardedPerStepChange = viewModel::updatePointsAwardedPerStep,
             onPointsWelcomeBonusChange = viewModel::updatePointsWelcomeBonus,
@@ -262,6 +272,7 @@ fun LoyaltyProgramManagementScreen(
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
             onOpenRewardsCatalog = { selectedTabRoute = ProgramsHomeTab.REWARDS.routeValue },
+            onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
         )
     }
@@ -520,37 +531,33 @@ private fun ProgramsPlainHeader(
     ) {
         Row(
             modifier = Modifier
-                .background(Color.Transparent, RoundedCornerShape(0.dp))
+                .clickable(onClick = onBack)
                 .padding(vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(
-                onClick = onBack,
-                shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = stringResource(R.string.auth_back),
-                    modifier = Modifier.padding(start = 6.dp),
-                    fontWeight = FontWeight.Medium,
-                )
-            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = VerevColors.Forest,
+            )
+            Text(
+                text = stringResource(R.string.auth_back),
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.Medium,
+            )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 text = title,
-                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
                 color = VerevColors.Forest,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = subtitle,
-                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                 color = VerevColors.Forest.copy(alpha = 0.66f),
             )
         }
@@ -576,6 +583,7 @@ fun ConfiguredProgramsScreen(
         ProgramEditorSheet(
             editorState = editor,
             selectedStoreName = state.selectedStoreName,
+            availableStores = state.stores,
             availablePrograms = state.programs,
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
@@ -583,12 +591,21 @@ fun ConfiguredProgramsScreen(
             onDismiss = viewModel::dismissEditor,
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
+            onApplyToAllBranchesChange = viewModel::updateEditorApplyToAllBranches,
+            onToggleStoreTarget = viewModel::toggleEditorStoreTarget,
             onTypeChange = viewModel::updateEditorType,
             onActiveChanged = viewModel::updateEditorActive,
+            onTargetGenderChange = viewModel::updateEditorTargetGender,
+            onAgeTargetingEnabledChange = viewModel::updateEditorAgeTargetingEnabled,
+            onTargetAgeMinChange = viewModel::updateEditorTargetAgeMin,
+            onTargetAgeMaxChange = viewModel::updateEditorTargetAgeMax,
+            onOneTimePerCustomerChange = viewModel::updateEditorOneTimePerCustomer,
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
             onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
+            onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
             onPointsAwardedPerStepChange = viewModel::updatePointsAwardedPerStep,
             onPointsWelcomeBonusChange = viewModel::updatePointsWelcomeBonus,
@@ -622,6 +639,7 @@ fun ConfiguredProgramsScreen(
             onOpenTierBenefitEditor = viewModel::openTierBenefitEditor,
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
+            onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
         )
     }

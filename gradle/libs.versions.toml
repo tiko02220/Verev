@@ -30,6 +30,7 @@ okhttp = "4.12.0"
 moshi = "1.15.1"
 gson = "2.11.0"
 firebaseBom = "34.4.0"
+vico = "1.16.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.15.0" }
@@ -80,6 +81,8 @@ moshi-adapters = { group = "com.squareup.moshi", name = "moshi-adapters", versio
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+vico-compose = { group = "com.patrykandpatrick.vico", name = "compose" , version.ref = "vico" }
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3" , version.ref = "vico" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.programs
 
 import com.vector.verevcodex.domain.model.promotions.Campaign
+import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
@@ -8,8 +9,10 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 data class LoyaltyUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
+    val stores: List<Store> = emptyList(),
     val isLoading: Boolean = true,
     val programs: List<RewardProgram> = emptyList(),
+    val allPrograms: List<RewardProgram> = emptyList(),
     val rewards: List<Reward> = emptyList(),
     val campaigns: List<Campaign> = emptyList(),
     val activeScanActions: List<RewardProgramScanAction> = emptyList(),

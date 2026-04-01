@@ -3,9 +3,12 @@ package com.vector.verevcodex.presentation.reports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
+import com.vector.verevcodex.domain.model.analytics.startDateFrom
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportAutoSettings
 import com.vector.verevcodex.domain.model.reports.ReportFormat
+import com.vector.verevcodex.domain.model.reports.ReportSection
 import com.vector.verevcodex.domain.usecase.reports.ExportReportUseCase
 import com.vector.verevcodex.domain.usecase.reports.ObserveAutoReportSettingsUseCase
 import com.vector.verevcodex.domain.usecase.reports.SaveAutoReportSettingsUseCase
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
@@ -89,13 +93,21 @@ class ReportsViewModel @Inject constructor(
         _uiState.update { it.copy(latestExport = null) }
     }
 
-    fun export(format: ReportFormat) {
+    fun export(
+        format: ReportFormat,
+        selectedRange: AnalyticsTimeRange,
+        includedSections: Set<ReportSection>,
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isExporting = true, error = null) }
             runCatching {
+                val dateTo = LocalDate.now()
                 exportReportUseCase(
                     storeId = if (_uiState.value.autoSettings.includeAllStores) null else _uiState.value.selectedStoreId,
                     format = format,
+                    dateFrom = selectedRange.startDateFrom(dateTo),
+                    dateTo = dateTo,
+                    includedSections = includedSections.ifEmpty { ReportSection.entries.toSet() },
                 )
             }.onSuccess { report ->
                 _uiState.update { state ->

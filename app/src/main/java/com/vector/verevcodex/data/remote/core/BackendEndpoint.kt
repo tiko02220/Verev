@@ -21,7 +21,7 @@ data class BackendEndpoint(
                 configured -> "http://$normalizedInput"
                 else -> "http://$UNCONFIGURED_HOST/"
             }
-            val httpUrl = "http://37.252.74.243:4444"
+            val httpUrl = candidate
                 .toHttpUrlOrNull()
                 ?.newBuilder()
                 ?.encodedPath("/")
@@ -39,10 +39,11 @@ data class BackendEndpoint(
 
             return BackendEndpoint(
                 httpBaseUrl = httpUrl.toString(),
-                webSocketUrl = socketUrl.toString(),
+                webSocketUrl = socketUrl,
                 socketHost = httpUrl.host,
                 isConfigured = configured,
-        )
+            )
+        }
     }
 }
 
@@ -51,7 +52,6 @@ private object HttpUrlDefaults {
         "http" to 80,
         "https" to 443,
     )
-}
 }
 
 internal fun resolveBackendAbsoluteUrl(

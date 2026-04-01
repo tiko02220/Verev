@@ -34,6 +34,7 @@ object TokenPreferenceKeys {
 
 object AccountPreferenceKeys {
     fun quickPin(accountId: String?) = scopedStringKey(accountId, "quick_pin")
+    fun quickPinConfigured(accountId: String?) = scopedBooleanKey(accountId, "quick_pin_configured")
     fun biometricEnabled(accountId: String?) = scopedBooleanKey(accountId, "biometric_enabled")
     fun selectedStoreId(accountId: String?) = scopedStringKey(accountId, "selected_store_id")
 

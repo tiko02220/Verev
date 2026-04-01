@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.auth.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.domain.usecase.auth.LoginUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -23,6 +24,10 @@ class LoginViewModel @Inject constructor(
 
     fun updatePassword(value: String) {
         _uiState.value = _uiState.value.copy(password = value, passwordError = null, authError = null)
+    }
+
+    fun dismissAuthError() {
+        _uiState.value = _uiState.value.copy(authError = null)
     }
 
     fun submit() {
@@ -49,8 +54,13 @@ class LoginViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isLoading = false, isAuthenticated = true)
                 }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(isLoading = false, authError = "invalid_credentials")
+                .onFailure { error ->
+                    val authError = when ((error as? RemoteException)?.kind) {
+                        RemoteException.Kind.Connectivity,
+                        RemoteException.Kind.Timeout -> "connection_failed"
+                        else -> "invalid_credentials"
+                    }
+                    _uiState.value = _uiState.value.copy(isLoading = false, authError = authError)
                 }
         }
     }

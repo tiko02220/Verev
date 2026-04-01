@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CreditCard
@@ -88,7 +89,9 @@ fun ScanScreen(
             )
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding(),
                 contentPadding = PaddingValues(
                     start = 0.dp,
                     end = 0.dp,
@@ -125,12 +128,12 @@ fun ScanScreen(
                             ScanCustomerCard(
                                 customer = displayCustomer,
                                 showTier = displayCustomer.loyaltyTierLabel.isNotBlank(),
-                                rewardHighlights = state.customerRewardHighlights,
                             )
                         }
                         item {
                             ScanActionComposerCard(
                                 activePrograms = state.activePrograms,
+                                rewardHighlights = state.customerRewardHighlights,
                                 availableActions = state.availableActions,
                                 selectedAction = state.selectedAction,
                                 amount = amount.value,

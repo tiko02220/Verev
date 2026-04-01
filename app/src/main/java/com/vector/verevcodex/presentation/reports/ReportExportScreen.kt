@@ -41,9 +41,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.analytics.AnalyticsTimeRange
 import com.vector.verevcodex.domain.model.reports.ReportAutoFrequency
 import com.vector.verevcodex.domain.model.reports.ReportExport
 import com.vector.verevcodex.domain.model.reports.ReportFormat
+import com.vector.verevcodex.domain.model.reports.ReportSection
 import com.vector.verevcodex.presentation.merchant.common.MerchantActionCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
@@ -123,7 +125,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Description,
                         colors = listOf(VerevColors.Gold, VerevColors.Tan),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.DOCX) },
+                        onClick = { viewModel.export(ReportFormat.DOCX, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
                     )
                     MerchantActionCard(
                         title = stringResource(R.string.merchant_reports_excel_title),
@@ -131,7 +133,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Payments,
                         colors = listOf(VerevColors.Moss, VerevColors.Forest),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.XLSX) },
+                        onClick = { viewModel.export(ReportFormat.XLSX, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
                     )
                     MerchantActionCard(
                         title = stringResource(R.string.merchant_reports_pdf_title),
@@ -139,7 +141,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Description,
                         colors = listOf(VerevColors.ForestBright, VerevColors.Forest),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.PDF) },
+                        onClick = { viewModel.export(ReportFormat.PDF, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
                     )
                 }
             }

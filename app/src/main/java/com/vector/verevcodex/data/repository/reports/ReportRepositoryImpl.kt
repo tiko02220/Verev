@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 @Singleton
 class ReportRepositoryImpl @Inject constructor(
@@ -58,8 +59,20 @@ class ReportRepositoryImpl @Inject constructor(
         reportSettingsRefreshRequests.tryEmit(Unit)
     }
 
-    override suspend fun exportBusinessReport(storeId: String?, format: ReportFormat): ReportExport {
-        val remote = reportsRemote.exportBusinessSummary(storeId, format).getOrThrow()
+    override suspend fun exportBusinessReport(
+        storeId: String?,
+        format: ReportFormat,
+        dateFrom: LocalDate,
+        dateTo: LocalDate,
+        includedSections: Set<ReportSection>,
+    ): ReportExport {
+        val remote = reportsRemote.exportBusinessSummary(
+            storeId = storeId,
+            format = format,
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            includedSections = includedSections,
+        ).getOrThrow()
         reportsDir.mkdirs()
         val file = reportsDir.resolve(remote.fileName)
         file.writeBytes(remote.bytes)

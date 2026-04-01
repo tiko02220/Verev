@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -943,7 +944,6 @@ internal fun ScanStatusCard(
 internal fun ScanCustomerCard(
     customer: Customer,
     showTier: Boolean,
-    rewardHighlights: List<CustomerBonusAction>,
 ) {
     Surface(
         modifier = Modifier
@@ -954,8 +954,8 @@ internal fun ScanCustomerCard(
         shadowElevation = 2.dp,
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -993,20 +993,6 @@ internal fun ScanCustomerCard(
                 )
             }
         }
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = VerevColors.AppBackground,
-        ) {
-            Text(
-                text = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = VerevColors.Forest.copy(alpha = 0.74f),
-                fontWeight = FontWeight.Medium,
-            )
-        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1022,95 +1008,82 @@ internal fun ScanCustomerCard(
                 modifier = Modifier.weight(1f),
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            ScanMetric(
-                label = stringResource(R.string.merchant_metric_spent),
-                value = formatWholeCurrency(customer.totalSpent),
-                modifier = Modifier.weight(1f),
-            )
-            ScanMetric(
-                label = stringResource(R.string.merchant_customer_last_visit_short),
-                value = formatRelativeDateTime(customer.lastVisit),
-                modifier = Modifier.weight(1f),
-            )
+        Text(
+            text = stringResource(R.string.merchant_scan_loyalty_id, customer.loyaltyId),
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest.copy(alpha = 0.62f),
+            fontWeight = FontWeight.Medium,
+        )
         }
-        if (rewardHighlights.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = VerevColors.Gold.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, VerevColors.Gold.copy(alpha = 0.18f)),
+    }
+}
+
+@Composable
+private fun ScanAvailableNowPanel(
+    icon: ImageVector,
+    iconTint: Color,
+    iconBackground: Color,
+    title: String,
+    subtitle: String,
+    emphasisTitle: String,
+    emphasisBody: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = VerevColors.AppBackground,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(iconBackground),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(VerevColors.Gold.copy(alpha = 0.16f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CardGiftcard,
-                                contentDescription = null,
-                                tint = VerevColors.Gold,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = stringResource(R.string.merchant_scan_rewards_ready_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = VerevColors.Forest,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = stringResource(R.string.merchant_scan_rewards_ready_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = VerevColors.Forest.copy(alpha = 0.64f),
-                            )
-                        }
-                    }
-                    rewardHighlights.forEach { reward ->
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = reward.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = VerevColors.Forest,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                if (reward.details.isNotBlank()) {
-                                    Text(
-                                        text = reward.details,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = VerevColors.Forest.copy(alpha = 0.68f),
-                                    )
-                                }
-                            }
-                        }
-                    }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.66f),
+                )
+                if (emphasisTitle.isNotBlank()) {
+                    Text(
+                        text = emphasisTitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                if (emphasisBody.isNotBlank()) {
+                    Text(
+                        text = emphasisBody,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.66f),
+                    )
                 }
             }
-        }
         }
     }
 }
@@ -1118,6 +1091,7 @@ internal fun ScanCustomerCard(
 @Composable
 internal fun ScanActionComposerCard(
     activePrograms: List<RewardProgram>,
+    rewardHighlights: List<CustomerBonusAction>,
     availableActions: List<RewardProgramScanAction>,
     selectedAction: RewardProgramScanAction?,
     amount: String,
@@ -1145,6 +1119,22 @@ internal fun ScanActionComposerCard(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+        if (rewardHighlights.isNotEmpty()) {
+            val primaryReward = rewardHighlights.first()
+            ScanAvailableNowPanel(
+                icon = Icons.Default.CardGiftcard,
+                iconTint = VerevColors.Gold,
+                iconBackground = VerevColors.Gold.copy(alpha = 0.14f),
+                title = stringResource(R.string.merchant_scan_rewards_ready_title),
+                subtitle = if (rewardHighlights.size > 1) {
+                    stringResource(R.string.merchant_scan_rewards_ready_count, rewardHighlights.size)
+                } else {
+                    stringResource(R.string.merchant_scan_rewards_ready_subtitle)
+                },
+                emphasisTitle = primaryReward.title,
+                emphasisBody = primaryReward.details,
+            )
+        }
         if (availableActions.isEmpty()) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -1156,38 +1146,17 @@ internal fun ScanActionComposerCard(
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(VerevColors.Gold.copy(alpha = 0.14f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Campaign,
-                                contentDescription = null,
-                                tint = VerevColors.Gold,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = stringResource(R.string.merchant_scan_no_actions_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = VerevColors.Forest,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = stringResource(R.string.merchant_scan_no_actions_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = VerevColors.Forest.copy(alpha = 0.66f),
-                            )
-                        }
-                    }
+                    Text(
+                        text = stringResource(R.string.merchant_scan_no_actions_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.merchant_scan_no_actions_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerevColors.Forest.copy(alpha = 0.66f),
+                    )
                     Button(
                         onClick = onOpenPrograms,
                         modifier = Modifier.fillMaxWidth(),
@@ -1202,30 +1171,12 @@ internal fun ScanActionComposerCard(
                 }
             }
         } else {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = VerevColors.Moss.copy(alpha = 0.08f),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.merchant_scan_action_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = VerevColors.Forest,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.merchant_scan_action_panel_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = VerevColors.Forest.copy(alpha = 0.66f),
-                    )
-                }
-            }
+            Text(
+                text = stringResource(R.string.merchant_scan_action_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
             ScanActionChips(
                 actions = availableActions,
                 selectedAction = selectedAction,

@@ -64,25 +64,32 @@ class ReportsRemoteDataSource @Inject constructor(
         ).unwrap { it.toDomain() }
     }
 
-    suspend fun exportBusinessSummary(storeId: String?, format: ReportFormat): Result<RemoteReportDownload> = remoteResult {
-        val now = LocalDate.now()
+    suspend fun exportBusinessSummary(
+        storeId: String?,
+        format: ReportFormat,
+        dateFrom: LocalDate,
+        dateTo: LocalDate,
+        includedSections: Set<ReportSection>,
+    ): Result<RemoteReportDownload> = remoteResult {
         val initial = api.requestExport(
             ReportExportRequestDto(
                 reportType = "BUSINESS_SUMMARY",
                 format = format.name,
                 filters = ReportFiltersRequestDto(
                     storeId = storeId,
-                    dateFrom = now.minusDays(29).toString(),
-                    dateTo = now.toString(),
+                    dateFrom = dateFrom.toString(),
+                    dateTo = dateTo.toString(),
                 ),
+                includedSections = includedSections.map { it.name },
             ),
             idempotencyKey = reportIdempotencyKey(
                 action = RemoteIdempotencyAction.EXPORT,
                 UUID.randomUUID().toString(),
                 storeId,
                 format.name,
-                now.minusDays(29).toString(),
-                now.toString(),
+                dateFrom.toString(),
+                dateTo.toString(),
+                includedSections.joinToString("|") { it.name },
             ),
         ).unwrap { it }
 

@@ -2,6 +2,7 @@ package com.vector.verevcodex.domain.usecase.scan
 
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
+import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.domain.model.transactions.TransactionItem
 import com.vector.verevcodex.domain.repository.customer.CustomerRepository
@@ -63,11 +64,22 @@ class ProcessScanActionUseCase @Inject constructor(
     }
 
     private fun calculateEarnedPoints(programs: List<RewardProgram>, amount: Double): Int {
-        return programs.sumOf { program ->
+        return programs
+            .asSequence()
+            .filter { program ->
+                program.active &&
+                    RewardProgramScanAction.EARN_POINTS in program.configuration.scanActions &&
+                    program.type in setOf(
+                        LoyaltyProgramType.POINTS,
+                        LoyaltyProgramType.TIER,
+                        LoyaltyProgramType.HYBRID,
+                    )
+            }
+            .sumOf { program ->
             val rule = program.configuration.pointsRule
             if (rule.spendStepAmount > 0) {
                 (amount / rule.spendStepAmount).toInt() * rule.pointsAwardedPerStep
             } else 0
-        }
+            }
     }
 }

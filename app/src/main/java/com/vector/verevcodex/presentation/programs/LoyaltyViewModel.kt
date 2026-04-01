@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.common.RewardType
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.usesProgramBenefit
 import com.vector.verevcodex.domain.model.loyalty.usesRewardItem
@@ -22,6 +23,7 @@ import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.SetProgramEnabledUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateRewardUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateProgramUseCase
+import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class LoyaltyViewModel @Inject constructor(
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
+    observeStoresUseCase: ObserveStoresUseCase,
     observeProgramsUseCase: ObserveProgramsUseCase,
     observeRewardsUseCase: ObserveRewardsUseCase,
     observeCampaignsUseCase: ObserveCampaignsUseCase,
@@ -55,27 +58,40 @@ class LoyaltyViewModel @Inject constructor(
 
     init {
         val selectedStoreFlow = observeSelectedStoreUseCase()
+        val storesFlow = observeStoresUseCase()
         val programsFlow = selectedStoreFlow.flatMapLatest { store -> observeProgramsUseCase(store?.id) }
+        val allProgramsFlow = observeProgramsUseCase(null)
         val rewardsFlow = selectedStoreFlow.flatMapLatest { store -> observeRewardsUseCase(store?.id) }
         val campaignsFlow = selectedStoreFlow.flatMapLatest { store -> observeCampaignsUseCase(store?.id) }
         val activeScanActionsFlow = selectedStoreFlow.flatMapLatest { store -> observeActiveScanActionsUseCase(store?.id) }
 
-        combine(selectedStoreFlow, programsFlow, rewardsFlow, campaignsFlow, activeScanActionsFlow) { store, programs, rewards, campaigns, activeScanActions ->
-            store to LoyaltyStoreSnapshot(
+        val storeContextFlow = combine(selectedStoreFlow, storesFlow) { store, stores ->
+            store to stores
+        }
+        val loyaltyDataFlow = combine(programsFlow, allProgramsFlow, rewardsFlow, campaignsFlow, activeScanActionsFlow) { programs, allPrograms, rewards, campaigns, activeScanActions ->
+            LoyaltyStoreSnapshot(
                 programs = programs,
+                allPrograms = allPrograms,
                 rewards = rewards,
                 campaigns = campaigns,
                 activeScanActions = activeScanActions,
             )
-        }.onEach { (store, data) ->
+        }
+
+        combine(storeContextFlow, loyaltyDataFlow) { storeContext, data ->
+            storeContext to data
+        }.onEach { (storeContext, data) ->
+            val (store, stores) = storeContext
             val programs = data.programs
             val rewards = data.rewards
             val campaigns = data.campaigns
             _uiState.value = _uiState.value.copy(
                 selectedStoreId = store?.id,
                 selectedStoreName = store?.name.orEmpty(),
+                stores = stores,
                 isLoading = false,
                 programs = programs,
+                allPrograms = data.allPrograms,
                 rewards = rewards,
                 campaigns = campaigns,
                 activeScanActions = data.activeScanActions,
@@ -162,10 +178,16 @@ class LoyaltyViewModel @Inject constructor(
     fun updateRewardAvailableQuantity(value: String) = updateRewardEditor { copy(availableQuantity = value) }
 
     fun openCreateProgram(type: LoyaltyProgramType = LoyaltyProgramType.POINTS) {
+        val state = _uiState.value
+        val defaultStoreIds = state.stores.map { it.id }.ifEmpty { listOfNotNull(state.selectedStoreId) }
         _uiState.value = _uiState.value.copy(
             activeSubEditor = null,
             activeBenefitEditor = null,
-            editorState = defaultProgramEditorState(type),
+            editorState = defaultProgramEditorState(type).copy(
+                applyToAllBranches = defaultStoreIds.size > 1,
+                targetStoreIds = defaultStoreIds,
+                lockedStoreIds = emptyList(),
+            ),
             editorFieldErrors = emptyMap(),
             deleteCandidate = null,
             formErrorRes = null,
@@ -175,10 +197,14 @@ class LoyaltyViewModel @Inject constructor(
 
     fun openEditProgram(programId: String) {
         val program = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
+        val matchedStoreIds = resolveMatchingProgramStoreIds(program, _uiState.value.allPrograms)
         _uiState.value = _uiState.value.copy(
             activeSubEditor = null,
             activeBenefitEditor = null,
-            editorState = program.toEditorState(),
+            editorState = program.toEditorState().copy(
+                targetStoreIds = matchedStoreIds,
+                lockedStoreIds = matchedStoreIds,
+            ),
             editorFieldErrors = emptyMap(),
             deleteCandidate = null,
             formErrorRes = null,
@@ -188,10 +214,14 @@ class LoyaltyViewModel @Inject constructor(
 
     fun openProgramSubEditor(programId: String, subEditor: ProgramSubEditor) {
         val program = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
+        val matchedStoreIds = resolveMatchingProgramStoreIds(program, _uiState.value.allPrograms)
         _uiState.value = _uiState.value.copy(
             activeSubEditor = subEditor,
             activeBenefitEditor = null,
-            editorState = program.toEditorState(),
+            editorState = program.toEditorState().copy(
+                targetStoreIds = matchedStoreIds,
+                lockedStoreIds = matchedStoreIds,
+            ),
             editorFieldErrors = emptyMap(),
             deleteCandidate = null,
             formErrorRes = null,
@@ -253,6 +283,14 @@ class LoyaltyViewModel @Inject constructor(
         )
     }
 
+    fun applyEditorValidationErrors(errors: Map<String, Int>): Boolean {
+        _uiState.value = _uiState.value.copy(
+            editorFieldErrors = errors,
+            formErrorRes = if (errors.isEmpty()) null else R.string.merchant_form_issue_title,
+        )
+        return errors.isEmpty()
+    }
+
     fun requestDelete(programId: String) {
         val program = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
         viewModelScope.launch {
@@ -305,7 +343,39 @@ class LoyaltyViewModel @Inject constructor(
 
     fun updateEditorName(value: String) = updateEditor { copy(name = value) }
     fun updateEditorDescription(value: String) = updateEditor { copy(description = value) }
+    fun updateEditorApplyToAllBranches(value: Boolean) = updateEditor {
+        copy(
+            applyToAllBranches = value,
+            targetStoreIds = if (value) {
+                _uiState.value.stores.map { it.id }
+            } else {
+                targetStoreIds.ifEmpty { listOfNotNull(_uiState.value.selectedStoreId) }
+            },
+        )
+    }
+    fun toggleEditorStoreTarget(storeId: String) = updateEditor {
+        val updated = if (targetStoreIds.contains(storeId)) {
+            targetStoreIds - storeId
+        } else {
+            targetStoreIds + storeId
+        }
+        copy(
+            applyToAllBranches = false,
+            targetStoreIds = updated.distinct(),
+        )
+    }
     fun updateEditorActive(value: Boolean) = updateEditor { copy(active = value) }
+    fun updateEditorTargetGender(value: String) = updateEditor { copy(targetGender = value.ifBlank { "ALL" }) }
+    fun updateEditorAgeTargetingEnabled(value: Boolean) = updateEditor {
+        copy(
+            ageTargetingEnabled = value,
+            targetAgeMin = if (value) targetAgeMin else "",
+            targetAgeMax = if (value) targetAgeMax else "",
+        )
+    }
+    fun updateEditorTargetAgeMin(value: String) = updateEditor { copy(targetAgeMin = value) }
+    fun updateEditorTargetAgeMax(value: String) = updateEditor { copy(targetAgeMax = value) }
+    fun updateEditorOneTimePerCustomer(value: Boolean) = updateEditor { copy(oneTimePerCustomer = value) }
     fun updateEditorAutoScheduleEnabled(value: Boolean) = updateEditor {
         copy(
             autoScheduleEnabled = value,
@@ -316,11 +386,20 @@ class LoyaltyViewModel @Inject constructor(
     fun updateEditorScheduleStartDate(value: String) = updateEditor { copy(scheduleStartDate = value) }
     fun updateEditorScheduleEndDate(value: String) = updateEditor { copy(scheduleEndDate = value) }
     fun updateEditorAnnualRepeatEnabled(value: Boolean) = updateEditor { copy(annualRepeatEnabled = value) }
+    fun updateEditorBenefitResetType(value: ProgramBenefitResetType) = updateEditor {
+        copy(
+            benefitResetType = value,
+            benefitResetCustomDays = if (value == ProgramBenefitResetType.CUSTOM) benefitResetCustomDays else "",
+        )
+    }
+    fun updateEditorBenefitResetCustomDays(value: String) = updateEditor { copy(benefitResetCustomDays = value) }
     fun updateEditorType(type: LoyaltyProgramType) {
         val defaults = defaultProgramEditorState(type)
         updateEditor {
             copy(
                 type = type,
+                benefitResetType = defaults.benefitResetType,
+                benefitResetCustomDays = defaults.benefitResetCustomDays,
                 pointsSpendStepAmount = defaults.pointsSpendStepAmount,
                 pointsAwardedPerStep = defaults.pointsAwardedPerStep,
                 pointsWelcomeBonus = defaults.pointsWelcomeBonus,
@@ -423,6 +502,20 @@ class LoyaltyViewModel @Inject constructor(
     fun updateCheckInVisitsRequired(value: String) = updateEditor { copy(checkInVisitsRequired = value) }
     fun updatePurchaseFrequencyCount(value: String) = updateEditor { copy(purchaseFrequencyCount = value) }
     fun updatePurchaseFrequencyWindowDays(value: String) = updateEditor { copy(purchaseFrequencyWindowDays = value) }
+    fun updatePurchaseFrequencyRewardChoice(choice: ProgramBenefitChoice) {
+        when (choice) {
+            ProgramBenefitChoice.POINTS -> updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
+                copy(type = ProgramRewardOutcomeType.POINTS, rewardId = null, programId = null)
+            }
+            ProgramBenefitChoice.REWARD_CATALOG -> updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
+                copy(type = ProgramRewardOutcomeType.FREE_PRODUCT, pointsAmount = "", programId = null)
+            }
+        }
+    }
+    fun updatePurchaseFrequencyRewardPoints(value: String) =
+        updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) { copy(pointsAmount = value) }
+    fun updatePurchaseFrequencyRewardId(value: String?) =
+        updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) { copy(rewardId = value) }
     fun updateReferralCodePrefix(value: String) = updateEditor { copy(referralCodePrefix = value) }
     fun updateRewardOutcomeType(slot: ProgramRewardSlot, value: ProgramRewardOutcomeType) =
         updateRewardOutcome(slot) {
@@ -478,7 +571,12 @@ class LoyaltyViewModel @Inject constructor(
     fun saveProgram() {
         val state = _uiState.value
         val editor = state.editorState ?: return
-        val storeId = state.selectedStoreId ?: run {
+        val activeStoreId = state.selectedStoreId ?: run {
+            _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_store_required)
+            return
+        }
+        val targetStoreIds = resolveTargetStoreIds(editor, state.stores, activeStoreId)
+        if (targetStoreIds.isEmpty()) {
             _uiState.value = state.copy(formErrorRes = R.string.merchant_program_error_store_required)
             return
         }
@@ -494,12 +592,35 @@ class LoyaltyViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isSubmitting = true, editorFieldErrors = emptyMap(), formErrorRes = null, messageRes = null)
             runCatching {
-                val draft = editor.toDraft(
-                    storeId = storeId,
-                    availablePrograms = state.programs,
-                    availableRewards = state.rewards,
-                )
-                if (editor.programId == null) createProgramUseCase(draft) else updateProgramUseCase(editor.programId, draft)
+                if (editor.programId == null) {
+                    targetStoreIds.forEach { storeId ->
+                        val draft = editor.toDraft(
+                            storeId = storeId,
+                            availablePrograms = state.allPrograms,
+                            availableRewards = state.rewards,
+                        )
+                        createProgramUseCase(draft)
+                    }
+                } else {
+                    val currentStoreId = editor.lockedStoreIds.firstOrNull() ?: activeStoreId
+                    val updateDraft = editor.toDraft(
+                        storeId = currentStoreId,
+                        availablePrograms = state.allPrograms,
+                        availableRewards = state.rewards,
+                    )
+                    updateProgramUseCase(editor.programId, updateDraft)
+                    val additionalStoreIds = targetStoreIds
+                        .filterNot { editor.lockedStoreIds.contains(it) }
+                        .distinct()
+                    additionalStoreIds.forEach { storeId ->
+                        val draft = editor.toDraft(
+                            storeId = storeId,
+                            availablePrograms = state.allPrograms,
+                            availableRewards = state.rewards,
+                        )
+                        createProgramUseCase(draft)
+                    }
+                }
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(
                     activeSubEditor = null,
@@ -733,6 +854,18 @@ private fun String.belongsToSubEditor(
     subEditor: ProgramSubEditor,
     activeBenefitEditor: ProgramBenefitEditorTarget?,
 ): Boolean = when (subEditor) {
+    ProgramSubEditor.BASICS_EDIT -> this in setOf(
+        PROGRAM_FIELD_NAME,
+        PROGRAM_FIELD_DESCRIPTION,
+    )
+    ProgramSubEditor.AUDIENCE_EDIT -> this in setOf(
+        PROGRAM_FIELD_TARGET_AGE_MIN,
+        PROGRAM_FIELD_TARGET_AGE_MAX,
+    )
+    ProgramSubEditor.AVAILABILITY_EDIT -> this in setOf(
+        PROGRAM_FIELD_SCHEDULE_START,
+        PROGRAM_FIELD_SCHEDULE_END,
+    )
     ProgramSubEditor.TIER_EDIT -> this == PROGRAM_FIELD_TIER_SILVER || startsWith("tier_level_")
     ProgramSubEditor.EARN_RULES_EDIT -> this in setOf(
         PROGRAM_FIELD_POINTS_STEP,
@@ -769,8 +902,36 @@ private fun String.belongsToSubEditor(
     }
 }
 
+private fun resolveTargetStoreIds(
+    editor: ProgramEditorState,
+    stores: List<com.vector.verevcodex.domain.model.business.Store>,
+    fallbackStoreId: String,
+): List<String> {
+    val allStoreIds = stores.map { it.id }
+    return when {
+        allStoreIds.isEmpty() -> listOf(fallbackStoreId)
+        stores.size == 1 -> listOf(allStoreIds.first())
+        editor.applyToAllBranches -> allStoreIds
+        editor.targetStoreIds.isNotEmpty() -> editor.targetStoreIds.distinct()
+        else -> listOf(fallbackStoreId)
+    }
+}
+
+private fun resolveMatchingProgramStoreIds(
+    program: com.vector.verevcodex.domain.model.loyalty.RewardProgram,
+    allPrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
+): List<String> {
+    val matching = allPrograms.filter {
+        it.type == program.type &&
+            it.name == program.name &&
+            it.description == program.description
+    }.map { it.storeId }.distinct()
+    return if (matching.isNotEmpty()) matching else listOf(program.storeId)
+}
+
 private data class LoyaltyStoreSnapshot(
     val programs: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
+    val allPrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
     val rewards: List<com.vector.verevcodex.domain.model.loyalty.Reward>,
     val campaigns: List<com.vector.verevcodex.domain.model.promotions.Campaign>,
     val activeScanActions: List<com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction>,

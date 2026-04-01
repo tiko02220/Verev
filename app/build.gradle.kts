@@ -17,12 +17,18 @@ val localProperties: Properties by lazy {
     }
 }
 
-fun configValue(key: String, envKey: String = key.replace('.', '_').uppercase()): String =
+val defaultBackendBaseUrl = "http://37.252.74.243:4444"
+
+fun configValue(
+    key: String,
+    envKey: String = key.replace('.', '_').uppercase(),
+    defaultValue: String = "",
+): String =
     localProperties.getProperty(key)
         ?.takeIf { it.isNotBlank() }
         ?: System.getenv(envKey)
             ?.takeIf { it.isNotBlank() }
-        ?: ""
+        ?: defaultValue
 
 fun asBuildConfigString(value: String): String =
     "\"" + value
@@ -44,7 +50,7 @@ android {
         buildConfigField("String", "GOOGLE_WALLET_LOYALTY_CLASS_ID", asBuildConfigString(configValue("google.wallet.loyaltyClassId")))
         buildConfigField("String", "GOOGLE_WALLET_PROGRAM_NAME", asBuildConfigString(configValue("google.wallet.programName")))
         buildConfigField("String", "GOOGLE_WALLET_ISSUER_NAME", asBuildConfigString(configValue("google.wallet.issuerName")))
-        buildConfigField("String", "VEREV_BACKEND_BASE_URL", asBuildConfigString(configValue("verev.backend.baseUrl")))
+        buildConfigField("String", "VEREV_BACKEND_BASE_URL", asBuildConfigString(configValue("verev.backend.baseUrl", defaultValue = defaultBackendBaseUrl)))
         buildConfigField("String", "FIREBASE_PROJECT_ID", asBuildConfigString(configValue("firebase.projectId")))
         buildConfigField("String", "FIREBASE_APPLICATION_ID", asBuildConfigString(configValue("firebase.applicationId")))
         buildConfigField("String", "FIREBASE_API_KEY", asBuildConfigString(configValue("firebase.apiKey")))
@@ -124,6 +130,8 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.airbnb.lottie.compose)
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
     implementation(libs.hilt.android)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)

@@ -1695,38 +1695,10 @@ private fun AnalyticsDonutChart(
     accent: Color,
     modifier: Modifier = Modifier,
 ) {
-    val total = max(segments.sumOf { it.value }, 1)
-    Canvas(
-        modifier = modifier
-            .height(168.dp)
-            .fillMaxWidth(),
-    ) {
-        val strokeWidth = 22.dp.toPx()
-        val diameter = size.minDimension - strokeWidth
-        val topLeft = androidx.compose.ui.geometry.Offset(
-            (size.width - diameter) / 2f,
-            (size.height - diameter) / 2f,
-        )
-        var startAngle = -90f
-        segments.forEachIndexed { index, segment ->
-            val sweep = (segment.value.toFloat() / total.toFloat()) * 360f
-            drawArc(
-                color = when (index % 4) {
-                    0 -> accent
-                    1 -> VerevColors.Gold
-                    2 -> VerevColors.Tan
-                    else -> VerevColors.Moss
-                },
-                startAngle = startAngle,
-                sweepAngle = sweep,
-                useCenter = false,
-                topLeft = topLeft,
-                size = androidx.compose.ui.geometry.Size(diameter, diameter),
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-            )
-            startAngle += sweep + 3f
-        }
-    }
+    VicoAnalyticsSegmentChart(
+        segments = segments,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -2170,149 +2142,14 @@ internal fun AnalyticsAreaChartFromPoints(
     animationEpoch: Int = 0,
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val chartPoints = when {
-        points.isEmpty() -> List(7) { AnalyticsChartPoint(if (it == 3) "—" else "", 0f) }
-        points.size == 1 -> listOf(points[0].let { AnalyticsChartPoint(it.label, it.value) }, AnalyticsChartPoint("", 0f))
-        else -> points.map { AnalyticsChartPoint(label = it.label, primary = it.value) }
-    }
-    val chartScale = remember(chartPoints) {
-        analyticsChartScale(chartPoints.maxOfOrNull { it.primary } ?: 0f)
-    }
-    val maxValue = chartScale.maxValue
-    val yAxisValues = remember(chartScale, valueFormatter) {
-        chartScale.axisValues.map(valueFormatter)
-    }
-    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
-    val animatedRevealProgress by animateFloatAsState(
-        targetValue = revealProgress,
-        animationSpec = tween(durationMillis = 850),
-        label = "analyticsAreaReveal",
+    VicoAnalyticsAreaChartFromPoints(
+        points = points,
+        lineColor = lineColor,
+        modifier = modifier,
+        chartHeight = chartHeight,
+        animationEpoch = animationEpoch,
+        valueFormatter = valueFormatter,
     )
-    LaunchedEffect(animationEpoch, points) {
-        revealProgress = 0f
-        delay(40)
-        revealProgress = 1f
-    }
-    AnalyticsChartFrame(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(
-                    modifier = Modifier.width(52.dp).height(chartHeight),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    yAxisValues.forEach { value ->
-                        Text(
-                            text = value,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = VerevColors.Forest.copy(alpha = 0.52f),
-                            maxLines = 1,
-                        )
-                    }
-                }
-                Canvas(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(chartHeight),
-                ) {
-                    if (chartPoints.size < 2) return@Canvas
-                    val bucketWidth = size.width / chartPoints.size.toFloat().coerceAtLeast(1f)
-                    val plotTop = analyticsPlotTop()
-                    val plotBottom = analyticsPlotBottom()
-                    val plotHeight = plotBottom - plotTop
-                    val effectiveMax = chartPoints.maxOfOrNull { it.primary } ?: 0f
-                    drawAnalyticsGrid(columnCount = chartPoints.size)
-                    if (effectiveMax == 0f) {
-                        val baselineY = plotTop + (plotHeight / 2f)
-                        drawLine(
-                            color = lineColor.copy(alpha = 0.2f),
-                            start = androidx.compose.ui.geometry.Offset(0f, baselineY),
-                            end = androidx.compose.ui.geometry.Offset(size.width, baselineY),
-                            strokeWidth = 2f,
-                        )
-                    }
-                    val linePath = Path()
-                    val fillPath = Path()
-                    val scale = if (effectiveMax > 0f) maxValue else 1f
-                    chartPoints.forEachIndexed { index, point ->
-                        val x = (bucketWidth * index) + (bucketWidth / 2f)
-                        val y = plotBottom - ((point.primary / scale) * plotHeight * animatedRevealProgress)
-                        if (index == 0) {
-                            linePath.moveTo(x, y)
-                            fillPath.moveTo(x, plotBottom)
-                            fillPath.lineTo(x, y)
-                        } else {
-                            linePath.lineTo(x, y)
-                            fillPath.lineTo(x, y)
-                        }
-                    }
-                    fillPath.lineTo(size.width, plotBottom)
-                    fillPath.close()
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                lineColor.copy(alpha = 0.24f * animatedRevealProgress.coerceIn(0f, 1f)),
-                                Color.Transparent,
-                            ),
-                        ),
-                    )
-                    drawPath(
-                        path = linePath,
-                        color = lineColor.copy(alpha = 0.45f + (0.55f * animatedRevealProgress.coerceIn(0f, 1f))),
-                        style = Stroke(width = 6f, cap = StrokeCap.Round),
-                    )
-                    chartPoints.forEachIndexed { index, point ->
-                        val x = (bucketWidth * index) + (bucketWidth / 2f)
-                        val y = plotBottom - ((point.primary / scale) * plotHeight * animatedRevealProgress)
-                        drawCircle(
-                            color = lineColor,
-                            radius = 4.dp.toPx(),
-                            center = androidx.compose.ui.geometry.Offset(x, y),
-                        )
-                        drawCircle(
-                            color = Color.White,
-                            radius = 2.dp.toPx(),
-                            center = androidx.compose.ui.geometry.Offset(x, y),
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Spacer(modifier = Modifier.width(52.dp))
-                Row(modifier = Modifier.weight(1f)) {
-                    val labelStyle = if (chartPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
-                        else MaterialTheme.typography.labelSmall
-                    chartPoints.forEachIndexed { index, point ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (shouldShowChartLabel(index, chartPoints.size)) {
-                                    formatChartLabel(point.label)
-                                } else {
-                                    ""
-                                },
-                                style = labelStyle,
-                                color = VerevColors.Forest.copy(alpha = 0.62f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -2324,118 +2161,14 @@ internal fun AnalyticsBarChartFromPoints(
     animationEpoch: Int = 0,
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val displayPoints = points.ifEmpty {
-        List(7) { AnalyticsPoint(if (it == 3) "—" else "", 0f) }
-    }
-    val chartScale = remember(displayPoints) {
-        analyticsChartScale(displayPoints.maxOfOrNull { it.value } ?: 0f)
-    }
-    val maxValue = chartScale.maxValue
-    val yAxisValues = remember(chartScale, valueFormatter) {
-        chartScale.axisValues.map(valueFormatter)
-    }
-    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
-    val animatedRevealProgress by animateFloatAsState(
-        targetValue = revealProgress,
-        animationSpec = tween(durationMillis = 700),
-        label = "analyticsBarReveal",
+    VicoAnalyticsBarChartFromPoints(
+        points = points,
+        accent = accent,
+        modifier = modifier,
+        chartHeight = chartHeight,
+        animationEpoch = animationEpoch,
+        valueFormatter = valueFormatter,
     )
-    LaunchedEffect(animationEpoch, displayPoints) {
-        revealProgress = 0f
-        delay(40)
-        revealProgress = 1f
-    }
-    AnalyticsChartFrame(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(
-                    modifier = Modifier.width(52.dp).height(chartHeight),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    yAxisValues.forEach { value ->
-                        Text(
-                            text = value,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = VerevColors.Forest.copy(alpha = 0.52f),
-                            maxLines = 1,
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(chartHeight),
-                ) {
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chartHeight),
-                    ) {
-                        drawAnalyticsGrid(columnCount = displayPoints.size)
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chartHeight),
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        displayPoints.forEach { point ->
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Bottom,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(chartHeight * ((point.value / maxValue) * animatedRevealProgress))
-                                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                                        .background(accent.copy(alpha = 0.88f)),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Spacer(modifier = Modifier.width(52.dp))
-                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val labelStyle = if (displayPoints.size > 14) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
-                        else MaterialTheme.typography.labelSmall
-                    displayPoints.forEachIndexed { index, point ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (shouldShowChartLabel(index, displayPoints.size)) {
-                                    formatChartLabel(point.label)
-                                } else {
-                                    ""
-                                },
-                                style = labelStyle,
-                                color = VerevColors.Forest.copy(alpha = 0.62f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -2449,141 +2182,16 @@ internal fun AnalyticsGroupedBarChartFromPoints(
     animationEpoch: Int = 0,
     valueFormatter: (Float) -> String = { formatCompactCount(it.toInt()) },
 ) {
-    val chartPoints = remember(primaryPoints, secondaryPoints) {
-        val maxLen = maxOf(primaryPoints.size, secondaryPoints.size, 1)
-        if (maxLen == 0) {
-            List(7) { AnalyticsChartPoint(if (it == 3) "—" else "", 0f) }
-        } else {
-            (0 until maxLen).map { index ->
-                val p = primaryPoints.getOrNull(index)
-                val s = secondaryPoints.getOrNull(index)
-                AnalyticsChartPoint(
-                    label = p?.label ?: s?.label ?: "",
-                    primary = p?.value ?: 0f,
-                    secondary = s?.value ?: 0f,
-                )
-            }
-        }
-    }
-    val chartScale = remember(chartPoints) {
-        analyticsChartScale(chartPoints.maxOfOrNull { max(it.primary, it.secondary) } ?: 0f)
-    }
-    val maxValue = chartScale.maxValue
-    val yAxisValues = remember(chartScale, valueFormatter) {
-        chartScale.axisValues.map(valueFormatter)
-    }
-    var revealProgress by remember(animationEpoch) { mutableStateOf(0f) }
-    val animatedRevealProgress by animateFloatAsState(
-        targetValue = revealProgress,
-        animationSpec = tween(durationMillis = 760),
-        label = "analyticsGroupedBarReveal",
+    VicoAnalyticsGroupedBarChartFromPoints(
+        primaryPoints = primaryPoints,
+        secondaryPoints = secondaryPoints,
+        primaryAccent = primaryAccent,
+        secondaryAccent = secondaryAccent,
+        modifier = modifier,
+        chartHeight = chartHeight,
+        animationEpoch = animationEpoch,
+        valueFormatter = valueFormatter,
     )
-    LaunchedEffect(animationEpoch, primaryPoints, secondaryPoints) {
-        revealProgress = 0f
-        delay(40)
-        revealProgress = 1f
-    }
-    AnalyticsChartFrame(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(
-                    modifier = Modifier.width(52.dp).height(chartHeight),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    yAxisValues.forEach { value ->
-                        Text(
-                            text = value,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = VerevColors.Forest.copy(alpha = 0.52f),
-                            maxLines = 1,
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(chartHeight),
-                ) {
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chartHeight),
-                    ) {
-                        drawAnalyticsGrid(columnCount = chartPoints.size)
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(chartHeight),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        chartPoints.forEach { point ->
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                                verticalAlignment = Alignment.Bottom,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(chartHeight * ((point.primary / maxValue) * animatedRevealProgress))
-                                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                                        .background(primaryAccent.copy(alpha = 0.92f)),
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(chartHeight * ((point.secondary / maxValue) * animatedRevealProgress))
-                                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                                        .background(secondaryAccent.copy(alpha = 0.88f)),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Spacer(modifier = Modifier.width(52.dp))
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    val labelFontSize = if (chartPoints.size > 14) 8.sp else 10.sp
-                    chartPoints.forEachIndexed { index, point ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (shouldShowChartLabel(index, chartPoints.size)) {
-                                    formatChartLabel(point.label)
-                                } else {
-                                    ""
-                                },
-                                fontSize = labelFontSize,
-                                lineHeight = (labelFontSize.value + 2).sp,
-                                color = VerevColors.Forest.copy(alpha = 0.66f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable

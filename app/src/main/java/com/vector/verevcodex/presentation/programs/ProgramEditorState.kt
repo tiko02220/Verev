@@ -1,5 +1,6 @@
 package com.vector.verevcodex.presentation.programs
 
+import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 
 internal val DefaultTierNames = listOf("Bronze", "Silver", "Gold", "Platinum", "VIP")
@@ -17,11 +18,21 @@ data class ProgramEditorState(
     val name: String = "",
     val description: String = "",
     val type: LoyaltyProgramType = LoyaltyProgramType.POINTS,
+    val applyToAllBranches: Boolean = false,
+    val targetStoreIds: List<String> = emptyList(),
+    val lockedStoreIds: List<String> = emptyList(),
     val active: Boolean = true,
+    val targetGender: String = "ALL",
+    val ageTargetingEnabled: Boolean = false,
+    val targetAgeMin: String = "",
+    val targetAgeMax: String = "",
+    val oneTimePerCustomer: Boolean = false,
     val autoScheduleEnabled: Boolean = false,
     val scheduleStartDate: String = "",
     val scheduleEndDate: String = "",
     val annualRepeatEnabled: Boolean = false,
+    val benefitResetType: ProgramBenefitResetType = ProgramBenefitResetType.NEVER,
+    val benefitResetCustomDays: String = "",
     val pointsSpendStepAmount: String = "100",
     val pointsAwardedPerStep: String = "1",
     val pointsWelcomeBonus: String = "",

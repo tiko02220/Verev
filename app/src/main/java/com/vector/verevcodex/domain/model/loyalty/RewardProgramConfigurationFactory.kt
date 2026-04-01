@@ -80,7 +80,7 @@ object RewardProgramConfigurationFactory {
                 couponEnabled = false,
                 purchaseFrequencyEnabled = true,
                 referralEnabled = false,
-                scanActions = setOf(RewardProgramScanAction.EARN_POINTS),
+                scanActions = emptySet(),
                 purchaseFrequencyRule = PurchaseFrequencyProgramRule(),
             )
             LoyaltyProgramType.REFERRAL -> RewardProgramConfiguration(

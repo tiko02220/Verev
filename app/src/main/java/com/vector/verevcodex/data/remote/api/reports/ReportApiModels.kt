@@ -13,6 +13,7 @@ data class ReportExportRequestDto(
     @SerializedName("format") val format: String,
     @SerializedName("filters") val filters: ReportFiltersRequestDto,
     @SerializedName("scheduleId") val scheduleId: String? = null,
+    @SerializedName("includedSections") val includedSections: List<String> = emptyList(),
 )
 
 data class ReportAutoSettingsRequestDto(
