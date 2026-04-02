@@ -40,13 +40,18 @@ class AuthRemoteDataSource @Inject constructor(
         val user = requireRemoteValue(data.user, "Missing user")
         val organization = requireRemoteValue(data.organization, "Missing organization")
         val tenantScope = requireRemoteValue(data.tenantScope, "Missing tenant scope")
-        val session = user.toAuthSession(permissions = tenantScope.permissions.toStaffPermissions())
+        val currencyCode = organization.defaultCurrencyCode.orEmpty().ifBlank { "AMD" }
+        val session = user.toAuthSession(
+            defaultCurrencyCode = currencyCode,
+            permissions = tenantScope.permissions.toStaffPermissions(),
+        )
         val syncData = BackendAuthSyncData(
             ownerId = user.id.orEmpty(),
             ownerFullName = user.fullName.orEmpty(),
             ownerEmail = user.email.orEmpty(),
             ownerPhone = user.phoneNumber.orEmpty(),
             organizationDisplayName = organization.displayName.orEmpty(),
+            defaultCurrencyCode = currencyCode,
             accessibleStoreIds = tenantScope.accessibleStoreIds.orEmpty(),
             defaultStore = null,
         )
@@ -106,7 +111,10 @@ class AuthRemoteDataSource @Inject constructor(
         val tenantScope = requireRemoteValue(data.tenantScope, "Missing tenant scope")
         tokenStore.setTokens(requireRemoteValue(data.accessToken, "Missing access token"), requireRemoteValue(data.refreshToken, "Missing refresh token"))
         val result = RegistrationResult(
-            session = user.toAuthSession(permissions = tenantScope.permissions.toStaffPermissions()),
+            session = user.toAuthSession(
+                defaultCurrencyCode = organization.defaultCurrencyCode.orEmpty().ifBlank { "AMD" },
+                permissions = tenantScope.permissions.toStaffPermissions(),
+            ),
             businessId = organization.id.orEmpty(),
             defaultStoreId = defaultStore.id.orEmpty(),
         )
@@ -116,6 +124,7 @@ class AuthRemoteDataSource @Inject constructor(
             ownerEmail = user.email.orEmpty(),
             ownerPhone = user.phoneNumber.orEmpty(),
             organizationDisplayName = organization.displayName.orEmpty(),
+            defaultCurrencyCode = organization.defaultCurrencyCode.orEmpty().ifBlank { "AMD" },
             accessibleStoreIds = tenantScope.accessibleStoreIds.orEmpty(),
             defaultStore = defaultStore,
         )
@@ -144,13 +153,18 @@ class AuthRemoteDataSource @Inject constructor(
         val user = requireRemoteValue(data.user, "Missing user")
         val organization = requireRemoteValue(data.organization, "Missing organization")
         val tenantScope = requireRemoteValue(data.tenantScope, "Missing tenant scope")
-        val session = user.toAuthSession(permissions = tenantScope.permissions.toStaffPermissions())
+        val currencyCode = organization.defaultCurrencyCode.orEmpty().ifBlank { "AMD" }
+        val session = user.toAuthSession(
+            defaultCurrencyCode = currencyCode,
+            permissions = tenantScope.permissions.toStaffPermissions(),
+        )
         val syncData = BackendAuthSyncData(
             ownerId = user.id.orEmpty(),
             ownerFullName = user.fullName.orEmpty(),
             ownerEmail = user.email.orEmpty(),
             ownerPhone = user.phoneNumber.orEmpty(),
             organizationDisplayName = organization.displayName.orEmpty(),
+            defaultCurrencyCode = currencyCode,
             accessibleStoreIds = tenantScope.accessibleStoreIds.orEmpty(),
             defaultStore = null,
         )

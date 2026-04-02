@@ -55,6 +55,7 @@ fun ProgramTypeManagementScreen(
     onBack: () -> Unit,
     onNavigateToProgramsRoot: () -> Unit,
     onOpenRewardsCatalog: () -> Unit = {},
+    onOpenProgramsCatalog: () -> Unit = onNavigateToProgramsRoot,
     openEditorOnLaunch: Boolean = false,
     viewModel: LoyaltyViewModel = hiltViewModel(),
     shellViewModel: ShellViewModel = hiltViewModel(),
@@ -64,23 +65,27 @@ fun ProgramTypeManagementScreen(
     val spec = type.screenSpec()
     val programs = state.programs.filter { it.type == type }
     val showCreateSuccessDialog = state.messageRes == R.string.merchant_program_created_message
+    val showUpdateSuccessDialog = state.messageRes == R.string.merchant_program_updated_message
+    val showDeleteSuccessDialog = state.messageRes == R.string.merchant_program_deleted_message
     val canManagePrograms = shellState.currentUser?.permissions?.managePrograms == true
     var handledInitialCreate by rememberSaveable(type.name, openEditorOnLaunch) { mutableStateOf(false) }
-
-    LaunchedEffect(state.messageRes) {
-        if (state.messageRes != null && !showCreateSuccessDialog) {
-            kotlinx.coroutines.delay(2500)
-            viewModel.clearMessage()
-        }
-    }
+    var pendingCreateFlowClose by rememberSaveable(type.name, openEditorOnLaunch) { mutableStateOf(false) }
+    var pendingEditFlowClose by rememberSaveable(type.name) { mutableStateOf(false) }
+    val activeEditorState = state.editorState
     LaunchedEffect(openEditorOnLaunch, handledInitialCreate) {
         if (openEditorOnLaunch && !handledInitialCreate && state.editorState == null && state.activeSubEditor == null) {
             handledInitialCreate = true
             viewModel.openCreateProgram(type)
         }
     }
+    LaunchedEffect(showCreateSuccessDialog, pendingCreateFlowClose) {
+        if (pendingCreateFlowClose && !showCreateSuccessDialog) {
+            pendingCreateFlowClose = false
+            viewModel.dismissEditor()
+            onNavigateToProgramsRoot()
+        }
+    }
 
-    val activeEditorState = state.editorState
     val showExclusiveCreateEditor = openEditorOnLaunch && activeEditorState != null && !activeEditorState.isEditing
     if (state.activeSubEditor != null && activeEditorState != null) {
         when (state.activeSubEditor) {
@@ -118,16 +123,25 @@ fun ProgramTypeManagementScreen(
             )
             ProgramSubEditor.TIER_EDIT -> TierEditScreen(
                 editorState = activeEditorState,
+                availablePrograms = state.programs,
                 availableRewards = state.rewards,
+                currencyCode = state.currencyCode,
                 fieldErrors = state.editorFieldErrors,
                 onBack = viewModel::closeProgramSubEditor,
+                onTierThresholdBasisChange = viewModel::updateTierThresholdBasis,
                 onTierNameChange = viewModel::updateTierLevelName,
                 onTierThresholdChange = viewModel::updateTierLevelThreshold,
+                onTierBenefitTypeChange = viewModel::updateTierLevelBenefitType,
                 onTierBonusPercentChange = viewModel::updateTierLevelBonusPercent,
-                onOpenTierBenefitEditor = viewModel::openTierBenefitEditor,
+                onTierRewardTypeChange = viewModel::updateTierLevelRewardType,
+                onTierRewardPointsChange = viewModel::updateTierLevelRewardPoints,
+                onTierRewardRewardIdChange = viewModel::updateTierLevelRewardRewardId,
+                onTierRewardProgramIdChange = viewModel::updateTierLevelRewardProgramId,
                 onClearTierBenefit = viewModel::clearTierLevelBenefit,
                 onAddTier = viewModel::addTierLevel,
                 onRemoveTier = viewModel::removeTierLevel,
+                onOpenRewardsCatalog = onOpenRewardsCatalog,
+                onOpenProgramsCatalog = onOpenProgramsCatalog,
                 onSave = viewModel::applyProgramSubEditorChanges,
             )
             ProgramSubEditor.EARN_RULES_EDIT -> EarnRulesEditScreen(
@@ -169,6 +183,7 @@ fun ProgramTypeManagementScreen(
             )
             ProgramSubEditor.FREQUENCY_EDIT -> FrequencyEditScreen(
                 editorState = activeEditorState,
+                availablePrograms = state.programs,
                 availableRewards = state.rewards,
                 fieldErrors = state.editorFieldErrors,
                 onBack = viewModel::closeProgramSubEditor,
@@ -177,7 +192,9 @@ fun ProgramTypeManagementScreen(
                 onRewardChoiceChange = viewModel::updatePurchaseFrequencyRewardChoice,
                 onRewardPointsChange = viewModel::updatePurchaseFrequencyRewardPoints,
                 onRewardIdChange = viewModel::updatePurchaseFrequencyRewardId,
+                onProgramIdChange = viewModel::updatePurchaseFrequencyRewardProgramId,
                 onOpenRewardsCatalog = onOpenRewardsCatalog,
+                onOpenProgramsCatalog = onOpenProgramsCatalog,
                 onSave = viewModel::applyProgramSubEditorChanges,
             )
             ProgramSubEditor.REFERRAL_EDIT -> ReferralEditScreen(
@@ -196,13 +213,16 @@ fun ProgramTypeManagementScreen(
                     BenefitEditScreen(
                         target = target,
                         state = benefitState,
+                        availablePrograms = state.programs,
                         availableRewards = state.rewards,
                         errorRes = target.currentError(state.editorFieldErrors, activeEditorState),
                         onBack = viewModel::closeProgramSubEditor,
                         onChoiceChange = viewModel::updateActiveBenefitChoice,
                         onPointsChange = viewModel::updateActiveBenefitPoints,
                         onRewardIdChange = viewModel::updateActiveBenefitRewardId,
+                        onProgramIdChange = viewModel::updateActiveBenefitProgramId,
                         onOpenRewardsCatalog = onOpenRewardsCatalog,
+                        onOpenProgramsCatalog = onOpenProgramsCatalog,
                         onClear = target.takeIf { it.optional }?.let { { viewModel.clearActiveBenefit() } },
                         onSave = viewModel::applyProgramSubEditorChanges,
                     )
@@ -222,6 +242,7 @@ fun ProgramTypeManagementScreen(
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
             isSubmitting = state.isSubmitting,
+            currencyCode = state.currencyCode,
             onDismiss = {
                 viewModel.dismissEditor()
                 onBack()
@@ -249,8 +270,10 @@ fun ProgramTypeManagementScreen(
             onPointsMinimumRedeemChange = viewModel::updatePointsMinimumRedeem,
             onCashbackPercentChange = viewModel::updateCashbackPercent,
             onCashbackMinimumSpendAmountChange = viewModel::updateCashbackMinimumSpendAmount,
+            onTierThresholdBasisChange = viewModel::updateTierThresholdBasis,
             onTierNameChange = viewModel::updateTierLevelName,
             onTierThresholdChange = viewModel::updateTierLevelThreshold,
+            onTierBenefitTypeChange = viewModel::updateTierLevelBenefitType,
             onTierBonusPercentChange = viewModel::updateTierLevelBonusPercent,
             onTierRewardTypeChange = viewModel::updateTierLevelRewardType,
             onTierRewardLabelChange = viewModel::updateTierLevelRewardLabel,
@@ -277,27 +300,15 @@ fun ProgramTypeManagementScreen(
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
             onOpenRewardsCatalog = onOpenRewardsCatalog,
+            onOpenProgramsCatalog = onOpenProgramsCatalog,
             onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
             fullScreen = true,
         )
-        return
     }
 
-    if (openEditorOnLaunch && showCreateSuccessDialog) {
-        MerchantSuccessDialog(
-            title = stringResource(R.string.merchant_program_created_message),
-            message = stringResource(R.string.merchant_program_created_supporting),
-            actionLabel = stringResource(R.string.merchant_program_success_ok),
-            onDismiss = {
-                viewModel.clearMessage()
-                onNavigateToProgramsRoot()
-            },
-        )
-        return
-    }
-
-    state.editorState?.let { editor ->
+    if (!showExclusiveCreateEditor) {
+        state.editorState?.let { editor ->
         ProgramEditorSheet(
             editorState = editor,
             selectedStoreName = state.selectedStoreName,
@@ -306,6 +317,7 @@ fun ProgramTypeManagementScreen(
             availableRewards = state.rewards,
             fieldErrors = state.editorFieldErrors,
             isSubmitting = state.isSubmitting,
+            currencyCode = state.currencyCode,
             onDismiss = viewModel::dismissEditor,
             onNameChange = viewModel::updateEditorName,
             onDescriptionChange = viewModel::updateEditorDescription,
@@ -330,8 +342,10 @@ fun ProgramTypeManagementScreen(
             onPointsMinimumRedeemChange = viewModel::updatePointsMinimumRedeem,
             onCashbackPercentChange = viewModel::updateCashbackPercent,
             onCashbackMinimumSpendAmountChange = viewModel::updateCashbackMinimumSpendAmount,
+            onTierThresholdBasisChange = viewModel::updateTierThresholdBasis,
             onTierNameChange = viewModel::updateTierLevelName,
             onTierThresholdChange = viewModel::updateTierLevelThreshold,
+            onTierBenefitTypeChange = viewModel::updateTierLevelBenefitType,
             onTierBonusPercentChange = viewModel::updateTierLevelBonusPercent,
             onTierRewardTypeChange = viewModel::updateTierLevelRewardType,
             onTierRewardLabelChange = viewModel::updateTierLevelRewardLabel,
@@ -358,9 +372,11 @@ fun ProgramTypeManagementScreen(
             onOpenBenefitEditor = viewModel::openBenefitEditor,
             onClearTierBenefit = viewModel::clearTierLevelBenefit,
             onOpenRewardsCatalog = onOpenRewardsCatalog,
+            onOpenProgramsCatalog = onOpenProgramsCatalog,
             onApplyEditorValidationErrors = viewModel::applyEditorValidationErrors,
             onSave = viewModel::saveProgram,
         )
+        }
     }
     state.enableCandidate?.let { program ->
         ProgramEnableGuardrailDialog(
@@ -384,69 +400,60 @@ fun ProgramTypeManagementScreen(
         )
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = VerevColors.AppBackground,
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
-                top = contentPadding.calculateTopPadding() + 24.dp,
-                bottom = contentPadding.calculateBottomPadding() + 112.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+    if (!showExclusiveCreateEditor) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = VerevColors.AppBackground,
         ) {
-            item {
-                ProgramsBackHeader(
-                    title = stringResource(spec.titleRes),
-                    subtitle = stringResource(spec.subtitleRes),
-                    onBack = onBack,
-                    onAddProgram = { viewModel.openCreateProgram(type) },
-                    showAddAction = canManagePrograms,
-                    colors = type.gradient(),
-                )
-            }
-            state.messageRes?.takeUnless { showCreateSuccessDialog }?.let { messageRes ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = contentPadding.calculateTopPadding() + 24.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 112.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
                 item {
-                    ProgramsFeedbackBanner(message = stringResource(messageRes))
-                }
-            }
-            if (programs.isEmpty()) {
-                item {
-                    ProgramsModuleEmptyCard(
-                        title = stringResource(spec.emptyTitleRes),
-                        subtitle = stringResource(spec.emptySubtitleRes),
-                        icon = type.icon(),
+                    ProgramsBackHeader(
+                        title = stringResource(spec.titleRes),
+                        subtitle = stringResource(spec.subtitleRes),
+                        onBack = onBack,
+                        onAddProgram = { viewModel.openCreateProgram(type) },
+                        showAddAction = canManagePrograms,
+                        colors = type.gradient(),
                     )
                 }
-            } else {
-                items(programs.size) { index ->
-                    val program = programs[index]
-                    val quickActions = buildProgramQuickActions(
-                        type = type,
-                        programId = program.id,
-                        openSubEditor = viewModel::openProgramSubEditor,
-                    )
-                    ProgramTypeProgramCard(
-                        type = type,
-                        program = program,
-                        selectedStoreName = state.selectedStoreName,
-                        snapshot = program.toOperationalSnapshot(
-                            existingPrograms = state.programs,
-                            campaigns = state.campaigns,
-                            activeScanActions = state.activeScanActions,
-                        ),
-                        isBusy = state.busyProgramId == program.id,
-                        onEdit = if (canManagePrograms) ({ viewModel.openEditProgram(program.id) }) else null,
-                        quickActions = if (canManagePrograms) quickActions else emptyList(),
-                        onToggleEnabled = { enabled -> viewModel.requestProgramToggle(program.id, enabled) },
-                        onDelete = if (canManagePrograms) ({ viewModel.requestDelete(program.id) }) else null,
-                        canManagePrograms = canManagePrograms,
-                    )
+                if (programs.isEmpty()) {
+                    item {
+                        ProgramsModuleEmptyCard(
+                            title = stringResource(spec.emptyTitleRes),
+                            subtitle = stringResource(spec.emptySubtitleRes),
+                            icon = type.icon(),
+                        )
+                    }
+                } else {
+                    items(programs.size) { index ->
+                        val program = programs[index]
+                        ProgramTypeProgramCard(
+                            type = type,
+                            program = program,
+                            selectedStoreName = state.selectedStoreName,
+                            snapshot = program.toOperationalSnapshot(
+                                existingPrograms = state.programs,
+                                campaigns = state.campaigns,
+                                activeScanActions = state.activeScanActions,
+                            ),
+                            isBusy = state.busyProgramId == program.id,
+                            onEdit = if (canManagePrograms) ({ viewModel.openEditProgram(program.id) }) else null,
+                            onToggleEnabled = { enabled -> viewModel.requestProgramToggle(program.id, enabled) },
+                            onDelete = if (canManagePrograms) ({ viewModel.requestDelete(program.id) }) else null,
+                            canManagePrograms = canManagePrograms,
+                        )
+                    }
                 }
             }
         }
@@ -463,10 +470,39 @@ fun ProgramTypeManagementScreen(
             message = stringResource(R.string.merchant_program_created_supporting),
             actionLabel = stringResource(R.string.merchant_program_success_ok),
             onDismiss = {
+                if (openEditorOnLaunch) {
+                    pendingCreateFlowClose = true
+                } else {
+                    pendingEditFlowClose = true
+                }
                 viewModel.clearMessage()
-                onNavigateToProgramsRoot()
             },
         )
+    }
+    if (showUpdateSuccessDialog) {
+        MerchantSuccessDialog(
+            title = stringResource(R.string.merchant_program_updated_message),
+            message = stringResource(R.string.merchant_program_updated_supporting),
+            actionLabel = stringResource(R.string.merchant_program_success_ok),
+            onDismiss = {
+                pendingEditFlowClose = true
+                viewModel.clearMessage()
+            },
+        )
+    }
+    if (showDeleteSuccessDialog) {
+        MerchantSuccessDialog(
+            title = stringResource(R.string.merchant_program_deleted_message),
+            message = stringResource(R.string.merchant_program_deleted_supporting),
+            actionLabel = stringResource(R.string.merchant_program_success_ok),
+            onDismiss = viewModel::clearMessage,
+        )
+    }
+    LaunchedEffect(showUpdateSuccessDialog, pendingEditFlowClose) {
+        if (pendingEditFlowClose && !showUpdateSuccessDialog && !showCreateSuccessDialog) {
+            pendingEditFlowClose = false
+            viewModel.dismissEditor()
+        }
     }
 }
 
@@ -494,69 +530,6 @@ private fun ProgramBenefitEditorTarget.currentError(
     slot == ProgramRewardSlot.REFERRAL_REFERRER -> fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER]
     slot == ProgramRewardSlot.REFERRAL_REFEREE -> fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE]
     else -> null
-}
-
-private fun buildProgramQuickActions(
-    type: LoyaltyProgramType,
-    programId: String,
-    openSubEditor: (String, ProgramSubEditor) -> Unit,
-): List<ProgramQuickActionUi> = when (type) {
-    LoyaltyProgramType.POINTS -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_rules_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.EARN_RULES_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_reward_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.REWARD_EDIT)
-        },
-    )
-    LoyaltyProgramType.TIER -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_tier_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.TIER_EDIT)
-        },
-    )
-    LoyaltyProgramType.COUPON -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_coupon_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.REWARD_EDIT)
-        },
-    )
-    LoyaltyProgramType.DIGITAL_STAMP -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_checkin_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.CHECKIN_EDIT)
-        },
-    )
-    LoyaltyProgramType.PURCHASE_FREQUENCY -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_frequency_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.FREQUENCY_EDIT)
-        },
-    )
-    LoyaltyProgramType.REFERRAL -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_referral_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.REFERRAL_EDIT)
-        },
-    )
-    LoyaltyProgramType.HYBRID -> listOf(
-        ProgramQuickActionUi(R.string.merchant_program_rules_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.EARN_RULES_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_cashback_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.CASHBACK_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_tier_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.TIER_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_reward_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.REWARD_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_checkin_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.CHECKIN_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_frequency_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.FREQUENCY_EDIT)
-        },
-        ProgramQuickActionUi(R.string.merchant_program_referral_edit_action) {
-            openSubEditor(programId, ProgramSubEditor.REFERRAL_EDIT)
-        },
-    )
 }
 
 @Composable

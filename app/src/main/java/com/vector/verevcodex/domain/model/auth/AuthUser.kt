@@ -11,6 +11,7 @@ data class AuthUser(
     val email: String,
     val phoneNumber: String,
     val profilePhotoUri: String,
+    val defaultCurrencyCode: String = "AMD",
     val role: StaffRole,
     val status: String,
     val active: Boolean,

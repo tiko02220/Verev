@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
 import com.vector.verevcodex.presentation.auth.common.AuthPinBoxes
+import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 
 @Composable
 internal fun SecurityBrandHeader() {
@@ -240,68 +241,12 @@ internal fun SecurityLogoutConfirmationDialog(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onCancel),
-        contentAlignment = Alignment.Center,
-    ) {
-        Card(
-            shape = RoundedCornerShape(32.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(96.dp)
-                        .clip(CircleShape)
-                        .background(Brush.horizontalGradient(listOf(Color(0xFFFFB300), Color(0xFFFF7A00)))),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(42.dp))
-                }
-                Text(
-                    text = stringResource(R.string.auth_logout_confirmation_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.auth_logout_confirmation_message),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colorResource(R.color.text_secondary),
-                    textAlign = TextAlign.Center,
-                )
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF7A00),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Text(text = stringResource(R.string.auth_log_out), style = MaterialTheme.typography.titleMedium)
-                }
-                Button(
-                    onClick = onCancel,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(R.color.surface_white),
-                        contentColor = colorResource(R.color.brand_green),
-                    ),
-                ) {
-                    Text(text = stringResource(R.string.auth_cancel), style = MaterialTheme.typography.titleMedium)
-                }
-            }
-        }
-    }
+    MerchantConfirmationDialog(
+        title = stringResource(R.string.auth_logout_confirmation_title),
+        message = stringResource(R.string.auth_logout_confirmation_message),
+        confirmLabel = stringResource(R.string.auth_log_out),
+        dismissLabel = stringResource(R.string.auth_cancel),
+        onConfirm = onConfirm,
+        onDismiss = onCancel,
+    )
 }

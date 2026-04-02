@@ -12,6 +12,7 @@ data class BackendAuthSyncData(
     val ownerEmail: String,
     val ownerPhone: String,
     val organizationDisplayName: String,
+    val defaultCurrencyCode: String,
     val accessibleStoreIds: List<String>,
     val defaultStore: StoreViewDto?,
 )

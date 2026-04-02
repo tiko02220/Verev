@@ -10,7 +10,7 @@ import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
-private val wholeCurrencyFormat = DecimalFormat("#,##0", DecimalFormatSymbols(java.util.Locale.US))
+private val wholeCurrencyFormat = DecimalFormat("#,##0.00", DecimalFormatSymbols(java.util.Locale.US))
 private val compactCurrencyFormat = DecimalFormat("0.#", DecimalFormatSymbols(java.util.Locale.US))
 private const val DEFAULT_CURRENCY_CODE = "AMD"
 

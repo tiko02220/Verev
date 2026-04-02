@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
@@ -70,6 +73,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -108,11 +112,14 @@ import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
+import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
+import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.loyalty.impliedProgramType
 import com.vector.verevcodex.domain.model.loyalty.impliedRewardType
 import com.vector.verevcodex.domain.model.loyalty.usesProgramBenefit
 import com.vector.verevcodex.domain.model.loyalty.usesRewardItem
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
+import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantInlineToggle
 import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonBlock
 import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonCard
@@ -920,7 +927,6 @@ private fun ActiveFeatureChips(program: RewardProgram) {
         if (program.configuration.earningEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_earn_points), Icons.Default.Loyalty)
         if (program.configuration.rewardRedemptionEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_redeem_rewards), Icons.Default.Redeem)
         if (program.configuration.visitCheckInEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_check_in), Icons.Default.CheckCircle)
-        if (program.configuration.cashbackEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_cashback), Icons.Default.Payments)
         if (program.configuration.tierTrackingEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_tier_tracking), Icons.Default.AutoGraph)
         if (program.configuration.couponEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_coupon), Icons.Default.Sell)
         if (program.configuration.purchaseFrequencyEnabled) ProgramFeatureChip(stringResource(R.string.merchant_program_feature_purchase_frequency), Icons.Default.Repeat)
@@ -1238,6 +1244,7 @@ private fun ProgramModuleTile(
 @Composable
 internal fun ProgramTypeInfoSheet(
     type: LoyaltyProgramType,
+    currencyCode: String = "AMD",
     onDismiss: () -> Unit,
 ) {
     val editorState = remember(type) { defaultProgramEditorState(type) }
@@ -1289,7 +1296,7 @@ internal fun ProgramTypeInfoSheet(
                 ) {
                     ProgramPreviewBullet(
                         title = stringResource(R.string.merchant_program_preview_customer_title),
-                        value = customerExperienceSummary(editorState),
+                        value = customerExperienceSummary(editorState, currencyCode),
                     )
                     ProgramPreviewBullet(
                         title = stringResource(R.string.merchant_program_preview_branch_title),
@@ -1313,6 +1320,7 @@ internal fun ProgramEditorSheet(
     availableRewards: List<Reward>,
     fieldErrors: Map<String, Int>,
     isSubmitting: Boolean,
+    currencyCode: String = "AMD",
     onDismiss: () -> Unit,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
@@ -1337,8 +1345,10 @@ internal fun ProgramEditorSheet(
     onPointsMinimumRedeemChange: (String) -> Unit,
     onCashbackPercentChange: (String) -> Unit,
     onCashbackMinimumSpendAmountChange: (String) -> Unit,
+    onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
+    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardLabelChange: (String, String) -> Unit,
@@ -1365,6 +1375,7 @@ internal fun ProgramEditorSheet(
     onOpenBenefitEditor: (ProgramRewardSlot) -> Unit,
     onClearTierBenefit: (String) -> Unit,
     onOpenRewardsCatalog: () -> Unit = {},
+    onOpenProgramsCatalog: () -> Unit = {},
     onApplyEditorValidationErrors: (Map<String, Int>) -> Boolean,
     onSave: () -> Unit,
     fullScreen: Boolean = false,
@@ -1376,7 +1387,6 @@ internal fun ProgramEditorSheet(
     val hasPreviousStep = currentStepIndex > 0
     val hasNextStep = currentStepIndex < creationSteps.lastIndex
     val editorScrollState = rememberScrollState()
-
     val editorContent: @Composable (onPrimaryAction: () -> Unit, showBackAction: Boolean) -> Unit = { onPrimaryAction, showBackAction ->
         Column(
             modifier = Modifier
@@ -1388,11 +1398,12 @@ internal fun ProgramEditorSheet(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(editorScrollState)
+                    .imePadding()
                     .padding(
                         start = 24.dp,
                         end = 24.dp,
                         top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 14.dp,
-                        bottom = 12.dp,
+                        bottom = 28.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
                     ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -1420,9 +1431,15 @@ internal fun ProgramEditorSheet(
                     }
                 }
 
+                if (!isCreateFlow) {
+                    ProgramEditSheetTopBar(
+                        title = editorState.name.ifBlank { stringResource(editorState.type.displayNameRes()) },
+                        onClose = onDismiss,
+                    )
+                }
+
                 ProgramEditorHeader(
                     editorState = editorState,
-                    selectedStoreName = selectedStoreName,
                     currentStep = currentStepIndex,
                     totalSteps = creationSteps.size,
                     showProgress = isCreateFlow,
@@ -1480,6 +1497,7 @@ internal fun ProgramEditorSheet(
                                     editorState = editorState,
                                     availablePrograms = availablePrograms,
                                     availableRewards = availableRewards,
+                                    currencyCode = currencyCode,
                                     fieldErrors = fieldErrors,
                                     onPointsSpendStepAmountChange = onPointsSpendStepAmountChange,
                                     onPointsAwardedPerStepChange = onPointsAwardedPerStepChange,
@@ -1487,8 +1505,10 @@ internal fun ProgramEditorSheet(
                                     onPointsMinimumRedeemChange = onPointsMinimumRedeemChange,
                                     onCashbackPercentChange = onCashbackPercentChange,
                                     onCashbackMinimumSpendAmountChange = onCashbackMinimumSpendAmountChange,
+                                    onTierThresholdBasisChange = onTierThresholdBasisChange,
                                     onTierNameChange = onTierNameChange,
                                     onTierThresholdChange = onTierThresholdChange,
+                                    onTierBenefitTypeChange = onTierBenefitTypeChange,
                                     onTierBonusPercentChange = onTierBonusPercentChange,
                                     onTierRewardTypeChange = onTierRewardTypeChange,
                                     onTierRewardLabelChange = onTierRewardLabelChange,
@@ -1508,9 +1528,11 @@ internal fun ProgramEditorSheet(
                                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                                     onOpenTierBenefitEditor = onOpenTierBenefitEditor,
                                     onClearTierBenefit = onClearTierBenefit,
                                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                                 )
                             }
                         }
@@ -1564,6 +1586,7 @@ internal fun ProgramEditorSheet(
                                 selectedStoreName = selectedStoreName,
                                 availableStores = availableStores,
                                 availableRewards = availableRewards,
+                                currencyCode = currencyCode,
                                 fieldErrors = fieldErrors,
                                 onEditBasics = { currentStepIndex = ProgramCreationStep.BASICS.ordinal },
                                 onEditGoal = { currentStepIndex = ProgramCreationStep.GOAL.ordinal },
@@ -1572,66 +1595,29 @@ internal fun ProgramEditorSheet(
                             )
                         }
                     }
+                    ProgramEditorStepActions(
+                        hasPreviousStep = hasPreviousStep,
+                        hasNextStep = hasNextStep,
+                        isSubmitting = isSubmitting,
+                        onBack = { currentStepIndex -= 1 },
+                        onPrimaryAction = {
+                            if (hasNextStep) {
+                                val scopedErrors = currentStep.scopedErrors(editorState.validate())
+                                if (onApplyEditorValidationErrors(scopedErrors)) {
+                                    currentStepIndex += 1
+                                }
+                            } else {
+                                onPrimaryAction()
+                            }
+                        },
+                    )
                 } else {
-                    CompactProgramRuleCard(
-                        title = stringResource(R.string.merchant_program_editor_basics_title),
-                        summary = basicsSummary(editorState),
-                        errorRes = fieldErrors[PROGRAM_FIELD_NAME] ?: fieldErrors[PROGRAM_FIELD_DESCRIPTION],
-                        onEdit = { onOpenSubEditor(ProgramSubEditor.BASICS_EDIT) },
-                    )
-                    CompactProgramRuleCard(
-                        title = stringResource(R.string.merchant_program_audience_title),
-                        summary = audienceSummary(editorState),
-                        errorRes = fieldErrors[PROGRAM_FIELD_TARGET_AGE_MIN] ?: fieldErrors[PROGRAM_FIELD_TARGET_AGE_MAX],
-                        onEdit = { onOpenSubEditor(ProgramSubEditor.AUDIENCE_EDIT) },
-                    )
-                    CompactProgramRuleCard(
-                        title = stringResource(R.string.merchant_program_editor_schedule_title),
-                        summary = availabilitySummary(editorState),
-                        errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_START]
-                            ?: fieldErrors[PROGRAM_FIELD_SCHEDULE_END]
-                            ?: fieldErrors[PROGRAM_FIELD_BENEFIT_RESET_CUSTOM_DAYS],
-                        onEdit = { onOpenSubEditor(ProgramSubEditor.AVAILABILITY_EDIT) },
-                    )
-                    ProgramRuleFields(
+                    ProgramEditOverviewContent(
                         editorState = editorState,
-                        availablePrograms = availablePrograms,
                         availableRewards = availableRewards,
+                        currencyCode = currencyCode,
                         fieldErrors = fieldErrors,
-                        onPointsSpendStepAmountChange = onPointsSpendStepAmountChange,
-                        onPointsAwardedPerStepChange = onPointsAwardedPerStepChange,
-                        onPointsWelcomeBonusChange = onPointsWelcomeBonusChange,
-                        onPointsMinimumRedeemChange = onPointsMinimumRedeemChange,
-                        onCashbackPercentChange = onCashbackPercentChange,
-                        onCashbackMinimumSpendAmountChange = onCashbackMinimumSpendAmountChange,
-                        onTierNameChange = onTierNameChange,
-                        onTierThresholdChange = onTierThresholdChange,
-                        onTierBonusPercentChange = onTierBonusPercentChange,
-                        onTierRewardTypeChange = onTierRewardTypeChange,
-                        onTierRewardLabelChange = onTierRewardLabelChange,
-                        onTierRewardPointsChange = onTierRewardPointsChange,
-                        onTierRewardRewardIdChange = onTierRewardRewardIdChange,
-                        onTierRewardProgramIdChange = onTierRewardProgramIdChange,
-                        onAddTier = onAddTier,
-                        onRemoveTier = onRemoveTier,
-                        onCouponNameChange = onCouponNameChange,
-                        onCouponPointsCostChange = onCouponPointsCostChange,
-                        onCouponDiscountAmountChange = onCouponDiscountAmountChange,
-                        onCouponMinimumSpendAmountChange = onCouponMinimumSpendAmountChange,
-                        onCheckInVisitsRequiredChange = onCheckInVisitsRequiredChange,
-                        onPurchaseFrequencyCountChange = onPurchaseFrequencyCountChange,
-                        onPurchaseFrequencyWindowDaysChange = onPurchaseFrequencyWindowDaysChange,
-                        onReferralCodePrefixChange = onReferralCodePrefixChange,
-                        onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
-                        onRewardOutcomeLabelChange = onRewardOutcomeLabelChange,
-                        onRewardOutcomePointsChange = onRewardOutcomePointsChange,
-                        onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
-                        onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                         onOpenSubEditor = onOpenSubEditor,
-                        onOpenTierBenefitEditor = onOpenTierBenefitEditor,
-                        onOpenBenefitEditor = onOpenBenefitEditor,
-                        onClearTierBenefit = onClearTierBenefit,
-                        onOpenRewardsCatalog = onOpenRewardsCatalog,
                     )
                     Button(
                         onClick = onPrimaryAction,
@@ -1646,70 +1632,6 @@ internal fun ProgramEditorSheet(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                    }
-                }
-            }
-
-            if (isCreateFlow) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .imePadding(),
-                    color = VerevColors.AppBackground,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (hasPreviousStep) {
-                            Button(
-                                onClick = { currentStepIndex -= 1 },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(20.dp),
-                                contentPadding = PaddingValues(vertical = 18.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = VerevColors.Forest,
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.merchant_program_step_back),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
-                        Button(
-                            onClick = {
-                                if (hasNextStep) {
-                                    val scopedErrors = currentStep.scopedErrors(editorState.validate())
-                                    if (onApplyEditorValidationErrors(scopedErrors)) {
-                                        currentStepIndex += 1
-                                    }
-                                } else {
-                                    onPrimaryAction()
-                                }
-                            },
-                            modifier = if (hasPreviousStep) Modifier.weight(1f) else Modifier.fillMaxWidth(),
-                            enabled = !isSubmitting,
-                            shape = RoundedCornerShape(20.dp),
-                            contentPadding = PaddingValues(vertical = 18.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = VerevColors.Gold, contentColor = Color.White),
-                        ) {
-                            Text(
-                                text = if (hasNextStep) stringResource(R.string.merchant_program_step_continue)
-                                else stringResource(R.string.merchant_program_create_submit),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
                     }
                 }
             }
@@ -1732,23 +1654,238 @@ internal fun ProgramEditorSheet(
     } else {
         AppBottomSheetDialog(
             onDismissRequest = onDismiss,
+            allowSwipeToDismiss = !editorState.isEditing,
+            enableSheetGestures = !editorState.isEditing,
+            fullHeight = editorState.isEditing,
             contentPadding = PaddingValues(0.dp),
-        ) { _, dismissAfter ->
+        ) { _, _ ->
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
                 shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
             ) {
-                editorContent({ dismissAfter(onSave) }, false)
+                editorContent(onSave, false)
             }
         }
     }
 }
 
 @Composable
+private fun ProgramEditorStepActions(
+    hasPreviousStep: Boolean,
+    hasNextStep: Boolean,
+    isSubmitting: Boolean,
+    onBack: () -> Unit,
+    onPrimaryAction: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasPreviousStep) {
+            Button(
+                onClick = onBack,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(vertical = 18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = VerevColors.Forest,
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.merchant_program_step_back),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        Button(
+            onClick = onPrimaryAction,
+            modifier = if (hasPreviousStep) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+            enabled = !isSubmitting,
+            shape = RoundedCornerShape(20.dp),
+            contentPadding = PaddingValues(vertical = 18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = VerevColors.Gold,
+                contentColor = Color.White,
+            ),
+        ) {
+            Text(
+                text = if (hasNextStep) stringResource(R.string.merchant_program_step_continue)
+                else stringResource(R.string.merchant_program_create_submit),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgramEditSheetTopBar(
+    title: String,
+    onClose: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.merchant_program_editor_edit_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.56f),
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(VerevColors.AppBackground),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = null,
+                tint = VerevColors.Forest,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgramEditOverviewContent(
+    editorState: ProgramEditorState,
+    availableRewards: List<Reward>,
+    currencyCode: String,
+    fieldErrors: Map<String, Int>,
+    onOpenSubEditor: (ProgramSubEditor) -> Unit,
+) {
+    ProgramReviewSectionCard(
+        title = stringResource(R.string.merchant_program_editor_basics_title),
+        summaryTitle = editorState.name.ifBlank { stringResource(R.string.merchant_program_basics_name_missing) },
+        summary = editorState.description.ifBlank { stringResource(R.string.merchant_program_basics_description_missing) },
+        errorRes = fieldErrors[PROGRAM_FIELD_NAME] ?: fieldErrors[PROGRAM_FIELD_DESCRIPTION],
+        onEdit = { onOpenSubEditor(ProgramSubEditor.BASICS_EDIT) },
+    )
+
+    when (editorState.type) {
+        LoyaltyProgramType.HYBRID -> {
+            ProgramReviewSectionCard(
+                title = stringResource(R.string.merchant_program_points_earn_title),
+                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
+                summary = stringResource(
+                    R.string.merchant_program_points_summary,
+                    editorState.pointsAwardedPerStep,
+                    formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
+                    editorState.pointsMinimumRedeem.ifBlank { "0" },
+                ),
+                errorRes = fieldErrors[PROGRAM_FIELD_POINTS_STEP] ?: fieldErrors[PROGRAM_FIELD_POINTS_AWARDED],
+                onEdit = { onOpenSubEditor(ProgramSubEditor.EARN_RULES_EDIT) },
+            )
+            ProgramReviewSectionCard(
+                title = stringResource(R.string.merchant_program_checkin_goal_title),
+                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
+                summary = stringResource(
+                    R.string.merchant_program_checkin_summary,
+                    editorState.checkInVisitsRequired,
+                    benefitSummary(editorState.checkInReward, availableRewards),
+                ),
+                errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_VISITS] ?: fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
+                onEdit = { onOpenSubEditor(ProgramSubEditor.CHECKIN_EDIT) },
+            )
+            ProgramReviewSectionCard(
+                title = stringResource(R.string.merchant_program_referral_rewards_title),
+                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
+                summary = stringResource(
+                    R.string.merchant_program_referral_summary,
+                    benefitSummary(editorState.referralReferrerReward, availableRewards),
+                    benefitSummary(editorState.referralRefereeReward, availableRewards),
+                    editorState.referralCodePrefix.ifBlank { "REF" },
+                ),
+                errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER]
+                    ?: fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE]
+                    ?: fieldErrors[PROGRAM_FIELD_REFERRAL_PREFIX],
+                onEdit = { onOpenSubEditor(ProgramSubEditor.REFERRAL_EDIT) },
+            )
+        }
+
+        else -> {
+            ProgramReviewSectionCard(
+                title = stringResource(R.string.merchant_program_creation_goal_title),
+                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
+                summary = reviewGoalSummary(editorState, availableRewards, currencyCode),
+                errorRes = listOf(
+                    PROGRAM_FIELD_POINTS_STEP,
+                    PROGRAM_FIELD_POINTS_AWARDED,
+                    PROGRAM_FIELD_POINTS_REDEEM,
+                    PROGRAM_FIELD_CHECKIN_VISITS,
+                    PROGRAM_FIELD_CHECKIN_REWARD,
+                    PROGRAM_FIELD_FREQUENCY_COUNT,
+                    PROGRAM_FIELD_FREQUENCY_WINDOW,
+                    PROGRAM_FIELD_FREQUENCY_REWARD,
+                    PROGRAM_FIELD_COUPON_NAME,
+                    PROGRAM_FIELD_COUPON_POINTS,
+                    PROGRAM_FIELD_COUPON_DISCOUNT,
+                    PROGRAM_FIELD_REFERRAL_REFERRER,
+                    PROGRAM_FIELD_REFERRAL_REFEREE,
+                    PROGRAM_FIELD_REFERRAL_PREFIX,
+                    PROGRAM_FIELD_TIER_SILVER,
+                ).firstNotNullOfOrNull(fieldErrors::get),
+                onEdit = { onOpenSubEditor(editorState.type.primaryGoalSubEditor()) },
+            )
+        }
+    }
+
+    ProgramReviewSectionCard(
+        title = stringResource(R.string.merchant_program_audience_title),
+        summaryTitle = stringResource(R.string.merchant_program_review_audience_heading),
+        summary = audienceSummary(editorState),
+        errorRes = fieldErrors[PROGRAM_FIELD_TARGET_AGE_MIN] ?: fieldErrors[PROGRAM_FIELD_TARGET_AGE_MAX],
+        onEdit = { onOpenSubEditor(ProgramSubEditor.AUDIENCE_EDIT) },
+    )
+    ProgramReviewSectionCard(
+        title = stringResource(R.string.merchant_program_editor_schedule_title),
+        summaryTitle = stringResource(R.string.merchant_program_review_availability_heading),
+        summary = availabilitySummary(editorState),
+        errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_START]
+            ?: fieldErrors[PROGRAM_FIELD_SCHEDULE_END]
+            ?: fieldErrors[PROGRAM_FIELD_BENEFIT_RESET_CUSTOM_DAYS],
+        onEdit = { onOpenSubEditor(ProgramSubEditor.AVAILABILITY_EDIT) },
+    )
+}
+
+private fun LoyaltyProgramType.primaryGoalSubEditor(): ProgramSubEditor = when (this) {
+    LoyaltyProgramType.POINTS -> ProgramSubEditor.EARN_RULES_EDIT
+    LoyaltyProgramType.TIER -> ProgramSubEditor.TIER_EDIT
+    LoyaltyProgramType.COUPON -> ProgramSubEditor.REWARD_EDIT
+    LoyaltyProgramType.DIGITAL_STAMP -> ProgramSubEditor.CHECKIN_EDIT
+    LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramSubEditor.FREQUENCY_EDIT
+    LoyaltyProgramType.REFERRAL -> ProgramSubEditor.REFERRAL_EDIT
+    LoyaltyProgramType.HYBRID -> ProgramSubEditor.EARN_RULES_EDIT
+}
+
+@Composable
 private fun ProgramEditorHeader(
     editorState: ProgramEditorState,
-    selectedStoreName: String,
     currentStep: Int,
     totalSteps: Int,
     showProgress: Boolean,
@@ -1826,26 +1963,15 @@ private fun ProgramEditorHeader(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MerchantStatusPill(
-                    text = selectedStoreName.ifBlank { stringResource(R.string.merchant_select_store) },
-                    backgroundColor = Color.White.copy(alpha = 0.16f),
-                    contentColor = Color.White,
+            if (showProgress) {
+                Text(
+                    text = stringResource(ProgramCreationStep.entries[currentStep].titleRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                if (showProgress) {
-                    Text(
-                        text = stringResource(ProgramCreationStep.entries[currentStep].titleRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.88f),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
             if (showProgress) {
                 LinearProgressIndicator(
@@ -2036,7 +2162,12 @@ private fun ProgramPreviewBullet(title: String, value: String) {
 @Composable
 private fun sharedActionLabels(actions: Set<RewardProgramScanAction>): String {
     val labels = buildList {
-        actions.forEach { action -> add(action.displayLabel()) }
+        actions
+            .filterNot { action ->
+                action == RewardProgramScanAction.APPLY_CASHBACK ||
+                    action == RewardProgramScanAction.TRACK_TIER_PROGRESS
+            }
+            .forEach { action -> add(action.displayLabel()) }
     }
     return labels.joinToString()
 }
@@ -2123,11 +2254,14 @@ internal fun ProgramEnableGuardrailDialog(
 }
 
 @Composable
-internal fun customerExperienceSummary(editorState: ProgramEditorState): String = when (editorState.type) {
+internal fun customerExperienceSummary(
+    editorState: ProgramEditorState,
+    currencyCode: String,
+): String = when (editorState.type) {
     LoyaltyProgramType.POINTS -> stringResource(
         R.string.merchant_program_preview_points_message,
         editorState.pointsAwardedPerStep.toIntOrNull() ?: 0,
-        editorState.pointsSpendStepAmount.toIntOrNull() ?: 0,
+        formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
         editorState.pointsMinimumRedeem.toIntOrNull() ?: 0,
     )
     LoyaltyProgramType.DIGITAL_STAMP -> stringResource(
@@ -2168,7 +2302,7 @@ private fun ProgramRewardOutcomeEditorState.previewValue(): String = when (type)
     }
 }
 
-private fun RewardProgram.programBenefitSubtitle(): String = buildString {
+private fun RewardProgram.programBenefitSubtitle(currencyCode: String): String = buildString {
     append(
         when (type) {
             LoyaltyProgramType.POINTS -> "Points rewards"
@@ -2184,9 +2318,8 @@ private fun RewardProgram.programBenefitSubtitle(): String = buildString {
         configuration.visitCheckInEnabled -> "After ${configuration.checkInRule.visitsRequired} visits"
         configuration.purchaseFrequencyEnabled -> "${configuration.purchaseFrequencyRule.purchaseCount} purchases"
         configuration.couponEnabled -> configuration.couponRule.couponName
-        configuration.cashbackEnabled -> "${decimalString(configuration.cashbackRule.cashbackPercent)}% cashback"
         configuration.tierTrackingEnabled -> "${configuration.tierRule.configurableLevels.size} tier levels"
-        configuration.earningEnabled -> "${configuration.pointsRule.pointsAwardedPerStep} pts per ${configuration.pointsRule.spendStepAmount}"
+        configuration.earningEnabled -> "${configuration.pointsRule.pointsAwardedPerStep} pts per ${formatWholeCurrency(configuration.pointsRule.spendStepAmount.toDouble(), currencyCode)}"
         configuration.referralEnabled -> "Referral rewards"
         else -> ""
     }
@@ -2362,6 +2495,7 @@ private fun ProgramGoalStepFields(
     editorState: ProgramEditorState,
     availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
+    currencyCode: String,
     fieldErrors: Map<String, Int>,
     onPointsSpendStepAmountChange: (String) -> Unit,
     onPointsAwardedPerStepChange: (String) -> Unit,
@@ -2369,8 +2503,10 @@ private fun ProgramGoalStepFields(
     onPointsMinimumRedeemChange: (String) -> Unit,
     onCashbackPercentChange: (String) -> Unit,
     onCashbackMinimumSpendAmountChange: (String) -> Unit,
+    onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
+    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardLabelChange: (String, String) -> Unit,
@@ -2390,9 +2526,11 @@ private fun ProgramGoalStepFields(
     onRewardOutcomeTypeChange: (ProgramRewardSlot, ProgramRewardOutcomeType) -> Unit,
     onRewardOutcomePointsChange: (ProgramRewardSlot, String) -> Unit,
     onRewardOutcomeRewardIdChange: (ProgramRewardSlot, String?) -> Unit,
+    onRewardOutcomeProgramIdChange: (ProgramRewardSlot, String?) -> Unit,
     onOpenTierBenefitEditor: (String) -> Unit,
     onClearTierBenefit: (String) -> Unit,
     onOpenRewardsCatalog: () -> Unit,
+    onOpenProgramsCatalog: () -> Unit,
 ) {
     when (editorState.type) {
         LoyaltyProgramType.POINTS -> {
@@ -2445,13 +2583,16 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.checkInReward,
                     slot = ProgramRewardSlot.CHECK_IN,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_checkin_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
             }
         }
@@ -2459,16 +2600,26 @@ private fun ProgramGoalStepFields(
         LoyaltyProgramType.TIER -> {
             TierProgressExplainer()
             TierProgramLevelsEditor(
+                tierThresholdBasis = editorState.tierThresholdBasis,
                 tierLevels = editorState.tierLevels,
+                availablePrograms = availablePrograms,
                 availableRewards = availableRewards,
+                currencyCode = currencyCode,
                 fieldErrors = fieldErrors,
+                onTierThresholdBasisChange = onTierThresholdBasisChange,
                 onTierNameChange = onTierNameChange,
                 onTierThresholdChange = onTierThresholdChange,
+                onTierBenefitTypeChange = onTierBenefitTypeChange,
                 onTierBonusPercentChange = onTierBonusPercentChange,
-                onOpenTierBenefitEditor = onOpenTierBenefitEditor,
+                onTierRewardTypeChange = onTierRewardTypeChange,
+                onTierRewardPointsChange = onTierRewardPointsChange,
+                onTierRewardRewardIdChange = onTierRewardRewardIdChange,
+                onTierRewardProgramIdChange = onTierRewardProgramIdChange,
                 onClearTierBenefit = onClearTierBenefit,
                 onAddTier = onAddTier,
                 onRemoveTier = onRemoveTier,
+                onOpenRewardsCatalog = onOpenRewardsCatalog,
+                onOpenProgramsCatalog = onOpenProgramsCatalog,
             )
         }
 
@@ -2530,13 +2681,16 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.purchaseFrequencyReward,
                     slot = ProgramRewardSlot.PURCHASE_FREQUENCY,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_FREQUENCY_REWARD],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_frequency_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
             }
         }
@@ -2548,13 +2702,16 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.referralReferrerReward,
                     slot = ProgramRewardSlot.REFERRAL_REFERRER,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_referrer_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
             }
             ProgramBenefitEditorCard(
@@ -2563,13 +2720,16 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.referralRefereeReward,
                     slot = ProgramRewardSlot.REFERRAL_REFEREE,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_referee_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
             }
             TextField(
@@ -2612,26 +2772,6 @@ private fun ProgramGoalStepFields(
                 )
             }
             ProgramBenefitEditorCard(
-                title = stringResource(R.string.merchant_program_cashback_setup_title),
-            ) {
-                DecimalField(
-                    value = editorState.cashbackPercent,
-                    onValueChange = onCashbackPercentChange,
-                    label = stringResource(R.string.merchant_program_form_cashback_percent),
-                    icon = Icons.Default.Percent,
-                    errorRes = fieldErrors[PROGRAM_FIELD_CASHBACK_PERCENT],
-                    supportingText = null,
-                )
-                DecimalField(
-                    value = editorState.cashbackMinimumSpendAmount,
-                    onValueChange = onCashbackMinimumSpendAmountChange,
-                    label = stringResource(R.string.merchant_program_form_cashback_minimum_spend),
-                    icon = Icons.Default.Payments,
-                    errorRes = null,
-                    supportingText = null,
-                )
-            }
-            ProgramBenefitEditorCard(
                 title = stringResource(R.string.merchant_program_checkin_goal_title),
             ) {
                 IntegerField(
@@ -2645,13 +2785,16 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.checkInReward,
                     slot = ProgramRewardSlot.CHECK_IN,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_checkin_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
             }
             ProgramBenefitEditorCard(
@@ -2660,24 +2803,30 @@ private fun ProgramGoalStepFields(
                 ProgramSlotBenefitFields(
                     state = editorState.referralReferrerReward,
                     slot = ProgramRewardSlot.REFERRAL_REFERRER,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_referrer_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
                 ProgramSlotBenefitFields(
                     state = editorState.referralRefereeReward,
                     slot = ProgramRewardSlot.REFERRAL_REFEREE,
+                    availablePrograms = availablePrograms,
                     availableRewards = availableRewards,
                     errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE],
                     pointsLabel = stringResource(R.string.merchant_program_reward_points_referee_label),
                     onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
                     onRewardOutcomePointsChange = onRewardOutcomePointsChange,
                     onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
                     onOpenRewardsCatalog = onOpenRewardsCatalog,
+                    onOpenProgramsCatalog = onOpenProgramsCatalog,
                 )
                 TextField(
                     value = editorState.referralCodePrefix,
@@ -2698,6 +2847,7 @@ private fun ProgramCreationReviewStep(
     selectedStoreName: String,
     availableStores: List<Store>,
     availableRewards: List<Reward>,
+    currencyCode: String,
     fieldErrors: Map<String, Int>,
     onEditBasics: () -> Unit,
     onEditGoal: () -> Unit,
@@ -2751,7 +2901,7 @@ private fun ProgramCreationReviewStep(
             )
             ReviewSummaryLine(
                 label = stringResource(R.string.merchant_program_creation_goal_title),
-                value = customerExperienceSummary(editorState),
+                value = customerExperienceSummary(editorState, currencyCode),
             )
         }
     }
@@ -2766,7 +2916,7 @@ private fun ProgramCreationReviewStep(
     ProgramReviewSectionCard(
         title = stringResource(R.string.merchant_program_creation_goal_title),
         summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
-        summary = reviewGoalSummary(editorState, availableRewards),
+        summary = reviewGoalSummary(editorState, availableRewards, currencyCode),
         errorRes = listOf(
             PROGRAM_FIELD_POINTS_STEP,
             PROGRAM_FIELD_POINTS_AWARDED,
@@ -2892,11 +3042,12 @@ private fun ReviewSummaryLine(label: String, value: String) {
 private fun reviewGoalSummary(
     editorState: ProgramEditorState,
     availableRewards: List<Reward>,
+    currencyCode: String,
 ): String = when (editorState.type) {
     LoyaltyProgramType.POINTS -> stringResource(
         R.string.merchant_program_points_summary,
         editorState.pointsAwardedPerStep,
-        editorState.pointsSpendStepAmount,
+        formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
         editorState.pointsMinimumRedeem,
     )
     LoyaltyProgramType.DIGITAL_STAMP -> stringResource(
@@ -2908,7 +3059,7 @@ private fun reviewGoalSummary(
     LoyaltyProgramType.COUPON -> stringResource(
         R.string.merchant_program_coupon_summary,
         editorState.couponName.ifBlank { stringResource(R.string.merchant_program_form_coupon_name) },
-        editorState.couponDiscountAmount.ifBlank { "0" },
+        formatWholeCurrency(editorState.couponDiscountAmount.toDoubleOrNull() ?: 0.0, currencyCode),
         editorState.couponPointsCost.ifBlank { "0" },
     )
     LoyaltyProgramType.PURCHASE_FREQUENCY -> stringResource(
@@ -2923,7 +3074,7 @@ private fun reviewGoalSummary(
         benefitSummary(editorState.referralRefereeReward, availableRewards),
         editorState.referralCodePrefix.ifBlank { "REF" },
     )
-    LoyaltyProgramType.HYBRID -> customerExperienceSummary(editorState)
+    LoyaltyProgramType.HYBRID -> customerExperienceSummary(editorState, currencyCode)
 }
 
 @Composable
@@ -2931,6 +3082,7 @@ private fun ProgramRuleFields(
     editorState: ProgramEditorState,
     availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
+    currencyCode: String = "AMD",
     fieldErrors: Map<String, Int>,
     onPointsSpendStepAmountChange: (String) -> Unit,
     onPointsAwardedPerStepChange: (String) -> Unit,
@@ -2974,7 +3126,7 @@ private fun ProgramRuleFields(
                 summary = stringResource(
                     R.string.merchant_program_points_summary,
                     editorState.pointsAwardedPerStep,
-                    editorState.pointsSpendStepAmount,
+                    formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
                     editorState.pointsMinimumRedeem,
                 ),
                 onEdit = { onOpenSubEditor(ProgramSubEditor.EARN_RULES_EDIT) },
@@ -3006,7 +3158,7 @@ private fun ProgramRuleFields(
                 summary = stringResource(
                     R.string.merchant_program_coupon_summary,
                     editorState.couponName.ifBlank { stringResource(R.string.merchant_program_form_coupon_name) },
-                    editorState.couponDiscountAmount.ifBlank { "0" },
+                    formatWholeCurrency(editorState.couponDiscountAmount.toDoubleOrNull() ?: 0.0, currencyCode),
                     editorState.couponPointsCost.ifBlank { "0" },
                 ),
                 errorRes = fieldErrors[PROGRAM_FIELD_COUPON_NAME]
@@ -3051,19 +3203,11 @@ private fun ProgramRuleFields(
                 summary = stringResource(
                     R.string.merchant_program_points_summary,
                     editorState.pointsAwardedPerStep,
-                    editorState.pointsSpendStepAmount,
+                    formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
                     editorState.pointsMinimumRedeem.ifBlank { "0" },
                 ),
                 errorRes = fieldErrors[PROGRAM_FIELD_POINTS_STEP] ?: fieldErrors[PROGRAM_FIELD_POINTS_AWARDED],
                 onEdit = { onOpenSubEditor(ProgramSubEditor.EARN_RULES_EDIT) },
-            )
-            CompactProgramRuleCard(
-                title = stringResource(R.string.merchant_program_cashback_setup_title),
-                summary = stringResource(
-                    R.string.merchant_program_cashback_summary,
-                    editorState.cashbackPercent.ifBlank { "0" },
-                ),
-                onEdit = { onOpenSubEditor(ProgramSubEditor.CASHBACK_EDIT) },
             )
             CompactProgramRuleCard(
                 title = stringResource(R.string.merchant_program_checkin_goal_title),
@@ -3096,27 +3240,38 @@ private fun ProgramBenefitEditorCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ProgramSectionCard(
-        title = title,
-        subtitle = "",
-        content = content,
-    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
+        content()
+    }
 }
 
 @Composable
 private fun ProgramSlotBenefitFields(
     state: ProgramRewardOutcomeEditorState,
     slot: ProgramRewardSlot,
+    availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
     errorRes: Int?,
     pointsLabel: String,
     onRewardOutcomeTypeChange: (ProgramRewardSlot, ProgramRewardOutcomeType) -> Unit,
     onRewardOutcomePointsChange: (ProgramRewardSlot, String) -> Unit,
     onRewardOutcomeRewardIdChange: (ProgramRewardSlot, String?) -> Unit,
+    onRewardOutcomeProgramIdChange: (ProgramRewardSlot, String?) -> Unit,
     onOpenRewardsCatalog: () -> Unit,
+    onOpenProgramsCatalog: () -> Unit,
 ) {
     ProgramBenefitEditorFields(
         state = state,
+        availablePrograms = availablePrograms,
         availableRewards = availableRewards,
         errorRes = errorRes,
         pointsLabel = pointsLabel,
@@ -3127,12 +3282,15 @@ private fun ProgramSlotBenefitFields(
                 when (choice) {
                     ProgramBenefitChoice.POINTS -> ProgramRewardOutcomeType.POINTS
                     ProgramBenefitChoice.REWARD_CATALOG -> ProgramRewardOutcomeType.FREE_PRODUCT
+                    ProgramBenefitChoice.PROGRAM -> ProgramRewardOutcomeType.PROGRAM_POINTS
                 },
             )
         },
         onPointsChange = { onRewardOutcomePointsChange(slot, it) },
         onRewardIdChange = { onRewardOutcomeRewardIdChange(slot, it) },
+        onProgramIdChange = { onRewardOutcomeProgramIdChange(slot, it) },
         onOpenRewardsCatalog = onOpenRewardsCatalog,
+        onOpenProgramsCatalog = onOpenProgramsCatalog,
     )
 }
 
@@ -3250,85 +3408,69 @@ internal fun ProgramBenefitSummarySection(
             color = VerevColors.Forest,
             fontWeight = FontWeight.SemiBold,
         )
-        Surface(
-            color = if (configured) Color.White else VerevColors.AppBackground.copy(alpha = 0.9f),
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(
-                1.dp,
-                if (configured) VerevColors.Forest.copy(alpha = 0.12f) else VerevColors.Forest.copy(alpha = 0.08f),
-            ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            Surface(
+                color = if (state.type == ProgramRewardOutcomeType.POINTS) {
+                    VerevColors.Gold.copy(alpha = 0.14f)
+                } else {
+                    VerevColors.Forest.copy(alpha = 0.10f)
+                },
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Icon(
+                    imageVector = if (state.type == ProgramRewardOutcomeType.POINTS) Icons.Default.Star else Icons.Default.CardGiftcard,
+                    contentDescription = null,
+                    tint = if (state.type == ProgramRewardOutcomeType.POINTS) VerevColors.Gold else VerevColors.Forest,
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(18.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = summaryTitle,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = summarySubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.64f),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(
+                onClick = onOpenEditor,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.Forest),
+            ) {
+                Text(
+                    text = stringResource(
+                        if (configured) R.string.merchant_program_benefit_edit_action
+                        else if (optional) R.string.merchant_program_benefit_add_action
+                        else R.string.merchant_program_benefit_set_action,
+                    ),
+                )
+            }
+            if (configured && optional && onClear != null) {
+                OutlinedButton(
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.ErrorText),
                 ) {
-                    Surface(
-                        color = if (state.type == ProgramRewardOutcomeType.POINTS) {
-                            VerevColors.Gold.copy(alpha = 0.14f)
-                        } else {
-                            VerevColors.Forest.copy(alpha = 0.10f)
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (state.type == ProgramRewardOutcomeType.POINTS) Icons.Default.Star else Icons.Default.CardGiftcard,
-                            contentDescription = null,
-                            tint = if (state.type == ProgramRewardOutcomeType.POINTS) VerevColors.Gold else VerevColors.Forest,
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .size(18.dp),
-                        )
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = summaryTitle,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = VerevColors.Forest,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = summarySubtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VerevColors.Forest.copy(alpha = 0.64f),
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = onOpenEditor,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.Forest),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                if (configured) R.string.merchant_program_benefit_edit_action
-                                else if (optional) R.string.merchant_program_benefit_add_action
-                                else R.string.merchant_program_benefit_set_action,
-                            ),
-                        )
-                    }
-                    if (configured && optional && onClear != null) {
-                        OutlinedButton(
-                            onClick = onClear,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.ErrorText),
-                        ) {
-                            Text(stringResource(R.string.merchant_program_benefit_remove_action))
-                        }
-                    }
+                    Text(stringResource(R.string.merchant_program_benefit_remove_action))
                 }
             }
         }
@@ -3413,17 +3555,37 @@ private fun tierSummary(
 @Composable
 internal fun ProgramBenefitEditorFields(
     state: ProgramRewardOutcomeEditorState,
+    availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
     errorRes: Int?,
     pointsLabel: String,
+    currencyCode: String = "AMD",
     optional: Boolean,
     onChoiceChange: (ProgramBenefitChoice) -> Unit,
     onPointsChange: (String) -> Unit,
     onRewardIdChange: (String?) -> Unit,
+    onProgramIdChange: (String?) -> Unit,
     onOpenRewardsCatalog: () -> Unit,
+    onOpenProgramsCatalog: () -> Unit,
     onClear: (() -> Unit)? = null,
 ) {
     val selectedChoice = state.benefitChoice()
+    var activeChooser by rememberSaveable { androidx.compose.runtime.mutableStateOf<ProgramBenefitChoice?>(null) }
+    var emptyChoiceDialog by rememberSaveable { androidx.compose.runtime.mutableStateOf<ProgramBenefitChoice?>(null) }
+    val rewardOptions = availableRewards.map {
+        RewardOutcomePickerOption(
+            id = it.id,
+            title = it.name,
+            subtitle = "${it.rewardType.displayName()} • ${it.pointsRequired} pts",
+        )
+    }
+    val programOptions = availablePrograms.map {
+        RewardOutcomePickerOption(
+            id = it.id,
+            title = it.name,
+            subtitle = it.programBenefitSubtitle(currencyCode),
+        )
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -3442,24 +3604,36 @@ internal fun ProgramBenefitEditorFields(
                 supportingText = null,
             )
         } else {
-            RewardOutcomePickerList(
-                options = availableRewards.map {
-                    RewardOutcomePickerOption(
-                        id = it.id,
-                        title = it.name,
-                        subtitle = "${it.rewardType.displayName()} • ${it.pointsRequired} pts",
-                    )
-                },
-                selectedId = state.rewardId,
-                emptyLabel = stringResource(R.string.merchant_program_reward_picker_empty),
-                onSelected = onRewardIdChange,
-            )
-            OutlinedButton(
-                onClick = onOpenRewardsCatalog,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.merchant_program_open_reward_catalog_action))
+            val isProgramChoice = selectedChoice == ProgramBenefitChoice.PROGRAM
+            val options = if (isProgramChoice) programOptions else rewardOptions
+            val selectedOption = options.firstOrNull {
+                it.id == if (isProgramChoice) state.programId else state.rewardId
             }
+            BenefitSelectorField(
+                label = stringResource(
+                    if (isProgramChoice) {
+                        R.string.merchant_program_benefit_program_selector_label
+                    } else {
+                        R.string.merchant_program_benefit_reward_selector_label
+                    },
+                ),
+                value = selectedOption?.title.orEmpty(),
+                placeholder = stringResource(
+                    if (isProgramChoice) {
+                        R.string.merchant_program_benefit_program_selector_placeholder
+                    } else {
+                        R.string.merchant_program_benefit_reward_selector_placeholder
+                    },
+                ),
+                supporting = selectedOption?.subtitle,
+                onClick = {
+                    if (options.isEmpty()) {
+                        emptyChoiceDialog = selectedChoice
+                    } else {
+                        activeChooser = selectedChoice
+                    }
+                },
+            )
             errorRes?.let { InlineProgramError(errorRes = it) }
         }
         if (optional && state.isConfigured() && onClear != null) {
@@ -3472,6 +3646,79 @@ internal fun ProgramBenefitEditorFields(
             }
         }
     }
+    activeChooser?.let { choice ->
+        val options = if (choice == ProgramBenefitChoice.PROGRAM) programOptions else rewardOptions
+        BenefitChooserSheet(
+            title = stringResource(
+                if (choice == ProgramBenefitChoice.PROGRAM) {
+                    R.string.merchant_program_benefit_program_chooser_title
+                } else {
+                    R.string.merchant_program_benefit_reward_chooser_title
+                },
+            ),
+            options = options,
+            selectedId = if (choice == ProgramBenefitChoice.PROGRAM) state.programId else state.rewardId,
+            onDismiss = { activeChooser = null },
+            onSelect = { selectedId ->
+                activeChooser = null
+                if (choice == ProgramBenefitChoice.PROGRAM) {
+                    onProgramIdChange(selectedId)
+                } else {
+                    onRewardIdChange(selectedId)
+                }
+            },
+        )
+    }
+    emptyChoiceDialog?.let { choice ->
+        AlertDialog(
+            onDismissRequest = { emptyChoiceDialog = null },
+            title = {
+                Text(
+                    text = stringResource(
+                        if (choice == ProgramBenefitChoice.PROGRAM) {
+                            R.string.merchant_program_benefit_empty_programs_title
+                        } else {
+                            R.string.merchant_program_benefit_empty_rewards_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        if (choice == ProgramBenefitChoice.PROGRAM) {
+                            R.string.merchant_program_benefit_empty_programs_message
+                        } else {
+                            R.string.merchant_program_benefit_empty_rewards_message
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        emptyChoiceDialog = null
+                        if (choice == ProgramBenefitChoice.PROGRAM) onOpenProgramsCatalog() else onOpenRewardsCatalog()
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            if (choice == ProgramBenefitChoice.PROGRAM) {
+                                R.string.merchant_program_create_submit
+                            } else {
+                                R.string.merchant_reward_add_action
+                            },
+                        ),
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { emptyChoiceDialog = null }) {
+                    Text(stringResource(R.string.merchant_close))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -3479,56 +3726,155 @@ private fun RewardBenefitChoiceList(
     selected: ProgramBenefitChoice,
     onSelected: (ProgramBenefitChoice) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         ProgramBenefitChoice.entries.forEach { choice ->
-            val isSelected = choice == selected
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelected(choice) },
-                shape = RoundedCornerShape(18.dp),
-                color = if (isSelected) VerevColors.Forest.copy(alpha = 0.08f) else Color.White,
-                border = BorderStroke(1.dp, if (isSelected) VerevColors.Forest else VerevColors.Forest.copy(alpha = 0.16f)),
+            MerchantFilterChip(
+                text = stringResource(
+                    when (choice) {
+                        ProgramBenefitChoice.POINTS -> R.string.merchant_program_benefit_choice_points
+                        ProgramBenefitChoice.REWARD_CATALOG -> R.string.merchant_program_benefit_choice_reward_catalog
+                        ProgramBenefitChoice.PROGRAM -> R.string.merchant_program_benefit_choice_program
+                    },
+                ),
+                selected = choice == selected,
+                onClick = { onSelected(choice) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BenefitSelectorField(
+    label: String,
+    value: String,
+    placeholder: String,
+    supporting: String?,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = VerevColors.AppBackground,
+        shape = RoundedCornerShape(22.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.10f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.56f),
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = value.ifBlank { placeholder },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (value.isBlank()) VerevColors.Forest.copy(alpha = 0.42f) else VerevColors.Forest,
+                fontWeight = if (value.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
+            )
+            supporting?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerevColors.Forest.copy(alpha = 0.62f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BenefitChooserSheet(
+    title: String,
+    options: List<RewardOutcomePickerOption>,
+    selectedId: String?,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    AppBottomSheetDialog(
+        onDismissRequest = onDismiss,
+        fullHeight = true,
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+    ) { dismiss, _ ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.95f),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                OutlinedButton(onClick = dismiss) {
+                    Text(stringResource(R.string.merchant_close))
+                }
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(options) { option ->
+                    val isSelected = option.id == selectedId
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(option.id) },
+                        shape = RoundedCornerShape(22.dp),
+                        color = if (isSelected) VerevColors.Forest.copy(alpha = 0.08f) else VerevColors.AppBackground,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) VerevColors.Forest else VerevColors.Forest.copy(alpha = 0.08f),
+                        ),
                     ) {
-                        Text(
-                            text = stringResource(
-                                when (choice) {
-                                    ProgramBenefitChoice.POINTS -> R.string.merchant_program_benefit_choice_points
-                                    ProgramBenefitChoice.REWARD_CATALOG -> R.string.merchant_program_benefit_choice_reward_catalog
-                                },
-                            ),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = VerevColors.Forest,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = stringResource(
-                                when (choice) {
-                                    ProgramBenefitChoice.POINTS -> R.string.merchant_program_benefit_choice_points_subtitle
-                                    ProgramBenefitChoice.REWARD_CATALOG -> R.string.merchant_program_benefit_choice_reward_catalog_subtitle
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = VerevColors.Forest.copy(alpha = 0.62f),
-                        )
-                    }
-                    if (isSelected) {
-                        MerchantStatusPill(
-                            text = stringResource(R.string.merchant_program_reward_selected_label),
-                            backgroundColor = VerevColors.Forest.copy(alpha = 0.12f),
-                            contentColor = VerevColors.Forest,
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = option.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = VerevColors.Forest,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = option.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = VerevColors.Forest.copy(alpha = 0.62f),
+                                )
+                            }
+                            if (isSelected) {
+                                MerchantStatusPill(
+                                    text = stringResource(R.string.merchant_program_reward_selected_label),
+                                    backgroundColor = VerevColors.Forest.copy(alpha = 0.12f),
+                                    contentColor = VerevColors.Forest,
+                                )
+                            }
+                        }
                     }
                 }
             }

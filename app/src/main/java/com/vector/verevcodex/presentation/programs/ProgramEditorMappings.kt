@@ -19,8 +19,10 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfiguration
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfigurationFactory
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramDraft
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
+import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
 import com.vector.verevcodex.domain.model.loyalty.TierLevelRule
 import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
+import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.loyalty.impliedRewardType
 import com.vector.verevcodex.domain.model.loyalty.usesProgramBenefit
 import com.vector.verevcodex.domain.model.loyalty.usesRewardItem
@@ -39,6 +41,7 @@ fun defaultProgramEditorState(type: LoyaltyProgramType = LoyaltyProgramType.POIN
         pointsMinimumRedeem = configuration.pointsRule.minimumRedeemPoints.toString(),
         cashbackPercent = decimalString(configuration.cashbackRule.cashbackPercent),
         cashbackMinimumSpendAmount = "",
+        tierThresholdBasis = configuration.tierRule.thresholdBasis,
         tierLevels = configuration.tierRule.sortedLevels.toEditorState().map { level ->
             level.copy(
                 bonusPercent = "0",
@@ -90,6 +93,7 @@ fun RewardProgram.toEditorState(): ProgramEditorState = ProgramEditorState(
     pointsMinimumRedeem = configuration.pointsRule.minimumRedeemPoints.toString(),
     cashbackPercent = decimalString(configuration.cashbackRule.cashbackPercent),
     cashbackMinimumSpendAmount = decimalString(configuration.cashbackRule.minimumSpendAmount),
+    tierThresholdBasis = configuration.tierRule.thresholdBasis,
     tierLevels = configuration.tierRule.sortedLevels.toEditorState(),
     couponName = configuration.couponRule.couponName,
     couponPointsCost = configuration.couponRule.pointsCost.toString(),
@@ -214,9 +218,7 @@ fun ProgramEditorState.validate(): Map<String, Int> {
                     previousThreshold = threshold
                 }
                 if (bonusPercent == null) {
-                    if (level.bonusPercent.isNotBlank()) {
-                        errors[key] = R.string.merchant_program_error_tier_bonus_required
-                    }
+                    errors[key] = R.string.merchant_program_error_tier_bonus_required
                 }
                 if (level.rewardOutcome.isConfigured()) {
                     validateRewardOutcome(level.rewardOutcome, key, errors)
@@ -295,6 +297,7 @@ fun ProgramEditorState.toConfiguration(
             fallback = baseConfiguration.tierRule.sortedLevels,
             availablePrograms = availablePrograms,
             availableRewards = availableRewards,
+            thresholdBasis = tierThresholdBasis,
         ),
     )
     val couponRule = CouponProgramRule(
@@ -436,7 +439,7 @@ fun ProgramEditorState.toConfiguration(
             earningEnabled = true,
             rewardRedemptionEnabled = true,
             visitCheckInEnabled = true,
-            cashbackEnabled = true,
+            cashbackEnabled = false,
             tierTrackingEnabled = true,
             couponEnabled = true,
             purchaseFrequencyEnabled = true,
@@ -445,11 +448,9 @@ fun ProgramEditorState.toConfiguration(
                 RewardProgramScanAction.EARN_POINTS,
                 RewardProgramScanAction.REDEEM_REWARDS,
                 RewardProgramScanAction.CHECK_IN,
-                RewardProgramScanAction.APPLY_CASHBACK,
                 RewardProgramScanAction.TRACK_TIER_PROGRESS,
             ) else emptySet(),
             pointsRule = pointsRule,
-            cashbackRule = cashbackRule,
             tierRule = tierRule,
             couponRule = couponRule,
             checkInRule = checkInRule,
@@ -465,7 +466,6 @@ fun buildRulesSummary(configuration: RewardProgramConfiguration): String = when 
     configuration.couponEnabled -> "${configuration.couponRule.couponName} for ${configuration.couponRule.pointsCost} pts"
     configuration.tierTrackingEnabled -> configuration.tierRule.configurableLevels.joinToString(", ") { "${it.name} ${it.threshold}" }
     configuration.visitCheckInEnabled -> "Reward after ${configuration.checkInRule.visitsRequired} check-ins"
-    configuration.cashbackEnabled -> "${decimalString(configuration.cashbackRule.cashbackPercent)}% cashback"
     else -> "${configuration.pointsRule.pointsAwardedPerStep} point per ${configuration.pointsRule.spendStepAmount} spent"
 }
 
@@ -532,6 +532,7 @@ private fun List<TierLevelRule>.toEditorState(): List<TierLevelEditorState> =
             id = level.id,
             name = level.name,
             threshold = level.threshold.toString(),
+            benefitType = level.benefitType,
             bonusPercent = level.bonusPercent.coerceAtLeast(0).toString(),
             rewardOutcome = level.rewardOutcome.toEditorState(
                 fallbackPoints = level.rewardOutcome.pointsAmount,
@@ -544,6 +545,7 @@ private fun List<TierLevelEditorState>.toDomainLevels(
     fallback: List<TierLevelRule>,
     availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
+    thresholdBasis: TierThresholdBasis,
 ): List<TierLevelRule> {
     val fallbackById = fallback.associateBy { it.id }
     val normalized = mapIndexedNotNull { index, level ->
@@ -565,6 +567,8 @@ private fun List<TierLevelEditorState>.toDomainLevels(
                     id = level.id,
                     name = name,
                     threshold = threshold,
+                    thresholdBasis = thresholdBasis,
+                    benefitType = level.benefitType,
                     bonusPercent = bonusPercent,
                     rewardOutcome = rewardOutcome,
                 )

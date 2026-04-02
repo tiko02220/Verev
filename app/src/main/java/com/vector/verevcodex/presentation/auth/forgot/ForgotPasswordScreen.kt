@@ -16,6 +16,7 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.auth.common.AuthCenteredSection
 import com.vector.verevcodex.presentation.auth.common.AuthGradientScreenScaffold
 import com.vector.verevcodex.presentation.auth.common.ForgotPasswordStep
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import kotlinx.coroutines.delay
 
 @Composable
@@ -54,14 +55,14 @@ fun ForgotPasswordScreen(
                     mode = mode,
                     state = state,
                     onEmailChanged = viewModel::updateEmail,
-                    onSend = viewModel::sendCode,
+                    onSend = { viewModel.sendCode(mode) },
                     focusManager = focusManager,
                 )
                 ForgotPasswordStep.OTP -> ForgotOtpCard(
                     state = state,
                     onOtpChanged = viewModel::updateOtp,
-                    onVerify = viewModel::verifyCode,
-                    onResend = viewModel::resendCode,
+                    onVerify = { viewModel.verifyCode(mode) },
+                    onResend = { viewModel.resendCode(mode) },
                 )
                 ForgotPasswordStep.NEW_PASSWORD -> ForgotResetCard(
                     mode = mode,
@@ -88,5 +89,11 @@ fun ForgotPasswordScreen(
             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
+        state.dialogErrorMessage?.let { message ->
+            MerchantErrorDialog(
+                message = message,
+                onDismiss = viewModel::dismissDialogError,
+            )
+        }
     }
 }

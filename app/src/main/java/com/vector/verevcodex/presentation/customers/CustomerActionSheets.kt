@@ -951,14 +951,6 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                         program.configuration.pointsRule.spendStepAmount,
                     ),
                 )
-                CustomerProgramDetailRow(
-                    label = stringResource(R.string.merchant_customer_program_details_cashback),
-                    value = stringResource(
-                        R.string.merchant_customer_program_details_cashback_rule,
-                        program.configuration.cashbackRule.cashbackPercent.toInt(),
-                        formatWholeCurrency(program.configuration.cashbackRule.minimumSpendAmount),
-                    ),
-                )
             }
         }
     }

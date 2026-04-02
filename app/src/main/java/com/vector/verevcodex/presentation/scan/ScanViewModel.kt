@@ -61,6 +61,14 @@ class ScanViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
+        observeSessionUseCase()
+            .onEach { session ->
+                _uiState.value = _uiState.value.copy(
+                    currencyCode = session?.user?.defaultCurrencyCode?.ifBlank { "AMD" } ?: "AMD",
+                )
+            }
+            .launchIn(viewModelScope)
+
         observeSelectedStoreUseCase()
             .flatMapLatest { store -> observeActiveScanActionsUseCase(store?.id) }
             .onEach { remoteActions ->
@@ -299,16 +307,36 @@ class ScanViewModel @Inject constructor(
         remoteActions: List<RewardProgramScanAction>,
         activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
     ): List<RewardProgramScanAction> {
-        if (remoteActions.isNotEmpty()) {
-            return remoteActions.distinct()
-        }
-        return activePrograms
+        val activeProgramActions = activePrograms
             .asSequence()
             .filter { it.active }
             .flatMap { it.configuration.scanActions.asSequence() }
             .distinct()
-            .sortedBy { it.ordinal }
             .toList()
+        val resolvedActions = (remoteActions + activeProgramActions)
+            .distinct()
+            .filterNot { action ->
+                action == RewardProgramScanAction.APPLY_CASHBACK ||
+                    action == RewardProgramScanAction.TRACK_TIER_PROGRESS
+            }
+        val actionableWithoutCheckIn = resolvedActions.filterNot { it == RewardProgramScanAction.CHECK_IN }
+        val visibleActions = if (
+            RewardProgramScanAction.CHECK_IN in resolvedActions &&
+            actionableWithoutCheckIn.isNotEmpty()
+        ) {
+            actionableWithoutCheckIn
+        } else {
+            resolvedActions
+        }
+        return visibleActions.sortedBy { action ->
+            when (action) {
+                RewardProgramScanAction.EARN_POINTS -> 0
+                RewardProgramScanAction.REDEEM_REWARDS -> 1
+                RewardProgramScanAction.CHECK_IN -> 2
+                RewardProgramScanAction.APPLY_CASHBACK -> 3
+                RewardProgramScanAction.TRACK_TIER_PROGRESS -> 4
+            }
+        }
     }
 
     fun submitAction(amountInput: String, pointsInput: String) {
@@ -369,10 +397,11 @@ class ScanViewModel @Inject constructor(
                 staffId = staffId,
                 amount = amountInput.toDoubleOrNull(),
                 points = pointsInput.toIntOrNull(),
+                customer = customer,
                 activePrograms = state.activePrograms,
                 visitAlreadyCounted = state.visitCountedForCurrentScan
             ).onSuccess {
-                if (selectedAction == RewardProgramScanAction.EARN_POINTS || selectedAction == RewardProgramScanAction.CHECK_IN) {
+                if (selectedAction.countsVisitFor(state.activePrograms)) {
                     markVisitCountedForCurrentScan()
                 }
                 refreshCustomerAfterAction(customer.loyaltyId, getSuccessMessage(selectedAction))
@@ -544,6 +573,18 @@ class ScanViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(visitCountedForCurrentScan = true)
     }
 }
+
+private fun RewardProgramScanAction.countsVisitFor(activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>): Boolean =
+    this == RewardProgramScanAction.EARN_POINTS ||
+        this == RewardProgramScanAction.CHECK_IN ||
+        (
+            this != RewardProgramScanAction.CHECK_IN &&
+                activePrograms.any { program ->
+                    program.active &&
+                        program.configuration.visitCheckInEnabled &&
+                        RewardProgramScanAction.CHECK_IN in program.configuration.scanActions
+                }
+            )
 
 private fun List<CustomerBonusAction>.filterRewardHighlights(): List<CustomerBonusAction> =
     filter { action ->

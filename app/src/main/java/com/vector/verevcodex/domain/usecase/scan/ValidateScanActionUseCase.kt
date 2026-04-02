@@ -37,14 +37,6 @@ class ValidateScanActionUseCase @Inject constructor() {
                     else -> null
                 }
             }
-            RewardProgramScanAction.APPLY_CASHBACK -> {
-                val minSpend = activePrograms.maxOfOrNull { it.configuration.cashbackRule.minimumSpendAmount } ?: 0.0
-                when {
-                    amount == null || amount <= 0.0 -> ScanValidationError.InvalidAmount
-                    amount < minSpend -> ScanValidationError.MinimumSpendRequired(minSpend)
-                    else -> null
-                }
-            }
             else -> null
         }
     }

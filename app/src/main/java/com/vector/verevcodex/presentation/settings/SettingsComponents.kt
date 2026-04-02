@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.auth.AuthUser
 import com.vector.verevcodex.domain.model.business.Store
+import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonBlock
 import com.vector.verevcodex.presentation.merchant.common.MerchantSkeletonCard
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -507,79 +508,10 @@ internal fun SettingsLogoutDialog(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(VerevColors.Scrim),
-        contentAlignment = Alignment.Center,
-    ) {
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(18.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(VerevColors.DangerContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = VerevColors.Danger)
-                }
-                Text(
-                    text = stringResource(R.string.merchant_logout_confirm_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = VerevColors.Forest,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.merchant_logout_confirm_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = VerevColors.Forest.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center,
-                )
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onConfirm),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = VerevColors.DangerStrong),
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = stringResource(R.string.merchant_logout),
-                            color = VerevColors.White,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onCancel),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = VerevColors.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = stringResource(R.string.auth_cancel),
-                            color = VerevColors.Moss,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
-            }
-        }
-    }
+    MerchantConfirmationDialog(
+        title = stringResource(R.string.merchant_logout_confirm_title),
+        message = stringResource(R.string.merchant_logout_confirm_subtitle),
+        onConfirm = onConfirm,
+        onDismiss = onCancel,
+    )
 }

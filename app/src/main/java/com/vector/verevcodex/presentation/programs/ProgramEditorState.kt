@@ -1,6 +1,8 @@
 package com.vector.verevcodex.presentation.programs
 
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
+import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 
 internal val DefaultTierNames = listOf("Bronze", "Silver", "Gold", "Platinum", "VIP")
@@ -9,6 +11,7 @@ data class TierLevelEditorState(
     val id: String,
     val name: String,
     val threshold: String,
+    val benefitType: TierBenefitType,
     val bonusPercent: String,
     val rewardOutcome: ProgramRewardOutcomeEditorState = ProgramRewardOutcomeEditorState(),
 )
@@ -39,11 +42,13 @@ data class ProgramEditorState(
     val pointsMinimumRedeem: String = "50",
     val cashbackPercent: String = "5",
     val cashbackMinimumSpendAmount: String = "0",
+    val tierThresholdBasis: TierThresholdBasis = TierThresholdBasis.POINTS,
     val tierLevels: List<TierLevelEditorState> = listOf(
         TierLevelEditorState(
             id = "tier_1",
             name = DefaultTierNames[0],
             threshold = "0",
+            benefitType = TierBenefitType.BONUS_PERCENT,
             bonusPercent = "0",
             rewardOutcome = ProgramRewardOutcomeEditorState(),
         ),
@@ -51,6 +56,7 @@ data class ProgramEditorState(
             id = "tier_2",
             name = DefaultTierNames[1],
             threshold = "250",
+            benefitType = TierBenefitType.BONUS_PERCENT,
             bonusPercent = "0",
             rewardOutcome = ProgramRewardOutcomeEditorState(),
         ),
@@ -58,6 +64,7 @@ data class ProgramEditorState(
             id = "tier_3",
             name = DefaultTierNames[2],
             threshold = "500",
+            benefitType = TierBenefitType.BONUS_PERCENT,
             bonusPercent = "0",
             rewardOutcome = ProgramRewardOutcomeEditorState(),
         ),
@@ -65,6 +72,7 @@ data class ProgramEditorState(
             id = "tier_4",
             name = DefaultTierNames[3],
             threshold = "750",
+            benefitType = TierBenefitType.BONUS_PERCENT,
             bonusPercent = "0",
             rewardOutcome = ProgramRewardOutcomeEditorState(),
         ),
@@ -72,6 +80,7 @@ data class ProgramEditorState(
             id = "tier_5",
             name = DefaultTierNames[4],
             threshold = "1000",
+            benefitType = TierBenefitType.BONUS_PERCENT,
             bonusPercent = "0",
             rewardOutcome = ProgramRewardOutcomeEditorState(),
         ),

@@ -9,6 +9,7 @@ import com.vector.verevcodex.domain.model.common.defaultPermissions
 
 fun UserViewDto.toAuthUser(
     relatedEntityId: String = id.orEmpty(),
+    defaultCurrencyCode: String = "AMD",
     permissions: StaffPermissions = parseRemoteStaffRole(role).defaultPermissions(),
 ): AuthUser {
     val parsedRole = parseRemoteStaffRole(role)
@@ -19,6 +20,7 @@ fun UserViewDto.toAuthUser(
         email = email.orEmpty(),
         phoneNumber = phoneNumber.orEmpty(),
         profilePhotoUri = profilePhotoUri.orEmpty(),
+        defaultCurrencyCode = defaultCurrencyCode.ifBlank { "AMD" },
         role = parsedRole,
         status = status.orEmpty().uppercase(),
         active = status.orEmpty().equals("ACTIVE", ignoreCase = true),
@@ -28,8 +30,9 @@ fun UserViewDto.toAuthUser(
 }
 
 fun UserViewDto.toAuthSession(
+    defaultCurrencyCode: String = "AMD",
     permissions: StaffPermissions = parseRemoteStaffRole(role).defaultPermissions(),
 ): AuthSession = AuthSession(
-    user = toAuthUser(permissions = permissions),
+    user = toAuthUser(defaultCurrencyCode = defaultCurrencyCode, permissions = permissions),
     isAuthenticated = true,
 )

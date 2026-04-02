@@ -6,7 +6,7 @@ import com.vector.verevcodex.domain.model.loyalty.TierLevelRule
 import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
 
 internal fun Customer.resolveDisplayedTier(tierRule: TierProgramRule?): Customer {
-    val earnedLevel = tierRule?.earnedLevelForPoints(currentPoints)
+    val earnedLevel = tierRule?.earnedLevelFor(currentPoints, totalSpent)
     return if (earnedLevel == null) {
         copy(loyaltyTierLabel = "")
     } else {
@@ -18,12 +18,7 @@ internal fun Customer.resolveDisplayedTier(tierRule: TierProgramRule?): Customer
 }
 
 internal fun Customer.hasDisplayedTier(tierRule: TierProgramRule?): Boolean =
-    tierRule?.earnedLevelForPoints(currentPoints) != null
-
-private fun TierProgramRule.earnedLevelForPoints(points: Int): TierLevelRule? =
-    configurableLevels
-        .sortedBy { it.threshold }
-        .lastOrNull { points >= it.threshold }
+    tierRule?.earnedLevelFor(currentPoints, totalSpent) != null
 
 private fun TierProgramRule.loyaltyTierForLevel(level: TierLevelRule): LoyaltyTier {
     val index = configurableLevels.indexOfFirst { it.id == level.id }.coerceAtLeast(0)

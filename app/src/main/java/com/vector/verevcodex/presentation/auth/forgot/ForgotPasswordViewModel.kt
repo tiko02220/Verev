@@ -2,10 +2,13 @@ package com.vector.verevcodex.presentation.auth.forgot
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.domain.usecase.auth.ResetPasswordUseCase
 import com.vector.verevcodex.domain.usecase.auth.ResetQuickPinUseCase
 import com.vector.verevcodex.domain.usecase.auth.SendPasswordResetCodeUseCase
+import com.vector.verevcodex.domain.usecase.auth.SendQuickPinResetCodeUseCase
 import com.vector.verevcodex.domain.usecase.auth.VerifyPasswordResetCodeUseCase
+import com.vector.verevcodex.domain.usecase.auth.VerifyQuickPinResetCodeUseCase
 import com.vector.verevcodex.presentation.auth.common.ForgotPasswordStep
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,7 +22,9 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ForgotPasswordViewModel @Inject constructor(
     private val sendPasswordResetCodeUseCase: SendPasswordResetCodeUseCase,
+    private val sendQuickPinResetCodeUseCase: SendQuickPinResetCodeUseCase,
     private val verifyPasswordResetCodeUseCase: VerifyPasswordResetCodeUseCase,
+    private val verifyQuickPinResetCodeUseCase: VerifyQuickPinResetCodeUseCase,
     private val resetPasswordUseCase: ResetPasswordUseCase,
     private val resetQuickPinUseCase: ResetQuickPinUseCase,
 ) : ViewModel() {
@@ -27,14 +32,14 @@ class ForgotPasswordViewModel @Inject constructor(
     val uiState: StateFlow<ForgotPasswordUiState> = _uiState.asStateFlow()
     private var resendCountdownJob: Job? = null
 
-    fun updateEmail(value: String) = update { copy(email = value.trim(), error = null) }
+    fun updateEmail(value: String) = update { copy(email = value.trim(), error = null, dialogErrorMessage = null) }
     fun updateOtp(index: Int, value: String) = update {
         val list = otp.toMutableList()
         list[index] = value.take(1)
-        copy(otp = list, error = null)
+        copy(otp = list, error = null, dialogErrorMessage = null)
     }
-    fun updateNewPassword(value: String) = update { copy(newPassword = value.replace("\n", ""), error = null) }
-    fun updateConfirmPassword(value: String) = update { copy(confirmPassword = value.replace("\n", ""), error = null) }
+    fun updateNewPassword(value: String) = update { copy(newPassword = value.replace("\n", ""), error = null, dialogErrorMessage = null) }
+    fun updateConfirmPassword(value: String) = update { copy(confirmPassword = value.replace("\n", ""), error = null, dialogErrorMessage = null) }
 
     fun back() {
         update {
@@ -46,27 +51,36 @@ class ForgotPasswordViewModel @Inject constructor(
                     ForgotPasswordStep.EMAIL -> ForgotPasswordStep.EMAIL
                 },
                 error = null,
+                dialogErrorMessage = null,
             )
         }
     }
 
-    fun sendCode() {
-        requestResetCode()
+    fun dismissDialogError() {
+        update { copy(dialogErrorMessage = null) }
     }
 
-    fun resendCode() {
+    fun sendCode(mode: RecoveryMode) {
+        requestResetCode(mode)
+    }
+
+    fun resendCode(mode: RecoveryMode) {
         if (_uiState.value.resendCountdownSeconds > 0) return
-        requestResetCode()
+        requestResetCode(mode)
     }
 
-    private fun requestResetCode() {
+    private fun requestResetCode(mode: RecoveryMode) {
         if (uiState.value.email.isBlank()) {
             update { copy(error = "required_email") }
             return
         }
         viewModelScope.launch {
-            update { copy(isLoading = true, error = null) }
-            sendPasswordResetCodeUseCase(uiState.value.email)
+            update { copy(isLoading = true, error = null, dialogErrorMessage = null) }
+            val result = when (mode) {
+                RecoveryMode.PASSWORD -> sendPasswordResetCodeUseCase(uiState.value.email)
+                RecoveryMode.PIN -> sendQuickPinResetCodeUseCase(uiState.value.email)
+            }
+            result
                 .onSuccess {
                     update {
                         copy(
@@ -78,21 +92,49 @@ class ForgotPasswordViewModel @Inject constructor(
                     }
                     startResendCountdown()
                 }
-                .onFailure { update { copy(isLoading = false, error = "invalid_email") } }
+                .onFailure { throwable ->
+                    update {
+                        copy(
+                            isLoading = false,
+                            dialogErrorMessage = throwable.toRecoveryDialogMessage(),
+                        )
+                    }
+                }
         }
     }
 
-    fun verifyCode() {
+    fun verifyCode(mode: RecoveryMode) {
         val code = uiState.value.otp.joinToString(separator = "")
         if (code.length != 6) {
             update { copy(error = "code_incomplete") }
             return
         }
         viewModelScope.launch {
-            update { copy(isLoading = true, error = null) }
-            verifyPasswordResetCodeUseCase(uiState.value.email, code)
+            update { copy(isLoading = true, error = null, dialogErrorMessage = null) }
+            val result = when (mode) {
+                RecoveryMode.PASSWORD -> verifyPasswordResetCodeUseCase(uiState.value.email, code)
+                RecoveryMode.PIN -> verifyQuickPinResetCodeUseCase(uiState.value.email, code)
+            }
+            result
                 .onSuccess { update { copy(isLoading = false, step = ForgotPasswordStep.NEW_PASSWORD) } }
-                .onFailure { update { copy(isLoading = false, error = "code_invalid") } }
+                .onFailure { throwable ->
+                    val remoteError = throwable as? RemoteException
+                    val errorKey = if (
+                        remoteError?.backendCode == "AUTH_RESET_INVALID_CODE" ||
+                        remoteError?.backendCode == "AUTH_RESET_EXPIRED"
+                    ) {
+                        "code_invalid"
+                    } else {
+                        null
+                    }
+                    update {
+                        copy(
+                            isLoading = false,
+                            error = errorKey,
+                            dialogErrorMessage = if (errorKey == null) throwable.toRecoveryDialogMessage() else null,
+                        )
+                    }
+                }
         }
     }
 
@@ -106,14 +148,21 @@ class ForgotPasswordViewModel @Inject constructor(
                 copy(error = if (mode == RecoveryMode.PIN) "pin_mismatch" else "password_confirm")
             }
             else -> viewModelScope.launch {
-                update { copy(isLoading = true, error = null) }
+                update { copy(isLoading = true, error = null, dialogErrorMessage = null) }
                 val result = when (mode) {
                     RecoveryMode.PASSWORD -> resetPasswordUseCase(state.email, state.newPassword)
                     RecoveryMode.PIN -> resetQuickPinUseCase(state.email, state.newPassword)
                 }
                 result
                     .onSuccess { update { copy(isLoading = false, step = ForgotPasswordStep.SUCCESS) } }
-                    .onFailure { update { copy(isLoading = false, error = "reset_failed") } }
+                    .onFailure { throwable ->
+                        update {
+                            copy(
+                                isLoading = false,
+                                dialogErrorMessage = throwable.toRecoveryDialogMessage(),
+                            )
+                        }
+                    }
             }
         }
     }
@@ -146,6 +195,17 @@ data class ForgotPasswordUiState(
     val newPassword: String = "",
     val confirmPassword: String = "",
     val error: String? = null,
+    val dialogErrorMessage: String? = null,
     val isLoading: Boolean = false,
     val resendCountdownSeconds: Int = 0,
 )
+
+private fun Throwable.toRecoveryDialogMessage(): String {
+    val remoteError = this as? RemoteException
+    return when (remoteError?.backendCode) {
+        "NOT_FOUND_PASSWORD_RESET",
+        "AUTH_RESET_EXPIRED" -> "Your reset session expired. Request a new code and try again."
+        "NOT_FOUND_USER" -> "No account was found for that email."
+        else -> message?.takeIf { it.isNotBlank() } ?: "Something went wrong. Please try again."
+    }
+}

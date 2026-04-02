@@ -48,19 +48,24 @@ import com.vector.verevcodex.BuildConfig
 import com.vector.verevcodex.R
 import com.vector.verevcodex.presentation.theme.VerevColors
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import kotlinx.coroutines.delay
 
 @Composable
 internal fun VerevSplashScreen(
     modifier: Modifier = Modifier,
+    isOffline: Boolean = false,
+    showLoader: Boolean = !isOffline,
+    onTryAgain: (() -> Unit)? = null,
 ) {
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset("splash_logo.json"))
     val animationProgress by animateLottieCompositionAsState(
         composition = composition,
         iterations = LottieConstants.IterateForever,
         speed = 1f,
-        isPlaying = true,
+        isPlaying = !isOffline,
     )
 
     var contentVisible by remember { mutableStateOf(false) }
@@ -178,16 +183,44 @@ internal fun VerevSplashScreen(
 
             Spacer(modifier = Modifier.weight(0.56f))
 
-            SplashLoader()
+            if (isOffline && !showLoader) {
+                Text(
+                    text = stringResource(R.string.splash_offline_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.size(10.dp))
+                Text(
+                    text = stringResource(R.string.splash_offline_subtitle),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.74f),
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.size(18.dp))
+                Button(
+                    onClick = { onTryAgain?.invoke() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = VerevColors.Gold,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text(stringResource(R.string.merchant_try_again))
+                }
+            } else {
+                SplashLoader()
 
-            Spacer(modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.size(14.dp))
 
-            Text(
-                text = stringResource(R.string.splash_loading),
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White.copy(alpha = 0.5f),
-                fontWeight = FontWeight.Medium,
-            )
+                Text(
+                    text = stringResource(R.string.splash_loading),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
 
             Spacer(modifier = Modifier.weight(0.94f))
 

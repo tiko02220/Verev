@@ -9,6 +9,7 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 data class LoyaltyUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
+    val currencyCode: String = "AMD",
     val stores: List<Store> = emptyList(),
     val isLoading: Boolean = true,
     val programs: List<RewardProgram> = emptyList(),

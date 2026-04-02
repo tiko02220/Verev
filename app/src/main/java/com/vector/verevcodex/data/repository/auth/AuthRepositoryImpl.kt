@@ -62,14 +62,9 @@ class AuthRepositoryImpl @Inject constructor(
                     }
                     .onFailure { error ->
                         val remoteError = error as? RemoteException
-                        val shouldClearSession = when (remoteError?.kind) {
-                            RemoteException.Kind.Api,
-                            RemoteException.Kind.Data -> true
-                            RemoteException.Kind.Connectivity,
-                            RemoteException.Kind.Timeout,
-                            RemoteException.Kind.Unexpected,
-                            null -> false
-                        }
+                        val shouldClearSession =
+                            remoteError?.kind == RemoteException.Kind.Api &&
+                                remoteError.httpStatus in setOf(401, 403)
                         if (shouldClearSession) {
                             tokenStore.clearTokens()
                             clearStoredSession()
@@ -350,8 +345,16 @@ class AuthRepositoryImpl @Inject constructor(
         return authRemote.requestPasswordResetByEmail(email.trim().lowercase())
     }
 
+    override suspend fun sendQuickPinResetCode(email: String): Result<Unit> {
+        return authRemote.requestQuickPinResetByEmail(email.trim().lowercase())
+    }
+
     override suspend fun verifyPasswordResetCode(email: String, code: String): Result<Unit> {
         return authRemote.verifyPasswordResetByEmail(email.trim().lowercase(), code)
+    }
+
+    override suspend fun verifyQuickPinResetCode(email: String, code: String): Result<Unit> {
+        return authRemote.verifyQuickPinResetByEmail(email.trim().lowercase(), code)
     }
 
     override suspend fun resetPassword(email: String, newPassword: String): Result<Unit> {
@@ -432,23 +435,25 @@ class AuthRepositoryImpl @Inject constructor(
 
     private suspend fun persistSession(session: AuthSession) {
         dataStore.edit { preferences ->
-            preferences[AuthPreferenceKeys.currentAccountId] = session.user.id
+            val resolvedSession = session.withFallbackCurrency(existingCurrencyFrom(preferences))
+            preferences[AuthPreferenceKeys.currentAccountId] = resolvedSession.user.id
             if (preferences[AuthPreferenceKeys.pendingSignupSession] != null) {
-                preferences[AuthPreferenceKeys.pendingSignupSession] = gson.toJson(session)
+                preferences[AuthPreferenceKeys.pendingSignupSession] = gson.toJson(resolvedSession)
             } else {
-                preferences[AuthPreferenceKeys.currentSession] = gson.toJson(session)
+                preferences[AuthPreferenceKeys.currentSession] = gson.toJson(resolvedSession)
             }
         }
     }
 
     private suspend fun persistPendingSignupSession(session: AuthSession) {
         dataStore.edit { preferences ->
-            preferences[AuthPreferenceKeys.currentAccountId] = session.user.id
-            preferences[AuthPreferenceKeys.pendingSignupSession] = gson.toJson(session)
+            val resolvedSession = session.withFallbackCurrency(existingCurrencyFrom(preferences))
+            preferences[AuthPreferenceKeys.currentAccountId] = resolvedSession.user.id
+            preferences[AuthPreferenceKeys.pendingSignupSession] = gson.toJson(resolvedSession)
             preferences.remove(AuthPreferenceKeys.currentSession)
             applySignupOnboardingState(
                 preferences = preferences,
-                accountId = session.user.id,
+                accountId = resolvedSession.user.id,
                 pending = true,
             )
         }
@@ -456,11 +461,12 @@ class AuthRepositoryImpl @Inject constructor(
 
     private suspend fun persistSessionState(session: AuthSession, signupOnboardingPending: Boolean) {
         dataStore.edit { preferences ->
-            preferences[AuthPreferenceKeys.currentAccountId] = session.user.id
-            preferences[AuthPreferenceKeys.currentSession] = gson.toJson(session)
+            val resolvedSession = session.withFallbackCurrency(existingCurrencyFrom(preferences))
+            preferences[AuthPreferenceKeys.currentAccountId] = resolvedSession.user.id
+            preferences[AuthPreferenceKeys.currentSession] = gson.toJson(resolvedSession)
             applySignupOnboardingState(
                 preferences = preferences,
-                accountId = session.user.id,
+                accountId = resolvedSession.user.id,
                 pending = signupOnboardingPending,
             )
         }
@@ -541,6 +547,18 @@ class AuthRepositoryImpl @Inject constructor(
     private fun deserializeSession(rawValue: String): AuthSession? =
         runCatching { gson.fromJson(rawValue, AuthSession::class.java) }.getOrNull()
 
+    private fun existingCurrencyFrom(preferences: androidx.datastore.preferences.core.Preferences): String? =
+        preferences[AuthPreferenceKeys.pendingSignupSession]
+            ?.let(::deserializeSession)
+            ?.user
+            ?.defaultCurrencyCode
+            ?.takeIf { it.isNotBlank() }
+            ?: preferences[AuthPreferenceKeys.currentSession]
+                ?.let(::deserializeSession)
+                ?.user
+                ?.defaultCurrencyCode
+                ?.takeIf { it.isNotBlank() }
+
     private fun deserializeSignupOnboardingStage(rawValue: String): SignupOnboardingStage? =
         runCatching { SignupOnboardingStage.valueOf(rawValue) }.getOrNull()
 
@@ -563,3 +581,9 @@ internal fun resolveSignupOnboardingPending(
 }
 
 private fun AuthSession?.accountIdOrNull(): String? = this?.user?.id?.takeIf { it.isNotBlank() }
+
+private fun AuthSession.withFallbackCurrency(fallbackCurrencyCode: String?): AuthSession {
+    if (user.defaultCurrencyCode.isNotBlank()) return this
+    val resolvedCurrencyCode = fallbackCurrencyCode?.takeIf { it.isNotBlank() } ?: "AMD"
+    return copy(user = user.copy(defaultCurrencyCode = resolvedCurrencyCode))
+}

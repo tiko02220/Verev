@@ -16,7 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -173,6 +174,7 @@ internal fun ProgramTypeInsightCard(
     type: LoyaltyProgramType,
     programs: List<RewardProgram>,
     rewards: List<Reward>,
+    currencyCode: String = "AMD",
 ) {
     val leadProgram = programs.firstOrNull { it.active } ?: programs.firstOrNull()
     Surface(
@@ -204,7 +206,7 @@ internal fun ProgramTypeInsightCard(
             LoyaltyProgramType.POINTS -> ProgramFactGrid(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_points_awarded) to leadProgram.configuration.pointsRule.pointsAwardedPerStep.toString(),
-                    stringResource(R.string.merchant_program_form_points_step_amount) to formatWholeCurrency(leadProgram.configuration.pointsRule.spendStepAmount.toDouble()),
+                    stringResource(R.string.merchant_program_form_points_step_amount) to formatWholeCurrency(leadProgram.configuration.pointsRule.spendStepAmount.toDouble(), currencyCode),
                     stringResource(R.string.merchant_program_form_points_minimum_redeem) to leadProgram.configuration.pointsRule.minimumRedeemPoints.toString(),
                     stringResource(R.string.merchant_program_reward_catalog_label) to rewards.count { it.activeStatus }.toString(),
                 ),
@@ -216,8 +218,8 @@ internal fun ProgramTypeInsightCard(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_coupon_name) to leadProgram.configuration.couponRule.couponName,
                     stringResource(R.string.merchant_program_form_coupon_points_cost) to leadProgram.configuration.couponRule.pointsCost.toString(),
-                    stringResource(R.string.merchant_program_form_coupon_discount_amount) to formatWholeCurrency(leadProgram.configuration.couponRule.discountAmount),
-                    stringResource(R.string.merchant_program_form_coupon_minimum_spend) to formatWholeCurrency(leadProgram.configuration.couponRule.minimumSpendAmount),
+                    stringResource(R.string.merchant_program_form_coupon_discount_amount) to formatWholeCurrency(leadProgram.configuration.couponRule.discountAmount, currencyCode),
+                    stringResource(R.string.merchant_program_form_coupon_minimum_spend) to formatWholeCurrency(leadProgram.configuration.couponRule.minimumSpendAmount, currencyCode),
                 ),
             )
             LoyaltyProgramType.DIGITAL_STAMP -> ProgramFactGrid(
@@ -243,7 +245,7 @@ internal fun ProgramTypeInsightCard(
             LoyaltyProgramType.HYBRID -> ProgramFactGrid(
                 facts = listOf(
                     stringResource(R.string.merchant_program_form_points_awarded) to leadProgram.configuration.pointsRule.pointsAwardedPerStep.toString(),
-                    stringResource(R.string.merchant_program_form_cashback_percent) to "${leadProgram.configuration.cashbackRule.cashbackPercent}%",
+                    stringResource(R.string.merchant_program_form_checkin_visits) to leadProgram.configuration.checkInRule.visitsRequired.toString(),
                     stringResource(R.string.merchant_program_form_tier_bonus_percent) to leadProgram.configuration.tierRule.configurableLevels
                         .lastOrNull()
                         ?.let { "${it.name} ${it.bonusPercent}%" }
@@ -346,7 +348,6 @@ internal fun ProgramTypeGuidanceCard(type: LoyaltyProgramType) {
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun ProgramTypeProgramCard(
     type: LoyaltyProgramType,
@@ -355,7 +356,6 @@ internal fun ProgramTypeProgramCard(
     snapshot: ProgramOperationalSnapshot,
     isBusy: Boolean,
     onEdit: (() -> Unit)?,
-    quickActions: List<ProgramQuickActionUi>,
     onToggleEnabled: (Boolean) -> Unit,
     onDelete: (() -> Unit)?,
     canManagePrograms: Boolean = true,
@@ -477,36 +477,16 @@ internal fun ProgramTypeProgramCard(
                                 contentColor = VerevColors.Forest,
                             ),
                         ) {
-                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = if (program.active) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
                             Text(
                                 text = if (program.active) stringResource(R.string.merchant_program_pause_action) else stringResource(R.string.merchant_program_resume_action),
                                 modifier = Modifier.padding(start = 8.dp),
                                 fontWeight = FontWeight.SemiBold,
                             )
-                        }
-                    }
-                }
-                if (canManagePrograms && quickActions.isNotEmpty()) {
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        maxItemsInEachRow = 2,
-                    ) {
-                        quickActions.forEach { action ->
-                            androidx.compose.material3.OutlinedButton(
-                                onClick = action.onClick,
-                                modifier = Modifier.fillMaxWidth(0.48f),
-                                enabled = !isBusy,
-                                shape = RoundedCornerShape(18.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.Forest),
-                            ) {
-                                Text(
-                                    text = stringResource(action.labelRes),
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
                         }
                     }
                 }

@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.presentation.customers.resolveDisplayedTier
+import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantEmptyStateCard
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
 import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
@@ -62,7 +63,7 @@ fun ScanScreen(
             contentPadding = contentPadding,
             activeMethod = state.activeScanMethod!!,
             scanSessionToken = state.scanSessionToken,
-            errorRes = state.errorRes,
+            errorRes = null,
             messageRes = state.messageRes,
             onSelectMethod = viewModel::switchScanMethod,
             onBarcodeScanned = viewModel::onBarcodeScanned,
@@ -100,16 +101,6 @@ fun ScanScreen(
                 ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                state.errorRes?.let { errorRes ->
-                    item {
-                        ScanInlineBanner(
-                            title = stringResource(errorRes),
-                            subtitle = stringResource(R.string.merchant_scan_error_supporting),
-                            positive = false,
-                        )
-                    }
-                }
-
                 when {
                     state.contentMode == ScanContentMode.LOOKUP -> {
                         item {
@@ -124,10 +115,16 @@ fun ScanScreen(
                     state.contentMode == ScanContentMode.CUSTOMER && state.customer != null -> {
                         val activeTierProgram = state.activePrograms.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
                         val displayCustomer = state.customer!!.resolveDisplayedTier(activeTierProgram?.configuration?.tierRule)
+                        val tierDiscountPercent = activeTierProgram
+                            ?.configuration
+                            ?.tierRule
+                            ?.activeDiscountPercent(state.customer!!.currentPoints, state.customer!!.totalSpent)
+                            ?: 0
                         item {
                             ScanCustomerCard(
                                 customer = displayCustomer,
                                 showTier = displayCustomer.loyaltyTierLabel.isNotBlank(),
+                                discountPercent = tierDiscountPercent,
                             )
                         }
                         item {
@@ -136,6 +133,8 @@ fun ScanScreen(
                                 rewardHighlights = state.customerRewardHighlights,
                                 availableActions = state.availableActions,
                                 selectedAction = state.selectedAction,
+                                customer = state.customer!!,
+                                currencyCode = state.currencyCode,
                                 amount = amount.value,
                                 points = points.value,
                                 customerPoints = state.customer!!.currentPoints,
@@ -206,6 +205,12 @@ fun ScanScreen(
                 finishAfterDialogDismiss = true
                 viewModel.dismissSuccessDialog()
             },
+        )
+    }
+    state.errorRes?.let { errorRes ->
+        MerchantErrorDialog(
+            message = stringResource(errorRes),
+            onDismiss = viewModel::clearFeedback,
         )
     }
 }

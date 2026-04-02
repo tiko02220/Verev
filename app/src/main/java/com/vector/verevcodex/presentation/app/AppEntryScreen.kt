@@ -1,25 +1,19 @@
 package com.vector.verevcodex.presentation.app
 
+import com.vector.verevcodex.BuildConfig
+import com.vector.verevcodex.data.remote.core.BackendEndpoint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
-import com.vector.verevcodex.R
 import com.vector.verevcodex.platform.connectivity.rememberConnectivityStatus
 import com.vector.verevcodex.presentation.auth.security.AppSecurityUiState
 import com.vector.verevcodex.presentation.auth.security.SecurityUnlockScreen
@@ -27,7 +21,12 @@ import com.vector.verevcodex.presentation.navigation.AuthNavHost
 import com.vector.verevcodex.presentation.navigation.MerchantAppNavHost
 import com.vector.verevcodex.presentation.navigation.Screen
 import com.vector.verevcodex.presentation.scan.ScanViewModel
-import com.vector.verevcodex.presentation.theme.VerevColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 @Composable
 fun AppEntryScreen(
@@ -44,19 +43,33 @@ fun AppEntryScreen(
     val merchantNavController = rememberNavController()
     val connectivityStatus = rememberConnectivityStatus()
     val destination = securityState.toRootDestination()
+    var backendRetryToken by rememberSaveable { mutableStateOf(0) }
+    val backendAvailable by produceState<Boolean?>(initialValue = null, connectivityStatus.isOnline, backendRetryToken) {
+        value = if (!connectivityStatus.isOnline) {
+            false
+        } else {
+            checkBackendReachability()
+        }
+    }
 
-    if (!connectivityStatus.isOnline && destination.shouldShowOfflineBootstrap()) {
+    if (!connectivityStatus.isOnline || backendAvailable != true) {
         AppBootstrapScreen(
-            isOnline = false,
-            onTryAgain = connectivityStatus.refresh,
+            isOnline = connectivityStatus.isOnline && backendAvailable == null,
+            onTryAgain = {
+                connectivityStatus.refresh()
+                backendRetryToken += 1
+            },
         )
         return
     }
 
     when (destination) {
         AppRootDestination.Loading -> AppBootstrapScreen(
-            isOnline = true,
-            onTryAgain = connectivityStatus.refresh,
+            isOnline = backendAvailable == true,
+            onTryAgain = {
+                connectivityStatus.refresh()
+                backendRetryToken += 1
+            },
         )
 
         is AppRootDestination.Auth -> key(destination.flowKey, destination.startDestination) {
@@ -86,68 +99,49 @@ fun AppEntryScreen(
     }
 }
 
+private suspend fun checkBackendReachability(): Boolean = withContext(Dispatchers.IO) {
+    runCatching {
+        val backendEndpoint = BackendEndpoint.from(BuildConfig.VEREV_BACKEND_BASE_URL)
+        val connection = (URL("${backendEndpoint.httpBaseUrl}actuator/health").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 4_000
+            readTimeout = 4_000
+            instanceFollowRedirects = true
+        }
+        try {
+            val code = connection.responseCode
+            code in 200..299
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrDefault(false)
+}
+
 @Composable
 private fun AppBootstrapScreen(
     isOnline: Boolean,
     onTryAgain: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        VerevColors.ForestDeep,
-                        VerevColors.Forest,
-                        VerevColors.Moss,
-                    )
-                )
-            )
-    ) {
+    var retrying by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(isOnline) {
         if (isOnline) {
-            VerevSplashScreen()
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(28.dp))
-                        .padding(24.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = stringResource(R.string.splash_offline_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
-                        )
-                        Text(
-                            text = stringResource(R.string.splash_offline_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.8f),
-                        )
-                        Button(
-                            onClick = onTryAgain,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = VerevColors.Gold,
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Text(stringResource(R.string.merchant_try_again))
-                        }
-                    }
-                }
-            }
+            retrying = false
         }
     }
-}
 
-private fun AppRootDestination.shouldShowOfflineBootstrap(): Boolean = when (this) {
-    AppRootDestination.Loading -> true
-    is AppRootDestination.Auth -> startDestination == Screen.Login.route
-    AppRootDestination.Unlock -> false
-    AppRootDestination.Merchant -> false
+    VerevSplashScreen(
+        modifier = Modifier.fillMaxSize(),
+        isOffline = !isOnline,
+        showLoader = isOnline || retrying,
+        onTryAgain = {
+            retrying = true
+            onTryAgain()
+            scope.launch {
+                delay(1200)
+                retrying = false
+            }
+        },
+    )
 }

@@ -39,8 +39,10 @@ import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfiguration
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
+import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
 import com.vector.verevcodex.domain.model.loyalty.TierLevelRule
 import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
+import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.promotions.CampaignTarget
 import com.vector.verevcodex.domain.model.promotions.PromotionDraft
@@ -135,6 +137,7 @@ class LoyaltyRemoteDataSource @Inject constructor(
             tierGoldThreshold = draft.configuration.tierRule.goldThreshold,
             tierVipThreshold = draft.configuration.tierRule.vipThreshold,
             tierBonusPercent = draft.configuration.tierRule.tierBonusPercent,
+            tierThresholdBasis = draft.configuration.tierRule.thresholdBasis.name,
             tierLevels = draft.configuration.tierRule.sortedLevels.map { it.toDto() },
             couponName = draft.configuration.couponRule.couponName,
             couponPointsCost = draft.configuration.couponRule.pointsCost,
@@ -206,6 +209,7 @@ class LoyaltyRemoteDataSource @Inject constructor(
             tierGoldThreshold = draft.configuration.tierRule.goldThreshold,
             tierVipThreshold = draft.configuration.tierRule.vipThreshold,
             tierBonusPercent = draft.configuration.tierRule.tierBonusPercent,
+            tierThresholdBasis = draft.configuration.tierRule.thresholdBasis.name,
             tierLevels = draft.configuration.tierRule.sortedLevels.map { it.toDto() },
             couponName = draft.configuration.couponRule.couponName,
             couponPointsCost = draft.configuration.couponRule.pointsCost,
@@ -572,12 +576,25 @@ private fun LoyaltyProgramViewDto.toDomain(): RewardProgram {
                 ?.mapNotNull { it.toDomain() }
                 ?.takeIf { it.isNotEmpty() }
                 ?: TierProgramRule(
-                    levels = listOf(
-                        TierLevelRule(id = "tier_1", name = "Tier 1", threshold = 0, bonusPercent = 0),
-                        TierLevelRule(id = "tier_2", name = "Tier 2", threshold = tierSilverThreshold ?: 250, bonusPercent = 5),
-                        TierLevelRule(id = "tier_3", name = "Tier 3", threshold = tierGoldThreshold ?: 500, bonusPercent = tierBonusPercent ?: 10),
-                        TierLevelRule(id = "tier_4", name = "Tier 4", threshold = tierVipThreshold ?: 1000, bonusPercent = (tierBonusPercent ?: 10) + 5),
-                    ),
+                    levels = TierProgramRule.defaultTierLevels(
+                        thresholdBasis = tierThresholdBasis
+                            ?.uppercase()
+                            ?.let { kotlin.runCatching { TierThresholdBasis.valueOf(it) }.getOrNull() }
+                            ?: TierThresholdBasis.POINTS,
+                    ).mapIndexed { index, level ->
+                        when (index) {
+                            1 -> level.copy(threshold = tierSilverThreshold ?: level.threshold)
+                            2 -> level.copy(
+                                threshold = tierGoldThreshold ?: level.threshold,
+                                bonusPercent = tierBonusPercent ?: level.bonusPercent,
+                            )
+                            4 -> level.copy(
+                                threshold = tierVipThreshold ?: level.threshold,
+                                bonusPercent = (tierBonusPercent ?: level.bonusPercent).coerceAtLeast(level.bonusPercent),
+                            )
+                            else -> level
+                        }
+                    },
                 ).sortedLevels,
         ),
         couponRule = CouponProgramRule(
@@ -653,6 +670,8 @@ private fun TierLevelRule.toDto(): TierLevelDto = TierLevelDto(
     id = id,
     name = name,
     threshold = threshold,
+    thresholdBasis = thresholdBasis.name,
+    benefitType = benefitType.name,
     bonusPercent = bonusPercent,
     rewardOutcome = rewardOutcome.toDto(),
 )
@@ -667,6 +686,14 @@ private fun TierLevelDto.toDomain(): TierLevelRule? {
         id = tierId,
         name = tierName,
         threshold = tierThreshold,
+        thresholdBasis = thresholdBasis
+            ?.uppercase()
+            ?.let { kotlin.runCatching { TierThresholdBasis.valueOf(it) }.getOrNull() }
+            ?: TierThresholdBasis.POINTS,
+        benefitType = benefitType
+            ?.uppercase()
+            ?.let { kotlin.runCatching { TierBenefitType.valueOf(it) }.getOrNull() }
+            ?: TierBenefitType.BONUS_PERCENT,
         bonusPercent = tierBonusPercent,
         rewardOutcome = rewardOutcome.toDomainOutcome(
             fallbackPoints = 0,

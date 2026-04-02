@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.scan
 
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
 import com.vector.verevcodex.domain.model.loyalty.displayValue
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
@@ -19,12 +20,15 @@ internal fun List<RewardProgram>.resolveProgramFor(action: RewardProgramScanActi
         .sortedBy { program -> program.priorityFor(action) }
         .firstOrNull()
 
-internal fun List<RewardProgram>.calculateEarnedPoints(amount: Double): Int {
+internal fun List<RewardProgram>.calculateEarnedPoints(amount: Double, customer: Customer): Int {
     if (amount <= 0.0) return 0
     val rule = resolveProgramFor(RewardProgramScanAction.EARN_POINTS)?.configuration?.pointsRule ?: PointsProgramRule()
     val spendStep = rule.spendStepAmount.coerceAtLeast(1)
-    val stepCount = (amount / spendStep).toInt().coerceAtLeast(1)
-    return stepCount * rule.pointsAwardedPerStep.coerceAtLeast(1)
+    val stepCount = (amount / spendStep).toInt()
+    if (stepCount <= 0 || rule.pointsAwardedPerStep <= 0) return 0
+    val basePoints = stepCount * rule.pointsAwardedPerStep
+    val tierBonusPercent = activeTierRule()?.activeBonusPercent(customer.currentPoints, customer.totalSpent) ?: 0
+    return basePoints + ((basePoints * tierBonusPercent) / 100)
 }
 
 internal fun List<RewardProgram>.minimumRedeemPoints(): Int {
@@ -49,6 +53,18 @@ internal fun List<RewardProgram>.cashbackMinimumSpendAmount(): Double =
 
 internal fun List<RewardProgram>.checkInRewardSummary(): String =
     (resolveProgramFor(RewardProgramScanAction.CHECK_IN)?.configuration?.checkInRule ?: CheckInProgramRule()).rewardOutcome.displayValue()
+
+internal fun List<RewardProgram>.currentTierDiscountPercent(customer: Customer): Int =
+    activeTierRule()?.activeDiscountPercent(customer.currentPoints, customer.totalSpent) ?: 0
+
+internal fun List<RewardProgram>.discountedTotal(amount: Double, customer: Customer): Double {
+    val discountPercent = currentTierDiscountPercent(customer)
+    if (discountPercent <= 0) return amount
+    return amount * (1.0 - (discountPercent / 100.0))
+}
+
+private fun List<RewardProgram>.activeTierRule() =
+    firstOrNull { it.active && it.configuration.tierTrackingEnabled }?.configuration?.tierRule
 
 private fun RewardProgramScanAction.isEnabledIn(configuration: RewardProgramConfiguration): Boolean = when (this) {
     RewardProgramScanAction.EARN_POINTS -> configuration.earningEnabled

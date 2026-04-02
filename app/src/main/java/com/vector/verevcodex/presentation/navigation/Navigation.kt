@@ -467,6 +467,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -486,6 +487,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -505,6 +507,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -524,6 +527,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -543,6 +547,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -562,6 +567,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }
@@ -581,6 +587,7 @@ fun MerchantAppNavHost(
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
                     onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
+                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
                     openEditorOnLaunch = openEditor,
                 )
             }

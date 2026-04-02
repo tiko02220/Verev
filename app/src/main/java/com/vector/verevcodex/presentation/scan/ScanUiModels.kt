@@ -28,6 +28,7 @@ enum class BarcodeScanFailureReason {
 data class ScanUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
+    val currencyCode: String = "AMD",
     val scanPreferences: ScanPreferences = ScanPreferences(),
     val contentMode: ScanContentMode = ScanContentMode.ACTIVE_SCAN,
     val scanSessionToken: Int = 0,

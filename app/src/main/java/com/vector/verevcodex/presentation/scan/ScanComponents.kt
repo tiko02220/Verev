@@ -944,6 +944,7 @@ internal fun ScanStatusCard(
 internal fun ScanCustomerCard(
     customer: Customer,
     showTier: Boolean,
+    discountPercent: Int = 0,
 ) {
     Surface(
         modifier = Modifier
@@ -984,13 +985,21 @@ internal fun ScanCustomerCard(
                     color = VerevColors.Forest.copy(alpha = 0.6f),
                 )
             }
-            if (showTier) {
-                CustomerTierPill(
-                    tier = customer.loyaltyTier,
-                    label = customer.loyaltyTierLabel.ifBlank {
-                        customer.loyaltyTier.name.lowercase().replaceFirstChar { it.uppercase() }
-                    },
-                )
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (showTier) {
+                    CustomerTierPill(
+                        tier = customer.loyaltyTier,
+                        label = customer.loyaltyTierLabel.ifBlank {
+                            customer.loyaltyTier.name.lowercase().replaceFirstChar { it.uppercase() }
+                        },
+                    )
+                }
+                if (discountPercent > 0) {
+                    CustomerTierDiscountPill(discountPercent = discountPercent)
+                }
             }
         }
         Row(
@@ -1094,6 +1103,8 @@ internal fun ScanActionComposerCard(
     rewardHighlights: List<CustomerBonusAction>,
     availableActions: List<RewardProgramScanAction>,
     selectedAction: RewardProgramScanAction?,
+    customer: Customer,
+    currencyCode: String,
     amount: String,
     points: String,
     customerPoints: Int,
@@ -1186,6 +1197,8 @@ internal fun ScanActionComposerCard(
                 ScanSelectedActionContent(
                     activePrograms = activePrograms,
                     action = action,
+                    customer = customer,
+                    currencyCode = currencyCode,
                     amount = amount,
                     points = points,
                     customerPoints = customerPoints,
@@ -1210,6 +1223,8 @@ internal fun ScanActionComposerCard(
 private fun ScanSelectedActionContent(
     activePrograms: List<RewardProgram>,
     action: RewardProgramScanAction,
+    customer: Customer,
+    currencyCode: String,
     amount: String,
     points: String,
     customerPoints: Int,
@@ -1233,6 +1248,7 @@ private fun ScanSelectedActionContent(
             Text(
                 text = action.supportingText(
                     activePrograms = activePrograms,
+                    customer = customer,
                     customerPoints = customerPoints,
                     amount = amount,
                 ),
@@ -1247,6 +1263,15 @@ private fun ScanSelectedActionContent(
                         label = stringResource(R.string.merchant_scan_amount_label),
                         errorRes = fieldErrors[SCAN_FIELD_AMOUNT],
                     )
+                    val enteredAmount = amount.toDoubleOrNull() ?: 0.0
+                    val discountPercent = activePrograms.currentTierDiscountPercent(customer)
+                    if (discountPercent > 0 && enteredAmount > 0.0) {
+                        ScanTierDiscountPreview(
+                            discountPercent = discountPercent,
+                            discountedTotal = activePrograms.discountedTotal(enteredAmount, customer),
+                            currencyCode = currencyCode,
+                        )
+                    }
                 }
                 RewardProgramScanAction.REDEEM_REWARDS -> {
                     MerchantFormField(
@@ -1374,11 +1399,12 @@ private fun RewardProgramScanAction.label(): String = when (this) {
 @Composable
 private fun RewardProgramScanAction.supportingText(
     activePrograms: List<RewardProgram>,
+    customer: Customer,
     customerPoints: Int,
     amount: String,
 ): String = when (this) {
     RewardProgramScanAction.EARN_POINTS ->
-        stringResource(R.string.merchant_scan_points_preview, activePrograms.calculateEarnedPoints(amount.toDoubleOrNull() ?: 0.0))
+        stringResource(R.string.merchant_scan_points_preview, activePrograms.calculateEarnedPoints(amount.toDoubleOrNull() ?: 0.0, customer))
     RewardProgramScanAction.REDEEM_REWARDS ->
         stringResource(R.string.merchant_scan_redeem_supporting, customerPoints)
     RewardProgramScanAction.CHECK_IN ->
@@ -1494,5 +1520,56 @@ private fun CustomerTierPill(
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
         )
+    }
+}
+
+@Composable
+private fun CustomerTierDiscountPill(discountPercent: Int) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(100.dp))
+            .background(VerevColors.Gold.copy(alpha = 0.16f))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.merchant_scan_customer_discount_badge, discountPercent),
+            color = VerevColors.Gold,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun ScanTierDiscountPreview(
+    discountPercent: Int,
+    discountedTotal: Double,
+    currencyCode: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = VerevColors.Gold.copy(alpha = 0.10f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.merchant_scan_tier_discount_title, discountPercent),
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(
+                    R.string.merchant_scan_tier_discount_subtitle,
+                    formatWholeCurrency(discountedTotal, currencyCode),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.7f),
+            )
+        }
     }
 }

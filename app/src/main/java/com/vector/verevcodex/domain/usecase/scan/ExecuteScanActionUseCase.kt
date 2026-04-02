@@ -3,6 +3,7 @@ package com.vector.verevcodex.domain.usecase.scan
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.transactions.Transaction
 import com.vector.verevcodex.domain.model.transactions.TransactionItem
 import com.vector.verevcodex.domain.repository.customer.CustomerRepository
@@ -26,14 +27,23 @@ class ExecuteScanActionUseCase @Inject constructor(
         staffId: String,
         amount: Double?,
         points: Int?,
+        customer: Customer,
         activePrograms: List<RewardProgram>,
         visitAlreadyCounted: Boolean,
         metadata: String = ""
     ): Result<Unit> = runCatching {
+        val shouldAutoApplyCheckIn =
+            action != RewardProgramScanAction.CHECK_IN &&
+                !visitAlreadyCounted &&
+                activePrograms.any { program ->
+                    program.active &&
+                        program.configuration.visitCheckInEnabled &&
+                        RewardProgramScanAction.CHECK_IN in program.configuration.scanActions
+                }
         when (action) {
             RewardProgramScanAction.EARN_POINTS -> {
                 val purchaseAmount = amount ?: throw IllegalArgumentException("Amount required for earning")
-                val earnedPoints = calculateTotalEarnedPoints(activePrograms, purchaseAmount)
+                val earnedPoints = calculateTotalEarnedPoints(activePrograms, purchaseAmount, customer)
                 val transactionId = UUID.randomUUID().toString()
                 
                 transactionRepository.recordTransaction(
@@ -51,10 +61,16 @@ class ExecuteScanActionUseCase @Inject constructor(
                     ),
                     incrementVisit = !visitAlreadyCounted
                 )
+                if (shouldAutoApplyCheckIn) {
+                    customerRepository.recordCheckIn(customerId, storeId)
+                }
             }
             RewardProgramScanAction.REDEEM_REWARDS -> {
                 val pointsToRedeem = points ?: throw IllegalArgumentException("Points required for redemption")
                 customerRepository.adjustPoints(customerId, -pointsToRedeem, "Reward Redemption")
+                if (shouldAutoApplyCheckIn) {
+                    customerRepository.recordCheckIn(customerId, storeId)
+                }
             }
             RewardProgramScanAction.CHECK_IN -> {
                 customerRepository.recordCheckIn(customerId, storeId)
@@ -63,8 +79,8 @@ class ExecuteScanActionUseCase @Inject constructor(
         }
     }
 
-    private fun calculateTotalEarnedPoints(programs: List<RewardProgram>, amount: Double): Int {
-        return programs
+    private fun calculateTotalEarnedPoints(programs: List<RewardProgram>, amount: Double, customer: Customer): Int {
+        val earnProgram = programs
             .asSequence()
             .filter { program ->
                 program.active &&
@@ -75,11 +91,28 @@ class ExecuteScanActionUseCase @Inject constructor(
                         LoyaltyProgramType.HYBRID,
                     )
             }
-            .sumOf { program ->
-            val rule = program.configuration.pointsRule
+            .sortedBy { program ->
+                when (program.type) {
+                    LoyaltyProgramType.POINTS -> 0
+                    LoyaltyProgramType.TIER -> 1
+                    LoyaltyProgramType.HYBRID -> 2
+                    else -> 9
+                }
+            }
+            .firstOrNull()
+        val basePoints = earnProgram?.configuration?.pointsRule?.let { rule ->
             if (rule.spendStepAmount > 0) {
                 (amount / rule.spendStepAmount).toInt() * rule.pointsAwardedPerStep
-            } else 0
+            } else {
+                0
             }
+        } ?: 0
+        val tierBonusPercent = programs
+            .asSequence()
+            .filter { it.active && it.configuration.tierTrackingEnabled }
+            .map { it.configuration.tierRule.activeBonusPercent(customer.currentPoints, customer.totalSpent) }
+            .maxOrNull()
+            ?: 0
+        return basePoints + ((basePoints * tierBonusPercent) / 100)
     }
 }

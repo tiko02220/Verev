@@ -64,7 +64,7 @@ class ProcessScanActionUseCase @Inject constructor(
     }
 
     private fun calculateEarnedPoints(programs: List<RewardProgram>, amount: Double): Int {
-        return programs
+        val earnProgram = programs
             .asSequence()
             .filter { program ->
                 program.active &&
@@ -75,11 +75,20 @@ class ProcessScanActionUseCase @Inject constructor(
                         LoyaltyProgramType.HYBRID,
                     )
             }
-            .sumOf { program ->
+            .sortedBy { program ->
+                when (program.type) {
+                    LoyaltyProgramType.POINTS -> 0
+                    LoyaltyProgramType.TIER -> 1
+                    LoyaltyProgramType.HYBRID -> 2
+                    else -> 9
+                }
+            }
+            .firstOrNull()
+        return earnProgram?.let { program ->
             val rule = program.configuration.pointsRule
             if (rule.spendStepAmount > 0) {
                 (amount / rule.spendStepAmount).toInt() * rule.pointsAwardedPerStep
             } else 0
-            }
+        } ?: 0
     }
 }

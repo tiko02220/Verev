@@ -7,6 +7,9 @@ import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.common.RewardType
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
+import com.vector.verevcodex.domain.model.loyalty.RewardProgram
+import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
+import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.loyalty.usesProgramBenefit
 import com.vector.verevcodex.domain.model.loyalty.usesRewardItem
 import com.vector.verevcodex.domain.usecase.loyalty.CreateRewardUseCase
@@ -23,6 +26,7 @@ import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.SetProgramEnabledUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateRewardUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateProgramUseCase
+import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -37,6 +41,7 @@ import kotlinx.coroutines.launch
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LoyaltyViewModel @Inject constructor(
+    observeSessionUseCase: ObserveSessionUseCase,
     observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     observeStoresUseCase: ObserveStoresUseCase,
     observeProgramsUseCase: ObserveProgramsUseCase,
@@ -57,6 +62,14 @@ class LoyaltyViewModel @Inject constructor(
     val uiState: StateFlow<LoyaltyUiState> = _uiState
 
     init {
+        observeSessionUseCase()
+            .onEach { session ->
+                _uiState.value = _uiState.value.copy(
+                    currencyCode = session?.user?.defaultCurrencyCode?.ifBlank { "AMD" } ?: "AMD",
+                )
+            }
+            .launchIn(viewModelScope)
+
         val selectedStoreFlow = observeSelectedStoreUseCase()
         val storesFlow = observeStoresUseCase()
         val programsFlow = selectedStoreFlow.flatMapLatest { store -> observeProgramsUseCase(store?.id) }
@@ -429,11 +442,15 @@ class LoyaltyViewModel @Inject constructor(
     fun updatePointsMinimumRedeem(value: String) = updateEditor { copy(pointsMinimumRedeem = value) }
     fun updateCashbackPercent(value: String) = updateEditor { copy(cashbackPercent = value) }
     fun updateCashbackMinimumSpendAmount(value: String) = updateEditor { copy(cashbackMinimumSpendAmount = value) }
+    fun updateTierThresholdBasis(value: TierThresholdBasis) = updateEditor { copy(tierThresholdBasis = value) }
     fun updateTierLevelName(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(name = value) else level })
     }
     fun updateTierLevelThreshold(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(threshold = value) else level })
+    }
+    fun updateTierLevelBenefitType(levelId: String, value: TierBenefitType) = updateEditor {
+        copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(benefitType = value) else level })
     }
     fun updateTierLevelBonusPercent(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(bonusPercent = value) else level })
@@ -463,10 +480,45 @@ class LoyaltyViewModel @Inject constructor(
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(rewardOutcome = level.rewardOutcome.copy(pointsAmount = value)) else level })
     }
     fun updateTierLevelRewardRewardId(levelId: String, value: String?) = updateEditor {
-        copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(rewardOutcome = level.rewardOutcome.copy(rewardId = value)) else level })
+        copy(
+            tierLevels = tierLevels.map { level ->
+                if (level.id == levelId) {
+                    level.copy(
+                        rewardOutcome = level.rewardOutcome.copy(
+                            rewardId = value,
+                            programId = null,
+                            label = rewardLabelForId(value),
+                            type = if (value != null) {
+                                level.rewardOutcome.type.takeIf { it.usesRewardItem() } ?: ProgramRewardOutcomeType.FREE_PRODUCT
+                            } else {
+                                level.rewardOutcome.type
+                            },
+                        ),
+                    )
+                } else {
+                    level
+                }
+            },
+        )
     }
     fun updateTierLevelRewardProgramId(levelId: String, value: String?) = updateEditor {
-        copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(rewardOutcome = level.rewardOutcome.copy(programId = value)) else level })
+        copy(
+            tierLevels = tierLevels.map { level ->
+                if (level.id == levelId) {
+                    level.copy(
+                        rewardOutcome = level.rewardOutcome.copy(
+                            type = outcomeTypeForProgram(value),
+                            pointsAmount = "",
+                            rewardId = null,
+                            programId = value,
+                            label = programLabelForId(value),
+                        ),
+                    )
+                } else {
+                    level
+                }
+            },
+        )
     }
     fun clearTierLevelBenefit(levelId: String) = updateEditor {
         copy(
@@ -487,6 +539,7 @@ class LoyaltyViewModel @Inject constructor(
                 id = "tier_${System.currentTimeMillis()}",
                 name = DefaultTierNames.getOrNull(nextIndex) ?: "Custom Tier ${nextIndex + 1}",
                 threshold = (lastThreshold + 250).toString(),
+                benefitType = TierBenefitType.BONUS_PERCENT,
                 bonusPercent = "0",
                 rewardOutcome = ProgramRewardOutcomeEditorState(),
             ),
@@ -505,17 +558,41 @@ class LoyaltyViewModel @Inject constructor(
     fun updatePurchaseFrequencyRewardChoice(choice: ProgramBenefitChoice) {
         when (choice) {
             ProgramBenefitChoice.POINTS -> updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
-                copy(type = ProgramRewardOutcomeType.POINTS, rewardId = null, programId = null)
+                copy(type = ProgramRewardOutcomeType.POINTS, rewardId = null, programId = null, label = "")
             }
             ProgramBenefitChoice.REWARD_CATALOG -> updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
-                copy(type = ProgramRewardOutcomeType.FREE_PRODUCT, pointsAmount = "", programId = null)
+                copy(type = ProgramRewardOutcomeType.FREE_PRODUCT, pointsAmount = "", programId = null, label = "")
+            }
+            ProgramBenefitChoice.PROGRAM -> updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
+                copy(type = ProgramRewardOutcomeType.PROGRAM_POINTS, pointsAmount = "", rewardId = null, label = "")
             }
         }
     }
     fun updatePurchaseFrequencyRewardPoints(value: String) =
         updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) { copy(pointsAmount = value) }
     fun updatePurchaseFrequencyRewardId(value: String?) =
-        updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) { copy(rewardId = value) }
+        updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
+            copy(
+                rewardId = value,
+                programId = null,
+                label = rewardLabelForId(value),
+                type = if (value != null) {
+                    type.takeIf { it.usesRewardItem() } ?: ProgramRewardOutcomeType.FREE_PRODUCT
+                } else {
+                    type
+                },
+            )
+        }
+    fun updatePurchaseFrequencyRewardProgramId(value: String?) =
+        updateRewardOutcome(ProgramRewardSlot.PURCHASE_FREQUENCY) {
+            copy(
+                type = outcomeTypeForProgram(value),
+                pointsAmount = "",
+                rewardId = null,
+                programId = value,
+                label = programLabelForId(value),
+            )
+        }
     fun updateReferralCodePrefix(value: String) = updateEditor { copy(referralCodePrefix = value) }
     fun updateRewardOutcomeType(slot: ProgramRewardSlot, value: ProgramRewardOutcomeType) =
         updateRewardOutcome(slot) {
@@ -524,12 +601,28 @@ class LoyaltyViewModel @Inject constructor(
                 pointsAmount = if (value == ProgramRewardOutcomeType.POINTS) pointsAmount else "",
                 rewardId = if (value.usesRewardItem()) rewardId else null,
                 programId = if (value.usesProgramBenefit()) programId else null,
+                label = if (value == ProgramRewardOutcomeType.POINTS) label else "",
             )
         }
     fun updateRewardOutcomeLabel(slot: ProgramRewardSlot, value: String) = updateRewardOutcome(slot) { copy(label = value) }
     fun updateRewardOutcomePoints(slot: ProgramRewardSlot, value: String) = updateRewardOutcome(slot) { copy(pointsAmount = value) }
-    fun updateRewardOutcomeRewardId(slot: ProgramRewardSlot, value: String?) = updateRewardOutcome(slot) { copy(rewardId = value) }
-    fun updateRewardOutcomeProgramId(slot: ProgramRewardSlot, value: String?) = updateRewardOutcome(slot) { copy(programId = value) }
+    fun updateRewardOutcomeRewardId(slot: ProgramRewardSlot, value: String?) = updateRewardOutcome(slot) {
+        copy(
+            rewardId = value,
+            programId = null,
+            label = rewardLabelForId(value),
+            type = if (value != null) type.takeIf { it.usesRewardItem() } ?: ProgramRewardOutcomeType.FREE_PRODUCT else type,
+        )
+    }
+    fun updateRewardOutcomeProgramId(slot: ProgramRewardSlot, value: String?) = updateRewardOutcome(slot) {
+        copy(
+            type = outcomeTypeForProgram(value),
+            pointsAmount = "",
+            rewardId = null,
+            programId = value,
+            label = programLabelForId(value),
+        )
+    }
 
     fun openTierBenefitEditor(levelId: String) {
         val editor = _uiState.value.editorState ?: return
@@ -554,19 +647,58 @@ class LoyaltyViewModel @Inject constructor(
     fun updateActiveBenefitChoice(choice: ProgramBenefitChoice) {
         when (choice) {
             ProgramBenefitChoice.POINTS -> updateActiveBenefit {
-                copy(type = ProgramRewardOutcomeType.POINTS, rewardId = null, programId = null)
+                copy(type = ProgramRewardOutcomeType.POINTS, rewardId = null, programId = null, label = "")
             }
             ProgramBenefitChoice.REWARD_CATALOG -> updateActiveBenefit {
-                copy(type = ProgramRewardOutcomeType.FREE_PRODUCT, pointsAmount = "", programId = null)
+                copy(type = ProgramRewardOutcomeType.FREE_PRODUCT, pointsAmount = "", programId = null, label = "")
+            }
+            ProgramBenefitChoice.PROGRAM -> updateActiveBenefit {
+                copy(type = ProgramRewardOutcomeType.PROGRAM_POINTS, pointsAmount = "", rewardId = null, label = "")
             }
         }
     }
 
     fun updateActiveBenefitPoints(value: String) = updateActiveBenefit { copy(pointsAmount = value) }
 
-    fun updateActiveBenefitRewardId(value: String?) = updateActiveBenefit { copy(rewardId = value) }
+    fun updateActiveBenefitRewardId(value: String?) = updateActiveBenefit {
+        copy(
+            rewardId = value,
+            programId = null,
+            label = rewardLabelForId(value),
+            type = if (value != null) type.takeIf { it.usesRewardItem() } ?: ProgramRewardOutcomeType.FREE_PRODUCT else type,
+        )
+    }
+
+    fun updateActiveBenefitProgramId(value: String?) = updateActiveBenefit {
+        copy(
+            type = outcomeTypeForProgram(value),
+            pointsAmount = "",
+            rewardId = null,
+            programId = value,
+            label = programLabelForId(value),
+        )
+    }
 
     fun clearActiveBenefit() = updateActiveBenefit { ProgramRewardOutcomeEditorState() }
+
+    private fun rewardLabelForId(rewardId: String?): String =
+        rewardId?.let { id -> _uiState.value.rewards.firstOrNull { it.id == id }?.name }.orEmpty()
+
+    private fun programLabelForId(programId: String?): String =
+        programId?.let { id -> _uiState.value.programs.firstOrNull { it.id == id }?.name }.orEmpty()
+
+    private fun outcomeTypeForProgram(programId: String?): ProgramRewardOutcomeType {
+        val type = programId?.let { id -> _uiState.value.programs.firstOrNull { it.id == id }?.type }
+        return when (type) {
+            LoyaltyProgramType.DIGITAL_STAMP -> ProgramRewardOutcomeType.PROGRAM_DIGITAL_STAMP
+            LoyaltyProgramType.TIER -> ProgramRewardOutcomeType.PROGRAM_TIER
+            LoyaltyProgramType.COUPON -> ProgramRewardOutcomeType.PROGRAM_COUPON
+            LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY
+            LoyaltyProgramType.REFERRAL -> ProgramRewardOutcomeType.PROGRAM_REFERRAL
+            LoyaltyProgramType.HYBRID -> ProgramRewardOutcomeType.PROGRAM_HYBRID
+            else -> ProgramRewardOutcomeType.PROGRAM_POINTS
+        }
+    }
 
     fun saveProgram() {
         val state = _uiState.value
@@ -593,14 +725,16 @@ class LoyaltyViewModel @Inject constructor(
             _uiState.value = state.copy(isSubmitting = true, editorFieldErrors = emptyMap(), formErrorRes = null, messageRes = null)
             runCatching {
                 if (editor.programId == null) {
+                    val createdPrograms = mutableListOf<RewardProgram>()
                     targetStoreIds.forEach { storeId ->
                         val draft = editor.toDraft(
                             storeId = storeId,
                             availablePrograms = state.allPrograms,
                             availableRewards = state.rewards,
                         )
-                        createProgramUseCase(draft)
+                        createdPrograms += createProgramUseCase(draft)
                     }
+                    createdPrograms.toList()
                 } else {
                     val currentStoreId = editor.lockedStoreIds.firstOrNull() ?: activeStoreId
                     val updateDraft = editor.toDraft(
@@ -608,7 +742,7 @@ class LoyaltyViewModel @Inject constructor(
                         availablePrograms = state.allPrograms,
                         availableRewards = state.rewards,
                     )
-                    updateProgramUseCase(editor.programId, updateDraft)
+                    val updatedPrograms = mutableListOf(updateProgramUseCase(editor.programId, updateDraft))
                     val additionalStoreIds = targetStoreIds
                         .filterNot { editor.lockedStoreIds.contains(it) }
                         .distinct()
@@ -618,15 +752,27 @@ class LoyaltyViewModel @Inject constructor(
                             availablePrograms = state.allPrograms,
                             availableRewards = state.rewards,
                         )
-                        createProgramUseCase(draft)
+                        updatedPrograms += createProgramUseCase(draft)
                     }
+                    updatedPrograms.toList()
                 }
-            }.onSuccess {
+            }.onSuccess { savedPrograms ->
+                val mergedAllPrograms = mergePrograms(state.allPrograms, savedPrograms)
+                val selectedStorePrograms = mergedAllPrograms.filter { it.storeId == state.selectedStoreId }
+                val refreshedEditor = savedPrograms.firstOrNull { it.id == editor.programId }
+                    ?.toEditorState()
+                    ?.copy(
+                        targetStoreIds = targetStoreIds,
+                        lockedStoreIds = targetStoreIds,
+                    )
+                    ?: editor
                 _uiState.value = _uiState.value.copy(
                     activeSubEditor = null,
                     activeBenefitEditor = null,
                     isSubmitting = false,
-                    editorState = null,
+                    programs = selectedStorePrograms,
+                    allPrograms = mergedAllPrograms,
+                    editorState = refreshedEditor,
                     editorFieldErrors = emptyMap(),
                     formErrorRes = null,
                     messageRes = if (editor.programId == null) R.string.merchant_program_created_message else R.string.merchant_program_updated_message,
@@ -927,6 +1073,21 @@ private fun resolveMatchingProgramStoreIds(
             it.description == program.description
     }.map { it.storeId }.distinct()
     return if (matching.isNotEmpty()) matching else listOf(program.storeId)
+}
+
+private fun mergePrograms(
+    existing: List<RewardProgram>,
+    updates: List<RewardProgram>,
+): List<RewardProgram> {
+    if (updates.isEmpty()) return existing
+    val updatesById = updates.associateBy { it.id }
+    val merged = existing.map { current -> updatesById[current.id] ?: current }.toMutableList()
+    updates.forEach { updated ->
+        if (merged.none { it.id == updated.id }) {
+            merged += updated
+        }
+    }
+    return merged
 }
 
 private data class LoyaltyStoreSnapshot(
