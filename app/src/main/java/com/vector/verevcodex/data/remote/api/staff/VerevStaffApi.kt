@@ -2,6 +2,7 @@ package com.vector.verevcodex.data.remote.api.staff
 
 import com.vector.verevcodex.data.remote.api.ApiEnvelope
 import retrofit2.Response
+import retrofit2.http.DELETE
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -29,8 +30,8 @@ interface VerevStaffApi {
         @Header("X-Idempotency-Key") idempotencyKey: String,
     ): Response<ApiEnvelope<StaffViewDto>>
 
-    @POST("v1/staff/{staffId}/deactivate")
-    suspend fun deactivate(
+    @DELETE("v1/staff/{staffId}")
+    suspend fun delete(
         @Path("staffId") staffId: String,
         @Header("X-Idempotency-Key") idempotencyKey: String,
     ): Response<ApiEnvelope<StaffViewDto>>

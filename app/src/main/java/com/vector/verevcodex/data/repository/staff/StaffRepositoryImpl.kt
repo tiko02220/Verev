@@ -54,7 +54,7 @@ class StaffRepositoryImpl @Inject constructor(
     }
 
     override suspend fun removeStaffMember(staffId: String): Result<Unit> {
-        return staffRemote.deactivate(staffId)
+        return staffRemote.delete(staffId)
             .onSuccess { staffRefreshRequests.tryEmit(Unit) }
     }
 }

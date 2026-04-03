@@ -94,11 +94,11 @@ class StaffRemoteDataSource @Inject constructor(
         response.unwrap { Unit }
     }
 
-    suspend fun deactivate(staffId: String): Result<Unit> = remoteResult {
-        val response = api.deactivate(
+    suspend fun delete(staffId: String): Result<Unit> = remoteResult {
+        val response = api.delete(
             staffId = staffId,
             idempotencyKey = staffIdempotencyKey(
-                action = RemoteIdempotencyAction.DEACTIVATE,
+                action = RemoteIdempotencyAction.DELETE,
                 staffId,
             ),
         )
