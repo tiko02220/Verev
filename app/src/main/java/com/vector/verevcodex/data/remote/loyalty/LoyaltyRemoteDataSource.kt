@@ -291,11 +291,17 @@ class LoyaltyRemoteDataSource @Inject constructor(
             request = request,
             idempotencyKey = rewardIdempotencyKey(
                 action = RemoteIdempotencyAction.CREATE,
-                draft.storeId,
-                draft.name,
-                draft.rewardType.name,
-                draft.pointsRequired.toString(),
-                draft.activeStatus.toString(),
+                request.storeId,
+                request.name,
+                request.description,
+                request.pointsRequired.toString(),
+                request.rewardType,
+                request.imageUri.orEmpty(),
+                request.expirationDate.orEmpty(),
+                request.usageLimit.toString(),
+                request.inventoryTracked.toString(),
+                request.availableQuantity?.toString().orEmpty(),
+                request.activeStatus.toString(),
             ),
         )
         response.unwrap { it.toDomain() }

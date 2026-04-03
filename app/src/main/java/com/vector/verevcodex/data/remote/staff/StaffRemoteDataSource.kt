@@ -29,7 +29,7 @@ class StaffRemoteDataSource @Inject constructor(
 
     suspend fun list(storeId: String?): Result<List<StaffMember>> = remoteResult {
         val response = api.list()
-        val list = response.unwrap { it.map { dto -> dto.toDomain() } }
+        val list = response.unwrap { it.map { dto -> dto.toDomain() }.filter { member -> member.active } }
         if (storeId != null) list.filter { it.storeId == storeId } else list
     }
 
