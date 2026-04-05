@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.supportsOneTimePerCustomer
 import com.vector.verevcodex.domain.model.common.RewardType
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
@@ -388,17 +391,47 @@ class LoyaltyViewModel @Inject constructor(
     }
     fun updateEditorTargetAgeMin(value: String) = updateEditor { copy(targetAgeMin = value) }
     fun updateEditorTargetAgeMax(value: String) = updateEditor { copy(targetAgeMax = value) }
-    fun updateEditorOneTimePerCustomer(value: Boolean) = updateEditor { copy(oneTimePerCustomer = value) }
+    fun updateEditorOneTimePerCustomer(value: Boolean) = updateEditor {
+        copy(oneTimePerCustomer = if (type.supportsOneTimePerCustomer()) value else false)
+    }
     fun updateEditorAutoScheduleEnabled(value: Boolean) = updateEditor {
         copy(
             autoScheduleEnabled = value,
-            scheduleStartDate = if (value) scheduleStartDate.ifBlank { java.time.LocalDate.now().toString() } else scheduleStartDate,
-            scheduleEndDate = if (value) scheduleEndDate.ifBlank { java.time.LocalDate.now().plusDays(29).toString() } else scheduleEndDate,
+            repeatType = if (value) repeatType else ProgramRepeatType.NONE,
+            repeatDaysOfWeek = if (value) repeatDaysOfWeek else emptyList(),
+            repeatDaysOfMonth = if (value) repeatDaysOfMonth else emptyList(),
+            repeatMonths = if (value) repeatMonths else emptyList(),
+            seasons = if (value) seasons else emptyList(),
         )
     }
     fun updateEditorScheduleStartDate(value: String) = updateEditor { copy(scheduleStartDate = value) }
     fun updateEditorScheduleEndDate(value: String) = updateEditor { copy(scheduleEndDate = value) }
-    fun updateEditorAnnualRepeatEnabled(value: Boolean) = updateEditor { copy(annualRepeatEnabled = value) }
+    fun updateEditorRepeatType(value: ProgramRepeatType) = updateEditor {
+        copy(
+            annualRepeatEnabled = value == ProgramRepeatType.CUSTOM,
+            repeatType = value,
+            repeatDaysOfWeek = if (value == ProgramRepeatType.WEEKDAYS) repeatDaysOfWeek else emptyList(),
+            repeatDaysOfMonth = emptyList(),
+            repeatMonths = emptyList(),
+            seasons = if (value == ProgramRepeatType.SEASONAL) seasons else emptyList(),
+        )
+    }
+    fun toggleEditorRepeatDayOfWeek(value: Int) = updateEditor {
+        val updated = if (repeatDaysOfWeek.contains(value)) repeatDaysOfWeek - value else repeatDaysOfWeek + value
+        copy(repeatDaysOfWeek = updated.sorted())
+    }
+    fun toggleEditorRepeatDayOfMonth(value: Int) = updateEditor {
+        val updated = if (repeatDaysOfMonth.contains(value)) repeatDaysOfMonth - value else repeatDaysOfMonth + value
+        copy(repeatDaysOfMonth = updated.sorted())
+    }
+    fun toggleEditorRepeatMonth(value: Int) = updateEditor {
+        val updated = if (repeatMonths.contains(value)) repeatMonths - value else repeatMonths + value
+        copy(repeatMonths = updated.sorted())
+    }
+    fun toggleEditorSeason(value: ProgramSeason) = updateEditor {
+        val updated = if (seasons.contains(value)) seasons - value else seasons + value
+        copy(seasons = updated.sortedBy { it.ordinal })
+    }
     fun updateEditorBenefitResetType(value: ProgramBenefitResetType) = updateEditor {
         copy(
             benefitResetType = value,
@@ -695,7 +728,6 @@ class LoyaltyViewModel @Inject constructor(
             LoyaltyProgramType.COUPON -> ProgramRewardOutcomeType.PROGRAM_COUPON
             LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY
             LoyaltyProgramType.REFERRAL -> ProgramRewardOutcomeType.PROGRAM_REFERRAL
-            LoyaltyProgramType.HYBRID -> ProgramRewardOutcomeType.PROGRAM_HYBRID
             else -> ProgramRewardOutcomeType.PROGRAM_POINTS
         }
     }

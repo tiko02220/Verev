@@ -95,28 +95,6 @@ object RewardProgramConfigurationFactory {
                 scanActions = emptySet(),
                 referralRule = ReferralProgramRule(),
             )
-            LoyaltyProgramType.HYBRID -> RewardProgramConfiguration(
-                earningEnabled = true,
-                rewardRedemptionEnabled = true,
-                visitCheckInEnabled = true,
-                cashbackEnabled = false,
-                tierTrackingEnabled = true,
-                couponEnabled = true,
-                purchaseFrequencyEnabled = true,
-                referralEnabled = true,
-                scanActions = setOf(
-                    RewardProgramScanAction.EARN_POINTS,
-                    RewardProgramScanAction.REDEEM_REWARDS,
-                    RewardProgramScanAction.CHECK_IN,
-                    RewardProgramScanAction.TRACK_TIER_PROGRESS,
-                ),
-                pointsRule = PointsProgramRule(),
-                tierRule = TierProgramRule(),
-                couponRule = CouponProgramRule(),
-                checkInRule = CheckInProgramRule(),
-                purchaseFrequencyRule = PurchaseFrequencyProgramRule(),
-                referralRule = ReferralProgramRule(),
-            )
         }
     }
 }

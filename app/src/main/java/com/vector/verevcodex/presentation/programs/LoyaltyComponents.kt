@@ -107,7 +107,10 @@ import com.vector.verevcodex.common.input.sanitizeDecimalInput
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.business.Store
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.supportsOneTimePerCustomer
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
@@ -130,7 +133,10 @@ import com.vector.verevcodex.presentation.merchant.common.formatCompactCount
 import com.vector.verevcodex.presentation.merchant.common.formatWholeCurrency
 import com.vector.verevcodex.presentation.theme.VerevColors
 import java.time.LocalDate
+import java.time.Month
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 private enum class ProgramCreationStep(val titleRes: Int) {
     BASICS(R.string.merchant_program_step_basics),
@@ -488,7 +494,6 @@ internal fun ProgramModulesSection(
     onOpenCheckinRewards: () -> Unit,
     onOpenPurchaseFrequency: () -> Unit,
     onOpenReferralRewards: () -> Unit,
-    onOpenHybridPrograms: () -> Unit,
     onOpenProgramInfo: (LoyaltyProgramType) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -540,14 +545,6 @@ internal fun ProgramModulesSection(
                 colors = listOf(Color(0xFF22A06B), Color(0xFF0F7A4A)),
                 onClick = onOpenReferralRewards,
                 onOpenInfo = { onOpenProgramInfo(LoyaltyProgramType.REFERRAL) },
-            )
-            ProgramModuleTile(
-                title = stringResource(R.string.merchant_hybrid_programs_title),
-                subtitle = stringResource(R.string.merchant_program_module_hybrid_subtitle),
-                icon = Icons.Default.Campaign,
-                colors = listOf(VerevColors.Gold, VerevColors.Forest),
-                onClick = onOpenHybridPrograms,
-                onOpenInfo = { onOpenProgramInfo(LoyaltyProgramType.HYBRID) },
             )
         }
     }
@@ -818,11 +815,10 @@ private fun ProgramLifecycleSummary(program: RewardProgram) {
                 val start = program.scheduleStartDate
                 val end = program.scheduleEndDate
                 val statusRes = when {
-                    program.annualRepeatEnabled && isAnnualProgramActive(start, end, today) -> R.string.merchant_programs_status_live
-                    program.annualRepeatEnabled -> R.string.merchant_programs_status_scheduled
+                    isProgramScheduledOn(program, today) -> R.string.merchant_programs_status_live
                     today.isBefore(start) -> R.string.merchant_programs_status_scheduled
                     today.isAfter(end) -> R.string.merchant_programs_status_completed
-                    else -> R.string.merchant_programs_status_live
+                    else -> R.string.merchant_programs_status_scheduled
                 }
                 MerchantStatusPill(
                     text = stringResource(statusRes),
@@ -838,9 +834,9 @@ private fun ProgramLifecycleSummary(program: RewardProgram) {
                     backgroundColor = VerevColors.AppBackground,
                     contentColor = VerevColors.Forest.copy(alpha = 0.78f),
                 )
-                if (program.annualRepeatEnabled) {
+                if (program.repeatType != ProgramRepeatType.NONE) {
                     MerchantStatusPill(
-                        text = stringResource(R.string.merchant_programs_schedule_recurs_yearly),
+                        text = repeatTypeLabel(program.repeatType),
                         backgroundColor = VerevColors.Gold.copy(alpha = 0.12f),
                         contentColor = VerevColors.Gold,
                     )
@@ -857,7 +853,27 @@ private fun ProgramLifecycleSummary(program: RewardProgram) {
     }
 }
 
-private fun isAnnualProgramActive(
+private fun isProgramScheduledOn(
+    program: RewardProgram,
+    date: LocalDate,
+): Boolean {
+    if (!program.autoScheduleEnabled) return true
+    val start = program.scheduleStartDate ?: return false
+    val end = program.scheduleEndDate ?: return false
+    if (date.isBefore(start) || date.isAfter(end)) return false
+    return when (program.repeatType) {
+        ProgramRepeatType.WEEKDAYS -> program.repeatDaysOfWeek.contains(date.dayOfWeek.value)
+        ProgramRepeatType.SEASONAL -> program.seasons.flatMap { it.months }.contains(date.monthValue)
+        ProgramRepeatType.CUSTOM -> if (program.scheduleStartDate != null && program.scheduleEndDate != null) {
+            isLegacyAnnualWindowActive(program.scheduleStartDate, program.scheduleEndDate, date)
+        } else {
+            false
+        }
+        ProgramRepeatType.NONE -> true
+    }
+}
+
+private fun isLegacyAnnualWindowActive(
     start: LocalDate,
     end: LocalDate,
     date: LocalDate,
@@ -1336,7 +1352,11 @@ internal fun ProgramEditorSheet(
     onAutoScheduleEnabledChange: (Boolean) -> Unit,
     onScheduleStartDateChange: (String) -> Unit,
     onScheduleEndDateChange: (String) -> Unit,
-    onAnnualRepeatEnabledChange: (Boolean) -> Unit,
+    onRepeatTypeChange: (ProgramRepeatType) -> Unit,
+    onToggleRepeatDayOfWeek: (Int) -> Unit,
+    onToggleRepeatDayOfMonth: (Int) -> Unit,
+    onToggleRepeatMonth: (Int) -> Unit,
+    onToggleSeason: (ProgramSeason) -> Unit,
     onBenefitResetTypeChange: (ProgramBenefitResetType) -> Unit,
     onBenefitResetCustomDaysChange: (String) -> Unit,
     onPointsSpendStepAmountChange: (String) -> Unit,
@@ -1571,7 +1591,11 @@ internal fun ProgramEditorSheet(
                                     onAutoScheduleEnabledChange = onAutoScheduleEnabledChange,
                                     onScheduleStartDateChange = onScheduleStartDateChange,
                                     onScheduleEndDateChange = onScheduleEndDateChange,
-                                    onAnnualRepeatEnabledChange = onAnnualRepeatEnabledChange,
+                                    onRepeatTypeChange = onRepeatTypeChange,
+                                    onToggleRepeatDayOfWeek = onToggleRepeatDayOfWeek,
+                                    onToggleRepeatDayOfMonth = onToggleRepeatDayOfMonth,
+                                    onToggleRepeatMonth = onToggleRepeatMonth,
+                                    onToggleSeason = onToggleSeason,
                                     benefitResetType = editorState.benefitResetType,
                                     benefitResetCustomDays = editorState.benefitResetCustomDays,
                                     onBenefitResetTypeChange = onBenefitResetTypeChange,
@@ -1788,46 +1812,6 @@ private fun ProgramEditOverviewContent(
     )
 
     when (editorState.type) {
-        LoyaltyProgramType.HYBRID -> {
-            ProgramReviewSectionCard(
-                title = stringResource(R.string.merchant_program_points_earn_title),
-                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
-                summary = stringResource(
-                    R.string.merchant_program_points_summary,
-                    editorState.pointsAwardedPerStep,
-                    formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
-                    editorState.pointsMinimumRedeem.ifBlank { "0" },
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_POINTS_STEP] ?: fieldErrors[PROGRAM_FIELD_POINTS_AWARDED],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.EARN_RULES_EDIT) },
-            )
-            ProgramReviewSectionCard(
-                title = stringResource(R.string.merchant_program_checkin_goal_title),
-                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
-                summary = stringResource(
-                    R.string.merchant_program_checkin_summary,
-                    editorState.checkInVisitsRequired,
-                    benefitSummary(editorState.checkInReward, availableRewards),
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_VISITS] ?: fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.CHECKIN_EDIT) },
-            )
-            ProgramReviewSectionCard(
-                title = stringResource(R.string.merchant_program_referral_rewards_title),
-                summaryTitle = stringResource(R.string.merchant_program_review_goal_heading),
-                summary = stringResource(
-                    R.string.merchant_program_referral_summary,
-                    benefitSummary(editorState.referralReferrerReward, availableRewards),
-                    benefitSummary(editorState.referralRefereeReward, availableRewards),
-                    editorState.referralCodePrefix.ifBlank { "REF" },
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER]
-                    ?: fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE]
-                    ?: fieldErrors[PROGRAM_FIELD_REFERRAL_PREFIX],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.REFERRAL_EDIT) },
-            )
-        }
-
         else -> {
             ProgramReviewSectionCard(
                 title = stringResource(R.string.merchant_program_creation_goal_title),
@@ -1880,7 +1864,6 @@ private fun LoyaltyProgramType.primaryGoalSubEditor(): ProgramSubEditor = when (
     LoyaltyProgramType.DIGITAL_STAMP -> ProgramSubEditor.CHECKIN_EDIT
     LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramSubEditor.FREQUENCY_EDIT
     LoyaltyProgramType.REFERRAL -> ProgramSubEditor.REFERRAL_EDIT
-    LoyaltyProgramType.HYBRID -> ProgramSubEditor.EARN_RULES_EDIT
 }
 
 @Composable
@@ -2163,10 +2146,7 @@ private fun ProgramPreviewBullet(title: String, value: String) {
 private fun sharedActionLabels(actions: Set<RewardProgramScanAction>): String {
     val labels = buildList {
         actions
-            .filterNot { action ->
-                action == RewardProgramScanAction.APPLY_CASHBACK ||
-                    action == RewardProgramScanAction.TRACK_TIER_PROGRESS
-            }
+            .filterNot { action -> action == RewardProgramScanAction.TRACK_TIER_PROGRESS }
             .forEach { action -> add(action.displayLabel()) }
     }
     return labels.joinToString()
@@ -2290,7 +2270,6 @@ internal fun customerExperienceSummary(
         editorState.referralReferrerReward.previewValue(),
         editorState.referralRefereeReward.previewValue(),
     )
-    LoyaltyProgramType.HYBRID -> stringResource(R.string.merchant_program_preview_hybrid_message)
 }
 
 private fun ProgramRewardOutcomeEditorState.previewValue(): String = when (type) {
@@ -2311,7 +2290,6 @@ private fun RewardProgram.programBenefitSubtitle(currencyCode: String): String =
             LoyaltyProgramType.COUPON -> "Coupon rewards"
             LoyaltyProgramType.PURCHASE_FREQUENCY -> "Purchase frequency"
             LoyaltyProgramType.REFERRAL -> "Referral rewards"
-            LoyaltyProgramType.HYBRID -> "Hybrid program"
         },
     )
     val detail = when {
@@ -2351,7 +2329,6 @@ private fun RewardProgramScanAction.displayLabel(): String = when (this) {
     RewardProgramScanAction.EARN_POINTS -> stringResource(R.string.merchant_program_scan_action_earn_points)
     RewardProgramScanAction.REDEEM_REWARDS -> stringResource(R.string.merchant_program_scan_action_redeem_rewards)
     RewardProgramScanAction.CHECK_IN -> stringResource(R.string.merchant_program_scan_action_check_in)
-    RewardProgramScanAction.APPLY_CASHBACK -> stringResource(R.string.merchant_program_scan_action_cashback)
     RewardProgramScanAction.TRACK_TIER_PROGRESS -> stringResource(R.string.merchant_program_scan_action_tier_tracking)
 }
 
@@ -2362,7 +2339,11 @@ internal fun ProgramScheduleSection(
     onAutoScheduleEnabledChange: (Boolean) -> Unit,
     onScheduleStartDateChange: (String) -> Unit,
     onScheduleEndDateChange: (String) -> Unit,
-    onAnnualRepeatEnabledChange: (Boolean) -> Unit,
+    onRepeatTypeChange: (ProgramRepeatType) -> Unit,
+    onToggleRepeatDayOfWeek: (Int) -> Unit,
+    onToggleRepeatDayOfMonth: (Int) -> Unit,
+    onToggleRepeatMonth: (Int) -> Unit,
+    onToggleSeason: (ProgramSeason) -> Unit,
     benefitResetType: ProgramBenefitResetType,
     benefitResetCustomDays: String,
     onBenefitResetTypeChange: (ProgramBenefitResetType) -> Unit,
@@ -2378,7 +2359,11 @@ internal fun ProgramScheduleSection(
             onAutoScheduleEnabledChange = onAutoScheduleEnabledChange,
             onScheduleStartDateChange = onScheduleStartDateChange,
             onScheduleEndDateChange = onScheduleEndDateChange,
-            onAnnualRepeatEnabledChange = onAnnualRepeatEnabledChange,
+            onRepeatTypeChange = onRepeatTypeChange,
+            onToggleRepeatDayOfWeek = onToggleRepeatDayOfWeek,
+            onToggleRepeatDayOfMonth = onToggleRepeatDayOfMonth,
+            onToggleRepeatMonth = onToggleRepeatMonth,
+            onToggleSeason = onToggleSeason,
             benefitResetType = benefitResetType,
             benefitResetCustomDays = benefitResetCustomDays,
             onBenefitResetTypeChange = onBenefitResetTypeChange,
@@ -2394,7 +2379,11 @@ private fun ProgramScheduleFields(
     onAutoScheduleEnabledChange: (Boolean) -> Unit,
     onScheduleStartDateChange: (String) -> Unit,
     onScheduleEndDateChange: (String) -> Unit,
-    onAnnualRepeatEnabledChange: (Boolean) -> Unit,
+    onRepeatTypeChange: (ProgramRepeatType) -> Unit,
+    onToggleRepeatDayOfWeek: (Int) -> Unit,
+    onToggleRepeatDayOfMonth: (Int) -> Unit,
+    onToggleRepeatMonth: (Int) -> Unit,
+    onToggleSeason: (ProgramSeason) -> Unit,
     benefitResetType: ProgramBenefitResetType,
     benefitResetCustomDays: String,
     onBenefitResetTypeChange: (ProgramBenefitResetType) -> Unit,
@@ -2408,32 +2397,37 @@ private fun ProgramScheduleFields(
         onCheckedChange = onAutoScheduleEnabledChange,
     )
     if (editorState.autoScheduleEnabled) {
-        DateField(
-            value = editorState.scheduleStartDate,
-            label = stringResource(R.string.merchant_program_form_schedule_start_date),
-            icon = Icons.Default.Event,
-            errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_START],
-            supportingText = null,
-            onClick = {
-                context.openProgramDatePicker(editorState.scheduleStartDate) { onScheduleStartDateChange(it.toString()) }
-            },
+        ProgramRepeatSection(
+            editorState = editorState,
+            errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_REPEAT],
+            onRepeatTypeChange = onRepeatTypeChange,
+            onToggleRepeatDayOfWeek = onToggleRepeatDayOfWeek,
+            onToggleRepeatDayOfMonth = onToggleRepeatDayOfMonth,
+            onToggleRepeatMonth = onToggleRepeatMonth,
+            onToggleSeason = onToggleSeason,
         )
-        DateField(
-            value = editorState.scheduleEndDate,
-            label = stringResource(R.string.merchant_program_form_schedule_end_date),
-            icon = Icons.Default.Event,
-            errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_END],
-            supportingText = null,
-            onClick = {
-                context.openProgramDatePicker(editorState.scheduleEndDate) { onScheduleEndDateChange(it.toString()) }
-            },
-        )
-        ProgramToggleRow(
-            title = stringResource(R.string.merchant_program_form_annual_repeat),
-            subtitle = stringResource(R.string.merchant_program_form_annual_repeat_supporting),
-            checked = editorState.annualRepeatEnabled,
-            onCheckedChange = onAnnualRepeatEnabledChange,
-        )
+        if (editorState.repeatType == ProgramRepeatType.CUSTOM) {
+            DateField(
+                value = editorState.scheduleStartDate,
+                label = stringResource(R.string.merchant_program_form_schedule_start_date),
+                icon = Icons.Default.Event,
+                errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_START],
+                supportingText = stringResource(R.string.merchant_program_form_schedule_custom_start_supporting),
+                onClick = {
+                    context.openProgramDatePicker(editorState.scheduleStartDate) { onScheduleStartDateChange(it.toString()) }
+                },
+            )
+            DateField(
+                value = editorState.scheduleEndDate,
+                label = stringResource(R.string.merchant_program_form_schedule_end_date),
+                icon = Icons.Default.Event,
+                errorRes = fieldErrors[PROGRAM_FIELD_SCHEDULE_END],
+                supportingText = stringResource(R.string.merchant_program_form_schedule_custom_end_supporting),
+                onClick = {
+                    context.openProgramDatePicker(editorState.scheduleEndDate) { onScheduleEndDateChange(it.toString()) }
+                },
+            )
+        }
     }
     ProgramBenefitResetSection(
         selectedType = benefitResetType,
@@ -2442,6 +2436,109 @@ private fun ProgramScheduleFields(
         onTypeChange = onBenefitResetTypeChange,
         onCustomDaysChange = onBenefitResetCustomDaysChange,
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProgramRepeatSection(
+    editorState: ProgramEditorState,
+    errorRes: Int?,
+    onRepeatTypeChange: (ProgramRepeatType) -> Unit,
+    onToggleRepeatDayOfWeek: (Int) -> Unit,
+    onToggleRepeatDayOfMonth: (Int) -> Unit,
+    onToggleRepeatMonth: (Int) -> Unit,
+    onToggleSeason: (ProgramSeason) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(R.string.merchant_program_form_schedule_rule_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = stringResource(R.string.merchant_program_form_schedule_rule_supporting),
+            style = MaterialTheme.typography.bodySmall,
+            color = VerevColors.Forest.copy(alpha = 0.64f),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ProgramRepeatType.entries.forEach { option ->
+                MerchantFilterChip(
+                    text = stringResource(option.labelRes()),
+                    selected = editorState.repeatType == option,
+                    onClick = { onRepeatTypeChange(option) },
+                )
+            }
+        }
+        when (editorState.repeatType) {
+            ProgramRepeatType.WEEKDAYS -> RepeatSelectionChips(
+                title = stringResource(R.string.merchant_program_form_schedule_weekdays_title),
+                options = (1..7).map { day ->
+                    RepeatSelectionOption(
+                        label = weekdayShortLabel(day),
+                        selected = editorState.repeatDaysOfWeek.contains(day),
+                        onClick = { onToggleRepeatDayOfWeek(day) },
+                    )
+                },
+            )
+            ProgramRepeatType.SEASONAL -> RepeatSelectionChips(
+                title = stringResource(R.string.merchant_program_form_schedule_seasons_title),
+                options = ProgramSeason.entries.map { season ->
+                    RepeatSelectionOption(
+                        label = stringResource(season.labelRes()),
+                        selected = editorState.seasons.contains(season),
+                        onClick = { onToggleSeason(season) },
+                    )
+                },
+            )
+            ProgramRepeatType.CUSTOM -> Unit
+            ProgramRepeatType.NONE -> Unit
+        }
+        errorRes?.let {
+            Text(
+                text = stringResource(it),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+private data class RepeatSelectionOption(
+    val label: String,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RepeatSelectionChips(
+    title: String,
+    options: List<RepeatSelectionOption>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VerevColors.Forest,
+            fontWeight = FontWeight.Medium,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { option ->
+                MerchantFilterChip(
+                    text = option.label,
+                    selected = option.selected,
+                    onClick = option.onClick,
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -2742,102 +2839,6 @@ private fun ProgramGoalStepFields(
             )
         }
 
-        LoyaltyProgramType.HYBRID -> {
-            ProgramBenefitEditorCard(
-                title = stringResource(R.string.merchant_program_points_earn_title),
-            ) {
-                IntegerField(
-                    value = editorState.pointsSpendStepAmount,
-                    onValueChange = onPointsSpendStepAmountChange,
-                    label = stringResource(R.string.merchant_program_form_points_step_amount),
-                    icon = Icons.Default.Payments,
-                    errorRes = fieldErrors[PROGRAM_FIELD_POINTS_STEP],
-                    supportingText = null,
-                )
-                IntegerField(
-                    value = editorState.pointsAwardedPerStep,
-                    onValueChange = onPointsAwardedPerStepChange,
-                    label = stringResource(R.string.merchant_program_form_points_awarded),
-                    icon = Icons.Default.Add,
-                    errorRes = fieldErrors[PROGRAM_FIELD_POINTS_AWARDED],
-                    supportingText = null,
-                )
-                IntegerField(
-                    value = editorState.pointsMinimumRedeem,
-                    onValueChange = onPointsMinimumRedeemChange,
-                    label = stringResource(R.string.merchant_program_form_points_minimum_redeem),
-                    icon = Icons.Default.CardGiftcard,
-                    errorRes = fieldErrors[PROGRAM_FIELD_POINTS_REDEEM],
-                    supportingText = null,
-                )
-            }
-            ProgramBenefitEditorCard(
-                title = stringResource(R.string.merchant_program_checkin_goal_title),
-            ) {
-                IntegerField(
-                    value = editorState.checkInVisitsRequired,
-                    onValueChange = onCheckInVisitsRequiredChange,
-                    label = stringResource(R.string.merchant_program_form_checkin_visits),
-                    icon = Icons.Default.Repeat,
-                    errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_VISITS],
-                    supportingText = null,
-                )
-                ProgramSlotBenefitFields(
-                    state = editorState.checkInReward,
-                    slot = ProgramRewardSlot.CHECK_IN,
-                    availablePrograms = availablePrograms,
-                    availableRewards = availableRewards,
-                    errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
-                    pointsLabel = stringResource(R.string.merchant_program_reward_points_checkin_label),
-                    onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
-                    onRewardOutcomePointsChange = onRewardOutcomePointsChange,
-                    onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
-                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
-                    onOpenRewardsCatalog = onOpenRewardsCatalog,
-                    onOpenProgramsCatalog = onOpenProgramsCatalog,
-                )
-            }
-            ProgramBenefitEditorCard(
-                title = stringResource(R.string.merchant_program_referral_rewards_title),
-            ) {
-                ProgramSlotBenefitFields(
-                    state = editorState.referralReferrerReward,
-                    slot = ProgramRewardSlot.REFERRAL_REFERRER,
-                    availablePrograms = availablePrograms,
-                    availableRewards = availableRewards,
-                    errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER],
-                    pointsLabel = stringResource(R.string.merchant_program_reward_points_referrer_label),
-                    onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
-                    onRewardOutcomePointsChange = onRewardOutcomePointsChange,
-                    onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
-                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
-                    onOpenRewardsCatalog = onOpenRewardsCatalog,
-                    onOpenProgramsCatalog = onOpenProgramsCatalog,
-                )
-                ProgramSlotBenefitFields(
-                    state = editorState.referralRefereeReward,
-                    slot = ProgramRewardSlot.REFERRAL_REFEREE,
-                    availablePrograms = availablePrograms,
-                    availableRewards = availableRewards,
-                    errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE],
-                    pointsLabel = stringResource(R.string.merchant_program_reward_points_referee_label),
-                    onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
-                    onRewardOutcomePointsChange = onRewardOutcomePointsChange,
-                    onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
-                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
-                    onOpenRewardsCatalog = onOpenRewardsCatalog,
-                    onOpenProgramsCatalog = onOpenProgramsCatalog,
-                )
-                TextField(
-                    value = editorState.referralCodePrefix,
-                    onValueChange = onReferralCodePrefixChange,
-                    label = stringResource(R.string.merchant_program_form_referral_prefix),
-                    icon = Icons.Default.Groups,
-                    errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_PREFIX],
-                    supportingText = null,
-                )
-            }
-        }
     }
 }
 
@@ -3074,7 +3075,6 @@ private fun reviewGoalSummary(
         benefitSummary(editorState.referralRefereeReward, availableRewards),
         editorState.referralCodePrefix.ifBlank { "REF" },
     )
-    LoyaltyProgramType.HYBRID -> customerExperienceSummary(editorState, currencyCode)
 }
 
 @Composable
@@ -3194,41 +3194,6 @@ private fun ProgramRuleFields(
                 errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER]
                     ?: fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE]
                     ?: fieldErrors[PROGRAM_FIELD_REFERRAL_PREFIX],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.REFERRAL_EDIT) },
-            )
-        }
-        LoyaltyProgramType.HYBRID -> {
-            CompactProgramRuleCard(
-                title = stringResource(R.string.merchant_program_points_earn_title),
-                summary = stringResource(
-                    R.string.merchant_program_points_summary,
-                    editorState.pointsAwardedPerStep,
-                    formatWholeCurrency(editorState.pointsSpendStepAmount.toDoubleOrNull() ?: 0.0, currencyCode),
-                    editorState.pointsMinimumRedeem.ifBlank { "0" },
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_POINTS_STEP] ?: fieldErrors[PROGRAM_FIELD_POINTS_AWARDED],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.EARN_RULES_EDIT) },
-            )
-            CompactProgramRuleCard(
-                title = stringResource(R.string.merchant_program_checkin_goal_title),
-                summary = stringResource(
-                    R.string.merchant_program_checkin_summary,
-                    editorState.checkInVisitsRequired,
-                    benefitSummary(editorState.checkInReward, availableRewards),
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_CHECKIN_VISITS] ?: fieldErrors[PROGRAM_FIELD_CHECKIN_REWARD],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.CHECKIN_EDIT) },
-            )
-            CompactProgramRuleCard(
-                title = stringResource(R.string.merchant_program_referral_rewards_title),
-                summary = stringResource(
-                    R.string.merchant_program_referral_summary,
-                    benefitSummary(editorState.referralReferrerReward, availableRewards),
-                    benefitSummary(editorState.referralRefereeReward, availableRewards),
-                    editorState.referralCodePrefix.ifBlank { "REF" },
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_REFERRAL_REFERRER]
-                    ?: fieldErrors[PROGRAM_FIELD_REFERRAL_REFEREE],
                 onEdit = { onOpenSubEditor(ProgramSubEditor.REFERRAL_EDIT) },
             )
         }
@@ -3980,7 +3945,6 @@ private fun rewardOutcomeTypeTitle(type: ProgramRewardOutcomeType): String = whe
     ProgramRewardOutcomeType.PROGRAM_COUPON -> stringResource(R.string.merchant_program_reward_type_program_coupon)
     ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY -> stringResource(R.string.merchant_program_reward_type_program_purchase_frequency)
     ProgramRewardOutcomeType.PROGRAM_REFERRAL -> stringResource(R.string.merchant_program_reward_type_program_referral)
-    ProgramRewardOutcomeType.PROGRAM_HYBRID -> stringResource(R.string.merchant_program_reward_type_program_hybrid)
 }
 
 @Composable
@@ -3996,7 +3960,6 @@ private fun rewardOutcomeTypeSubtitle(type: ProgramRewardOutcomeType): String = 
     ProgramRewardOutcomeType.PROGRAM_COUPON -> stringResource(R.string.merchant_program_reward_type_program_coupon_subtitle)
     ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY -> stringResource(R.string.merchant_program_reward_type_program_purchase_frequency_subtitle)
     ProgramRewardOutcomeType.PROGRAM_REFERRAL -> stringResource(R.string.merchant_program_reward_type_program_referral_subtitle)
-    ProgramRewardOutcomeType.PROGRAM_HYBRID -> stringResource(R.string.merchant_program_reward_type_program_hybrid_subtitle)
 }
 
 private data class RewardOutcomePickerOption(
@@ -4299,40 +4262,59 @@ internal fun ProgramAudienceFields(
         onCheckedChange = onAgeTargetingEnabledChange,
     )
     if (editorState.ageTargetingEnabled) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Text(
+                text = stringResource(R.string.merchant_program_age_range_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.merchant_program_age_range_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.64f),
+            )
             MerchantFormField(
                 value = editorState.targetAgeMin,
-                onValueChange = onTargetAgeMinChange,
+                onValueChange = { onTargetAgeMinChange(it.filter(Char::isDigit)) },
                 label = stringResource(R.string.merchant_program_age_min_label),
                 leadingIcon = Icons.Default.Event,
-                modifier = Modifier.weight(1f),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Next,
+                ),
                 isError = fieldErrors.containsKey(PROGRAM_FIELD_TARGET_AGE_MIN),
                 errorText = fieldErrors[PROGRAM_FIELD_TARGET_AGE_MIN]?.let { stringResource(it) },
-                supportingText = null,
+                supportingText = stringResource(R.string.merchant_program_age_min_supporting),
             )
             MerchantFormField(
                 value = editorState.targetAgeMax,
-                onValueChange = onTargetAgeMaxChange,
+                onValueChange = { onTargetAgeMaxChange(it.filter(Char::isDigit)) },
                 label = stringResource(R.string.merchant_program_age_max_label),
                 leadingIcon = Icons.Default.Event,
-                modifier = Modifier.weight(1f),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                ),
                 isError = fieldErrors.containsKey(PROGRAM_FIELD_TARGET_AGE_MAX),
                 errorText = fieldErrors[PROGRAM_FIELD_TARGET_AGE_MAX]?.let { stringResource(it) },
-                supportingText = null,
+                supportingText = stringResource(R.string.merchant_program_age_max_supporting),
             )
         }
     }
-    ProgramToggleRow(
-        title = stringResource(R.string.merchant_program_one_time_title),
-        subtitle = stringResource(R.string.merchant_program_one_time_subtitle),
-        checked = editorState.oneTimePerCustomer,
-        onCheckedChange = onOneTimePerCustomerChange,
-    )
+    if (editorState.type.supportsOneTimePerCustomer()) {
+        ProgramToggleRow(
+            title = stringResource(R.string.merchant_program_one_time_title),
+            subtitle = stringResource(R.string.merchant_program_one_time_subtitle),
+            checked = editorState.oneTimePerCustomer,
+            onCheckedChange = onOneTimePerCustomerChange,
+        )
+    }
 }
 
 @Composable
@@ -4343,13 +4325,18 @@ private fun audienceSummary(editorState: ProgramEditorState): String {
         else -> stringResource(R.string.merchant_program_gender_all)
     }
     val age = if (editorState.ageTargetingEnabled) {
-        val min = editorState.targetAgeMin.ifBlank { "?" }
-        val max = editorState.targetAgeMax.ifBlank { "?" }
-        stringResource(R.string.merchant_program_audience_age_summary, min, max)
+        val min = editorState.targetAgeMin.trim()
+        val max = editorState.targetAgeMax.trim()
+        when {
+            min.isNotBlank() && max.isNotBlank() -> stringResource(R.string.merchant_program_audience_age_summary, min, max)
+            min.isNotBlank() -> stringResource(R.string.merchant_program_audience_age_min_only_summary, min)
+            max.isNotBlank() -> stringResource(R.string.merchant_program_audience_age_max_only_summary, max)
+            else -> stringResource(R.string.merchant_program_audience_age_unset_summary)
+        }
     } else {
         stringResource(R.string.merchant_program_audience_all_ages)
     }
-    val recurrence = if (editorState.oneTimePerCustomer) {
+    val recurrence = if (editorState.type.supportsOneTimePerCustomer() && editorState.oneTimePerCustomer) {
         stringResource(R.string.merchant_program_one_time_title)
     } else {
         stringResource(R.string.merchant_program_audience_repeat_allowed)
@@ -4373,18 +4360,17 @@ private fun availabilitySummary(editorState: ProgramEditorState): String {
     }
     val schedule = when {
         !editorState.autoScheduleEnabled -> stringResource(R.string.merchant_program_schedule_manual_summary)
-        editorState.scheduleStartDate.isNotBlank() && editorState.scheduleEndDate.isNotBlank() ->
+        editorState.repeatType == ProgramRepeatType.CUSTOM &&
+            editorState.scheduleStartDate.isNotBlank() &&
+            editorState.scheduleEndDate.isNotBlank() ->
             stringResource(
                 R.string.merchant_program_schedule_window_summary,
                 editorState.scheduleStartDate.toDisplayProgramDate(),
                 editorState.scheduleEndDate.toDisplayProgramDate(),
             )
-        else -> stringResource(R.string.merchant_program_form_auto_schedule_supporting)
-    }
-    val recurrence = if (editorState.autoScheduleEnabled && editorState.annualRepeatEnabled) {
-        stringResource(R.string.merchant_program_availability_repeats_yearly)
-    } else {
-        stringResource(R.string.merchant_program_availability_single_window)
+        editorState.repeatType == ProgramRepeatType.WEEKDAYS -> repeatSummary(editorState)
+        editorState.repeatType == ProgramRepeatType.SEASONAL -> repeatSummary(editorState)
+        else -> stringResource(R.string.merchant_program_schedule_custom_summary)
     }
     val reset = when (editorState.benefitResetType) {
         ProgramBenefitResetType.NEVER -> stringResource(R.string.merchant_program_benefit_reset_never)
@@ -4395,7 +4381,54 @@ private fun availabilitySummary(editorState: ProgramEditorState): String {
             editorState.benefitResetCustomDays.ifBlank { "0" },
         )
     }
-    return "$active • $schedule • $recurrence • $reset"
+    return "$active • $schedule • $reset"
+}
+
+@Composable
+private fun repeatSummary(editorState: ProgramEditorState): String = when (editorState.repeatType) {
+    ProgramRepeatType.WEEKDAYS -> stringResource(
+        R.string.merchant_program_repeat_weekly_summary,
+        editorState.repeatDaysOfWeek.sorted().joinToString(", ") { weekdayShortLabel(it) },
+    )
+    ProgramRepeatType.SEASONAL -> if (editorState.seasons.isNotEmpty()) {
+        val seasonLabels = editorState.seasons.map { stringResource(it.labelRes()) }
+        stringResource(
+            R.string.merchant_program_repeat_seasonal_summary,
+            seasonLabels.joinToString(", "),
+        )
+    } else {
+        stringResource(R.string.merchant_program_repeat_seasonal)
+    }
+    ProgramRepeatType.CUSTOM -> stringResource(R.string.merchant_program_repeat_custom_summary)
+    ProgramRepeatType.NONE -> stringResource(R.string.merchant_program_schedule_rule_missing_summary)
+}
+
+@Composable
+private fun repeatTypeLabel(type: ProgramRepeatType): String = stringResource(type.labelRes())
+
+private fun ProgramRepeatType.labelRes(): Int = when (this) {
+    ProgramRepeatType.NONE -> R.string.merchant_program_repeat_none
+    ProgramRepeatType.WEEKDAYS -> R.string.merchant_program_repeat_weekdays
+    ProgramRepeatType.SEASONAL -> R.string.merchant_program_repeat_seasonal
+    ProgramRepeatType.CUSTOM -> R.string.merchant_program_repeat_custom
+}
+
+private fun weekdayShortLabel(day: Int): String = when (day) {
+    1 -> "Mon"
+    2 -> "Tue"
+    3 -> "Wed"
+    4 -> "Thu"
+    5 -> "Fri"
+    6 -> "Sat"
+    7 -> "Sun"
+    else -> day.toString()
+}
+
+private fun ProgramSeason.labelRes(): Int = when (this) {
+    ProgramSeason.WINTER -> R.string.merchant_program_season_winter
+    ProgramSeason.SPRING -> R.string.merchant_program_season_spring
+    ProgramSeason.SUMMER -> R.string.merchant_program_season_summer
+    ProgramSeason.AUTUMN -> R.string.merchant_program_season_autumn
 }
 
 private fun ProgramBenefitResetType.labelRes(): Int = when (this) {

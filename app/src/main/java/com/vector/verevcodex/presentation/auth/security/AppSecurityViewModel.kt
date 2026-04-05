@@ -25,6 +25,7 @@ class AppSecurityViewModel @Inject constructor(
     private var hasHandledInitialSnapshot = false
     private var lockSessionId = 0
     private var suppressSignupReentry = false
+    private var backgroundedAtMs: Long? = null
 
     init {
         observeAuthBootstrapStateUseCase().onEach { snapshot ->
@@ -69,27 +70,50 @@ class AppSecurityViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    fun onAppBackgrounded() {
+    fun onAppBackgrounded(backgroundedAtMs: Long) {
         val state = _uiState.value
         if (state.session == null || state.securityConfig == null || state.authEntryDestination != null) return
+        this.backgroundedAtMs = backgroundedAtMs
+        _uiState.value = state.copy(
+            promptBiometric = false,
+        )
+    }
+
+    fun onAppForegrounded(foregroundedAtMs: Long, lockDelayMs: Long) {
+        val state = _uiState.value
+        if (state.session == null || state.securityConfig == null || state.authEntryDestination != null) return
+        val backgroundedAt = backgroundedAtMs ?: return
+        backgroundedAtMs = null
+        if (foregroundedAtMs - backgroundedAt < lockDelayMs) {
+            _uiState.value = state.copy(
+                requiresUnlock = false,
+                promptBiometric = false,
+                pinDigits = List(4) { "" },
+                pinError = null,
+                pinErrorCount = 0,
+            )
+            return
+        }
         lockSessionId += 1
         _uiState.value = state.copy(
             requiresUnlock = true,
             pinDigits = List(4) { "" },
             pinError = null,
             pinErrorCount = 0,
-            promptBiometric = false,
+            promptBiometric = state.securityConfig.biometricEnabled,
         )
     }
 
-    fun onAppForegrounded() {
+    fun dismissTransientUnlockForExternalIntent() {
         val state = _uiState.value
-        if (state.session == null || state.securityConfig == null || !state.requiresUnlock || state.authEntryDestination != null) return
+        if (state.session == null || state.securityConfig == null || state.authEntryDestination != null) return
+        backgroundedAtMs = null
         _uiState.value = state.copy(
+            requiresUnlock = false,
+            promptBiometric = false,
             pinDigits = List(4) { "" },
             pinError = null,
             pinErrorCount = 0,
-            promptBiometric = state.securityConfig.biometricEnabled,
         )
     }
 
@@ -126,6 +150,9 @@ class AppSecurityViewModel @Inject constructor(
 
     fun logoutToLogin() {
         _uiState.value = _uiState.value.copy(
+            session = null,
+            securityConfig = null,
+            signupOnboardingPending = false,
             authEntryDestination = AuthEntryDestination.LOGIN,
             authEntryNonce = _uiState.value.authEntryNonce + 1,
             requiresUnlock = false,

@@ -14,6 +14,13 @@ data class ProgramRewardOutcomeDto(
     @SerializedName("programName") val programName: String? = null,
 )
 
+data class ProgramRecurrenceConfigDto(
+    @SerializedName("daysOfWeek") val daysOfWeek: List<Int>? = null,
+    @SerializedName("daysOfMonth") val daysOfMonth: List<Int>? = null,
+    @SerializedName("months") val months: List<Int>? = null,
+    @SerializedName("seasons") val seasons: List<String>? = null,
+)
+
 data class TierLevelDto(
     @SerializedName("id") val id: String? = null,
     @SerializedName("name") val name: String? = null,
@@ -38,6 +45,11 @@ data class LoyaltyProgramViewDto(
     @SerializedName("scheduleEndDate") val scheduleEndDate: String? = null,
     @SerializedName("scheduleDurationDays") val scheduleDurationDays: Int? = null,
     @SerializedName("annualRepeatEnabled") val annualRepeatEnabled: Boolean? = null,
+    @SerializedName("recurrenceType") val recurrenceType: String? = null,
+    @SerializedName("recurrenceDaysOfWeek") val recurrenceDaysOfWeek: List<Int>? = null,
+    @SerializedName("recurrenceDaysOfMonth") val recurrenceDaysOfMonth: List<Int>? = null,
+    @SerializedName("recurrenceMonths") val recurrenceMonths: List<Int>? = null,
+    @SerializedName("recurrenceSeasons") val recurrenceSeasons: List<String>? = null,
     @SerializedName("scanActions") val scanActions: List<String>? = null,
     @SerializedName("earningEnabled") val earningEnabled: Boolean? = null,
     @SerializedName("rewardRedemptionEnabled") val rewardRedemptionEnabled: Boolean? = null,
@@ -96,6 +108,11 @@ data class LoyaltyProgramRequestDto(
     @SerializedName("scheduleEndDate") val scheduleEndDate: String?,
     @SerializedName("scheduleDurationDays") val scheduleDurationDays: Int?,
     @SerializedName("annualRepeatEnabled") val annualRepeatEnabled: Boolean,
+    @SerializedName("recurrenceType") val recurrenceType: String,
+    @SerializedName("recurrenceDaysOfWeek") val recurrenceDaysOfWeek: List<Int> = emptyList(),
+    @SerializedName("recurrenceDaysOfMonth") val recurrenceDaysOfMonth: List<Int> = emptyList(),
+    @SerializedName("recurrenceMonths") val recurrenceMonths: List<Int> = emptyList(),
+    @SerializedName("recurrenceSeasons") val recurrenceSeasons: List<String> = emptyList(),
     @SerializedName("earningEnabled") val earningEnabled: Boolean,
     @SerializedName("rewardRedemptionEnabled") val rewardRedemptionEnabled: Boolean,
     @SerializedName("visitCheckInEnabled") val visitCheckInEnabled: Boolean,

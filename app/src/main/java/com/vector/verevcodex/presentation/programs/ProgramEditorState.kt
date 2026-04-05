@@ -1,6 +1,8 @@
 package com.vector.verevcodex.presentation.programs
 
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
 import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
@@ -34,6 +36,11 @@ data class ProgramEditorState(
     val scheduleStartDate: String = "",
     val scheduleEndDate: String = "",
     val annualRepeatEnabled: Boolean = false,
+    val repeatType: ProgramRepeatType = ProgramRepeatType.NONE,
+    val repeatDaysOfWeek: List<Int> = emptyList(),
+    val repeatDaysOfMonth: List<Int> = emptyList(),
+    val repeatMonths: List<Int> = emptyList(),
+    val seasons: List<ProgramSeason> = emptyList(),
     val benefitResetType: ProgramBenefitResetType = ProgramBenefitResetType.NEVER,
     val benefitResetCustomDays: String = "",
     val pointsSpendStepAmount: String = "100",

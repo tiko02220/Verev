@@ -316,8 +316,7 @@ class ScanViewModel @Inject constructor(
         val resolvedActions = (remoteActions + activeProgramActions)
             .distinct()
             .filterNot { action ->
-                action == RewardProgramScanAction.APPLY_CASHBACK ||
-                    action == RewardProgramScanAction.TRACK_TIER_PROGRESS
+                action == RewardProgramScanAction.TRACK_TIER_PROGRESS
             }
         val actionableWithoutCheckIn = resolvedActions.filterNot { it == RewardProgramScanAction.CHECK_IN }
         val visibleActions = if (
@@ -333,8 +332,7 @@ class ScanViewModel @Inject constructor(
                 RewardProgramScanAction.EARN_POINTS -> 0
                 RewardProgramScanAction.REDEEM_REWARDS -> 1
                 RewardProgramScanAction.CHECK_IN -> 2
-                RewardProgramScanAction.APPLY_CASHBACK -> 3
-                RewardProgramScanAction.TRACK_TIER_PROGRESS -> 4
+                RewardProgramScanAction.TRACK_TIER_PROGRESS -> 3
             }
         }
     }
@@ -363,7 +361,7 @@ class ScanViewModel @Inject constructor(
                 ScanValidationError.InvalidPoints -> SCAN_FIELD_POINTS to R.string.merchant_scan_error_points
                 ScanValidationError.PointsExceedBalance -> SCAN_FIELD_POINTS to R.string.merchant_scan_error_points_exceeds_balance
                 is ScanValidationError.MinimumPointsRequired -> SCAN_FIELD_POINTS to R.string.merchant_scan_error_points_minimum_required
-                is ScanValidationError.MinimumSpendRequired -> SCAN_FIELD_AMOUNT to R.string.merchant_scan_error_cashback_minimum_spend
+                is ScanValidationError.MinimumSpendRequired -> SCAN_FIELD_AMOUNT to R.string.merchant_scan_error_amount
             }
             _uiState.value = state.copy(
                 contentMode = ScanContentMode.CUSTOMER,
@@ -421,7 +419,6 @@ class ScanViewModel @Inject constructor(
         RewardProgramScanAction.EARN_POINTS -> R.string.merchant_scan_message_points_added
         RewardProgramScanAction.REDEEM_REWARDS -> R.string.merchant_scan_message_points_redeemed
         RewardProgramScanAction.CHECK_IN -> R.string.merchant_scan_message_check_in
-        RewardProgramScanAction.APPLY_CASHBACK -> R.string.merchant_scan_message_cashback_applied
         else -> R.string.merchant_scan_message_member_found
     }
 

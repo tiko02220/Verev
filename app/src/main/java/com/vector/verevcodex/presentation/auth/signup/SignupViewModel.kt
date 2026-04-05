@@ -7,6 +7,7 @@ import com.vector.verevcodex.common.phone.normalizePhoneNumber
 import com.vector.verevcodex.common.phone.sanitizePhoneNumberInput
 import com.vector.verevcodex.common.phone.defaultPhoneNumberInput
 import com.vector.verevcodex.common.validation.isValidStaffPassword
+import com.vector.verevcodex.data.remote.core.RemoteException
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.common.defaultPermissions
 import com.vector.verevcodex.domain.model.common.summary
@@ -195,7 +196,7 @@ class SignupViewModel @Inject constructor(
         if (state.email.isBlank()) errors["email"] = "required_email"
         else if (!Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(state.email)) errors["email"] = "invalid_email"
         if (state.password.isBlank()) errors["password"] = "required_password"
-        else if (state.password.length < 8) errors["password"] = "password_short"
+        else if (state.password.length < 10) errors["password"] = "password_short"
         if (state.confirmPassword != state.password) errors["confirmPassword"] = "password_confirm"
         if (errors.isNotEmpty()) {
             update { copy(errors = errors) }
@@ -232,11 +233,14 @@ class SignupViewModel @Inject constructor(
                     pinSetupSkipped = false,
                 )
             }.onFailure {
-                val message = it.message.orEmpty()
-                if (message.contains("Email already exists", ignoreCase = true)) {
-                    update { copy(isLoading = false, showExistingEmailDialog = true) }
-                } else {
-                    update { copy(isLoading = false, submissionError = message.ifBlank { "invalid_credentials" }) }
+                val resolution = resolveSignupFailure(it)
+                update {
+                    copy(
+                        isLoading = false,
+                        errors = resolution.fieldErrors.ifEmpty { errors },
+                        submissionError = resolution.submissionError,
+                        showExistingEmailDialog = resolution.showExistingEmailDialog,
+                    )
                 }
             }
         }
@@ -505,4 +509,48 @@ data class SignupUiState(
 enum class PinSetupStep {
     CREATE,
     CONFIRM,
+}
+
+private data class SignupFailureResolution(
+    val fieldErrors: Map<String, String> = emptyMap(),
+    val submissionError: String? = null,
+    val showExistingEmailDialog: Boolean = false,
+)
+
+private fun resolveSignupFailure(throwable: Throwable): SignupFailureResolution {
+    val remote = throwable as? RemoteException
+    val code = remote?.backendCode.orEmpty()
+    val message = remote?.message.orEmpty()
+
+    if (
+        code == "CONFLICT_USER_EMAIL" ||
+        code == "CONFLICT_ORGANIZATION_OWNER_EMAIL" ||
+        message.contains("Email already exists", ignoreCase = true)
+    ) {
+        return SignupFailureResolution(showExistingEmailDialog = true)
+    }
+
+    val fieldErrors = when (code) {
+        "VALIDATION_OWNER_PASSWORD_SIZE" -> mapOf("password" to "password_short")
+        "VALIDATION_OWNER_PASSWORD_NOTBLANK" -> mapOf("password" to "required_password")
+        "VALIDATION_OWNER_EMAIL_EMAIL" -> mapOf("email" to "invalid_email")
+        "VALIDATION_OWNER_EMAIL_NOTBLANK" -> mapOf("email" to "required_email")
+        "VALIDATION_OWNER_FULLNAME_NOTBLANK" -> mapOf("fullName" to "required_full_name")
+        "VALIDATION_ORGANIZATION_DISPLAYNAME_NOTBLANK" -> mapOf("businessName" to "required_business_name")
+        "VALIDATION_ORGANIZATION_INDUSTRY_NOTBLANK" -> mapOf("industry" to "required_industry")
+        "VALIDATION_ORGANIZATION_EMAIL_EMAIL" -> mapOf("businessEmail" to "invalid_email")
+        "VALIDATION_ORGANIZATION_PHONE_NOTBLANK" -> mapOf("phone" to "required_phone")
+        "VALIDATION_STORE_ADDRESS_NOTBLANK" -> mapOf("address" to "required_address")
+        else -> emptyMap()
+    }
+    if (fieldErrors.isNotEmpty()) {
+        return SignupFailureResolution(fieldErrors = fieldErrors)
+    }
+
+    val submissionError = when (remote?.kind) {
+        RemoteException.Kind.Connectivity,
+        RemoteException.Kind.Timeout -> "connection_failed"
+        else -> message.ifBlank { "invalid_credentials" }
+    }
+    return SignupFailureResolution(submissionError = submissionError)
 }

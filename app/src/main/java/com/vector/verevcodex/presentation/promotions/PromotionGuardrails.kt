@@ -1,6 +1,7 @@
 package com.vector.verevcodex.presentation.promotions
 
 import com.vector.verevcodex.domain.model.common.CampaignSegment
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import java.time.LocalDate
@@ -55,27 +56,31 @@ private fun audienceLikelyOverlaps(left: CampaignSegment, right: CampaignSegment
         left == right
 
 private fun programOverlapsCampaign(program: RewardProgram, campaign: Campaign, today: LocalDate = LocalDate.now()): Boolean {
-    val programStartDate = program.scheduleStartDate
-    val programEndDate = program.scheduleEndDate
-    val start = when {
-        !program.active -> return false
-        program.autoScheduleEnabled && programStartDate != null -> programStartDate
-        else -> today
-    } ?: return false
-    val end = if (program.autoScheduleEnabled && programStartDate != null && programEndDate != null) {
-        programEndDate
-    } else {
-        null
-    }
-    if (program.annualRepeatEnabled && program.autoScheduleEnabled && programStartDate != null && programEndDate != null) {
-        val years = (campaign.startDate.year - 1..campaign.endDate.year + 1)
-        return years.any { year ->
-            val occurrence = projectAnnualWindow(programStartDate, programEndDate, year)
-            !occurrence.first.isAfter(campaign.endDate) && !campaign.startDate.isAfter(occurrence.second)
+    if (!program.active) return false
+    if (!program.autoScheduleEnabled) return true
+    return when (program.repeatType) {
+        ProgramRepeatType.WEEKDAYS -> {
+            generateSequence(campaign.startDate) { current ->
+                current.plusDays(1).takeIf { !it.isAfter(campaign.endDate) }
+            }.any { day -> program.repeatDaysOfWeek.contains(day.dayOfWeek.value) }
         }
+        ProgramRepeatType.SEASONAL -> {
+            val activeMonths = program.seasons.flatMap { it.months }.toSet()
+            generateSequence(campaign.startDate) { current ->
+                current.plusDays(1).takeIf { !it.isAfter(campaign.endDate) }
+            }.any { day -> activeMonths.contains(day.monthValue) }
+        }
+        ProgramRepeatType.CUSTOM -> {
+            val start = program.scheduleStartDate ?: return false
+            val end = program.scheduleEndDate ?: return false
+            val years = (campaign.startDate.year - 1..campaign.endDate.year + 1)
+            years.any { year ->
+                val occurrence = projectAnnualWindow(start, end, year)
+                !occurrence.first.isAfter(campaign.endDate) && !campaign.startDate.isAfter(occurrence.second)
+            }
+        }
+        ProgramRepeatType.NONE -> false
     }
-    val programEnd = end ?: LocalDate.MAX
-    return !start.isAfter(campaign.endDate) && !campaign.startDate.isAfter(programEnd)
 }
 
 private fun projectAnnualWindow(start: LocalDate, end: LocalDate, year: Int): Pair<LocalDate, LocalDate> {

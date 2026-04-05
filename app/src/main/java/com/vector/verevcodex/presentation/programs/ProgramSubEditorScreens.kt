@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
@@ -158,7 +160,11 @@ internal fun AvailabilityEditScreen(
     onAutoScheduleEnabledChange: (Boolean) -> Unit,
     onScheduleStartDateChange: (String) -> Unit,
     onScheduleEndDateChange: (String) -> Unit,
-    onAnnualRepeatEnabledChange: (Boolean) -> Unit,
+    onRepeatTypeChange: (ProgramRepeatType) -> Unit,
+    onToggleRepeatDayOfWeek: (Int) -> Unit,
+    onToggleRepeatDayOfMonth: (Int) -> Unit,
+    onToggleRepeatMonth: (Int) -> Unit,
+    onToggleSeason: (ProgramSeason) -> Unit,
     onBenefitResetTypeChange: (ProgramBenefitResetType) -> Unit,
     onBenefitResetCustomDaysChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -187,7 +193,11 @@ internal fun AvailabilityEditScreen(
                     onAutoScheduleEnabledChange = onAutoScheduleEnabledChange,
                     onScheduleStartDateChange = onScheduleStartDateChange,
                     onScheduleEndDateChange = onScheduleEndDateChange,
-                    onAnnualRepeatEnabledChange = onAnnualRepeatEnabledChange,
+                    onRepeatTypeChange = onRepeatTypeChange,
+                    onToggleRepeatDayOfWeek = onToggleRepeatDayOfWeek,
+                    onToggleRepeatDayOfMonth = onToggleRepeatDayOfMonth,
+                    onToggleRepeatMonth = onToggleRepeatMonth,
+                    onToggleSeason = onToggleSeason,
                     benefitResetType = editorState.benefitResetType,
                     benefitResetCustomDays = editorState.benefitResetCustomDays,
                     onBenefitResetTypeChange = onBenefitResetTypeChange,
@@ -651,7 +661,7 @@ internal fun CashbackEditScreen(
     ProgramSubEditorLayout(
         title = stringResource(R.string.merchant_program_cashback_edit_action),
         subtitle = stringResource(R.string.merchant_program_editor_cashback_setup_subtitle),
-        headerColors = LoyaltyProgramType.HYBRID.gradient(),
+        headerColors = LoyaltyProgramType.POINTS.gradient(),
         onBack = onBack,
         onSave = onSave,
     ) {

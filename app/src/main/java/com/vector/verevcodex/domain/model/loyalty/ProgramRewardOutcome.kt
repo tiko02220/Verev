@@ -15,8 +15,6 @@ enum class ProgramRewardOutcomeType {
     PROGRAM_COUPON,
     PROGRAM_PURCHASE_FREQUENCY,
     PROGRAM_REFERRAL,
-    PROGRAM_HYBRID,
-
     ;
 
     companion object {
@@ -32,7 +30,6 @@ enum class ProgramRewardOutcomeType {
                 "PROGRAM_COUPON", "COUPON_BENEFIT", "COUPON" -> PROGRAM_COUPON
                 "PROGRAM_PURCHASE_FREQUENCY" -> PROGRAM_PURCHASE_FREQUENCY
                 "PROGRAM_REFERRAL" -> PROGRAM_REFERRAL
-                "PROGRAM_HYBRID" -> PROGRAM_HYBRID
                 "REWARD_ITEM", "REWARD" -> FREE_PRODUCT
                 "PROGRAM_BENEFIT", "PROGRAM", "PROGRAM_UNLOCK", "CASHBACK_BENEFIT", "CASHBACK" -> PROGRAM_POINTS
                 else -> POINTS
@@ -77,7 +74,6 @@ fun ProgramRewardOutcomeType.usesProgramBenefit(): Boolean = when (this) {
     ProgramRewardOutcomeType.PROGRAM_COUPON,
     ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY,
     ProgramRewardOutcomeType.PROGRAM_REFERRAL,
-    ProgramRewardOutcomeType.PROGRAM_HYBRID,
     -> true
     else -> false
 }
@@ -97,6 +93,5 @@ fun ProgramRewardOutcomeType.impliedProgramType(): LoyaltyProgramType? = when (t
     ProgramRewardOutcomeType.PROGRAM_COUPON -> LoyaltyProgramType.COUPON
     ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY -> LoyaltyProgramType.PURCHASE_FREQUENCY
     ProgramRewardOutcomeType.PROGRAM_REFERRAL -> LoyaltyProgramType.REFERRAL
-    ProgramRewardOutcomeType.PROGRAM_HYBRID -> LoyaltyProgramType.HYBRID
     else -> null
 }

@@ -560,7 +560,6 @@ private fun rewardUsageBreakdown(transactions: List<Transaction>): List<Analytic
 
 private fun estimateProgramMemberCount(program: RewardProgram, transactions: List<Transaction>): Int = when (program.type) {
     LoyaltyProgramType.POINTS,
-    LoyaltyProgramType.HYBRID,
     LoyaltyProgramType.TIER,
     LoyaltyProgramType.COUPON,
     LoyaltyProgramType.PURCHASE_FREQUENCY,
@@ -570,7 +569,6 @@ private fun estimateProgramMemberCount(program: RewardProgram, transactions: Lis
 
 private fun estimateProgramRedemptionRate(program: RewardProgram, transactions: List<Transaction>): Double = when (program.type) {
     LoyaltyProgramType.POINTS,
-    LoyaltyProgramType.HYBRID,
     LoyaltyProgramType.TIER,
     LoyaltyProgramType.COUPON,
     LoyaltyProgramType.PURCHASE_FREQUENCY,

@@ -31,6 +31,8 @@ import com.vector.verevcodex.domain.model.loyalty.CouponProgramRule
 import com.vector.verevcodex.domain.model.loyalty.PointsProgramRule
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetPolicy
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcome
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
 import com.vector.verevcodex.domain.model.loyalty.PurchaseFrequencyProgramRule
@@ -119,6 +121,11 @@ class LoyaltyRemoteDataSource @Inject constructor(
                 draft.scheduleEndDate?.let { end -> ChronoUnit.DAYS.between(start, end).toInt() + 1 }
             },
             annualRepeatEnabled = draft.annualRepeatEnabled,
+            recurrenceType = draft.repeatType.name,
+            recurrenceDaysOfWeek = draft.repeatDaysOfWeek,
+            recurrenceDaysOfMonth = draft.repeatDaysOfMonth,
+            recurrenceMonths = draft.repeatMonths,
+            recurrenceSeasons = draft.seasons.map { it.name },
             earningEnabled = draft.configuration.earningEnabled,
             rewardRedemptionEnabled = draft.configuration.rewardRedemptionEnabled,
             visitCheckInEnabled = draft.configuration.visitCheckInEnabled,
@@ -191,6 +198,11 @@ class LoyaltyRemoteDataSource @Inject constructor(
                 draft.scheduleEndDate?.let { end -> ChronoUnit.DAYS.between(start, end).toInt() + 1 }
             },
             annualRepeatEnabled = draft.annualRepeatEnabled,
+            recurrenceType = draft.repeatType.name,
+            recurrenceDaysOfWeek = draft.repeatDaysOfWeek,
+            recurrenceDaysOfMonth = draft.repeatDaysOfMonth,
+            recurrenceMonths = draft.repeatMonths,
+            recurrenceSeasons = draft.seasons.map { it.name },
             earningEnabled = draft.configuration.earningEnabled,
             rewardRedemptionEnabled = draft.configuration.rewardRedemptionEnabled,
             visitCheckInEnabled = draft.configuration.visitCheckInEnabled,
@@ -657,6 +669,13 @@ private fun LoyaltyProgramViewDto.toDomain(): RewardProgram {
                 scheduleDurationDays?.let { start.plusDays(it.toLong() - 1L) }
             },
         annualRepeatEnabled = annualRepeatEnabled ?: false,
+        repeatType = recurrenceType
+            ?.let(ProgramRepeatType::from)
+            ?: if (annualRepeatEnabled == true) ProgramRepeatType.CUSTOM else ProgramRepeatType.NONE,
+        repeatDaysOfWeek = recurrenceDaysOfWeek.orEmpty().filter { it in 1..7 }.distinct().sorted(),
+        repeatDaysOfMonth = recurrenceDaysOfMonth.orEmpty().filter { it in 1..31 }.distinct().sorted(),
+        repeatMonths = recurrenceMonths.orEmpty().filter { it in 1..12 }.distinct().sorted(),
+        seasons = recurrenceSeasons.orEmpty().mapNotNull(ProgramSeason::from).distinct(),
         configuration = config,
         targetGender = targetGender?.uppercase().orEmpty().ifBlank { "ALL" },
         targetAgeMin = targetAgeMin,

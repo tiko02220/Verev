@@ -2,10 +2,11 @@ package com.vector.verevcodex.presentation.programs
 
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramConfiguration
+import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
+import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import java.time.LocalDate
-import java.time.MonthDay
 
 internal data class ProgramOperationalSnapshot(
     val scanActions: Set<RewardProgramScanAction>,
@@ -55,7 +56,11 @@ internal fun ProgramEditorState.toOperationalSnapshot(
         autoScheduleEnabled = autoScheduleEnabled,
         scheduleStartDate = scheduleStartDate.toLocalDateOrNull(),
         scheduleEndDate = scheduleEndDate.toLocalDateOrNull(),
-        annualRepeatEnabled = annualRepeatEnabled,
+        repeatType = repeatType,
+        repeatDaysOfWeek = repeatDaysOfWeek,
+        repeatDaysOfMonth = repeatDaysOfMonth,
+        repeatMonths = repeatMonths,
+        seasons = seasons,
         today = today,
     )
     return buildProgramOperationalSnapshot(
@@ -66,7 +71,11 @@ internal fun ProgramEditorState.toOperationalSnapshot(
         autoScheduleEnabled = autoScheduleEnabled,
         scheduleStartDate = scheduleStartDate.toLocalDateOrNull(),
         scheduleEndDate = scheduleEndDate.toLocalDateOrNull(),
-        annualRepeatEnabled = annualRepeatEnabled,
+        repeatType = repeatType,
+        repeatDaysOfWeek = repeatDaysOfWeek,
+        repeatDaysOfMonth = repeatDaysOfMonth,
+        repeatMonths = repeatMonths,
+        seasons = seasons,
         effectiveWindow = effectiveWindow,
         existingPrograms = existingPrograms,
         campaigns = campaigns,
@@ -86,7 +95,11 @@ internal fun RewardProgram.toOperationalSnapshot(
         autoScheduleEnabled = autoScheduleEnabled,
         scheduleStartDate = scheduleStartDate,
         scheduleEndDate = scheduleEndDate,
-        annualRepeatEnabled = annualRepeatEnabled,
+        repeatType = repeatType,
+        repeatDaysOfWeek = repeatDaysOfWeek,
+        repeatDaysOfMonth = repeatDaysOfMonth,
+        repeatMonths = repeatMonths,
+        seasons = seasons,
         today = today,
     )
     return buildProgramOperationalSnapshot(
@@ -97,7 +110,11 @@ internal fun RewardProgram.toOperationalSnapshot(
         autoScheduleEnabled = autoScheduleEnabled,
         scheduleStartDate = scheduleStartDate,
         scheduleEndDate = scheduleEndDate,
-        annualRepeatEnabled = annualRepeatEnabled,
+        repeatType = repeatType,
+        repeatDaysOfWeek = repeatDaysOfWeek,
+        repeatDaysOfMonth = repeatDaysOfMonth,
+        repeatMonths = repeatMonths,
+        seasons = seasons,
         effectiveWindow = effectiveWindow,
         existingPrograms = existingPrograms,
         campaigns = campaigns,
@@ -114,7 +131,11 @@ private fun buildProgramOperationalSnapshot(
     autoScheduleEnabled: Boolean,
     scheduleStartDate: LocalDate?,
     scheduleEndDate: LocalDate?,
-    annualRepeatEnabled: Boolean,
+    repeatType: ProgramRepeatType,
+    repeatDaysOfWeek: List<Int>,
+    repeatDaysOfMonth: List<Int>,
+    repeatMonths: List<Int>,
+    seasons: List<ProgramSeason>,
     effectiveWindow: ProgramEffectiveWindow?,
     existingPrograms: List<RewardProgram>,
     campaigns: List<Campaign>,
@@ -149,7 +170,7 @@ private fun buildProgramOperationalSnapshot(
             campaigns
                 .asSequence()
                 .filter { it.id != programId }
-                .filter { windowsOverlap(effectiveWindow, ProgramEffectiveWindow(it.startDate, it.endDate, annualRepeatEnabled = false)) }
+                .filter { windowsOverlap(effectiveWindow, ProgramEffectiveWindow(it.startDate, it.endDate, ProgramRepeatType.NONE)) }
                 .map { ProgramOverlapWarning.CampaignConflict(it.name) }
                 .forEach(::add)
         }
@@ -158,15 +179,22 @@ private fun buildProgramOperationalSnapshot(
     val inactiveReasons = buildList {
         when {
             !active -> add(ProgramInactiveReason.Disabled)
-            autoScheduleEnabled && scheduleStartDate != null && scheduleStartDate.isAfter(today) ->
-                add(ProgramInactiveReason.StartsLater(scheduleStartDate))
-            autoScheduleEnabled && annualRepeatEnabled && scheduleStartDate != null && scheduleEndDate != null &&
-                (effectiveWindow?.contains(today) != true) -> {
-                nextAnnualWindowStart(scheduleStartDate, scheduleEndDate, today)?.let { add(ProgramInactiveReason.StartsLater(it)) }
-            }
-            autoScheduleEnabled && scheduleStartDate != null && scheduleEndDate != null &&
-                scheduleEndDate.isBefore(today) ->
-                add(ProgramInactiveReason.Ended(scheduleEndDate))
+            autoScheduleEnabled &&
+                repeatType == ProgramRepeatType.CUSTOM &&
+                scheduleStartDate != null &&
+                scheduleEndDate != null &&
+                effectiveWindow?.contains(today) != true &&
+                currentCustomOccurrence(scheduleStartDate, scheduleEndDate, today).first.isAfter(today) ->
+                add(ProgramInactiveReason.StartsLater(currentCustomOccurrence(scheduleStartDate, scheduleEndDate, today).first))
+            autoScheduleEnabled &&
+                repeatType == ProgramRepeatType.CUSTOM &&
+                scheduleStartDate != null &&
+                scheduleEndDate != null &&
+                effectiveWindow?.contains(today) != true &&
+                currentCustomOccurrence(scheduleStartDate, scheduleEndDate, today).second.isBefore(today) ->
+                add(ProgramInactiveReason.Ended(currentCustomOccurrence(scheduleStartDate, scheduleEndDate, today).second))
+            autoScheduleEnabled && effectiveWindow?.contains(today) != true ->
+                add(ProgramInactiveReason.NoActiveScanCoverage)
         }
         when {
             scanActions.isEmpty() && configuration.referralEnabled -> add(ProgramInactiveReason.ReferralOnly)
@@ -189,16 +217,29 @@ private fun buildProgramOperationalSnapshot(
 }
 
 private data class ProgramEffectiveWindow(
-    val startDate: LocalDate,
+    val startDate: LocalDate?,
     val endDate: LocalDate?,
-    val annualRepeatEnabled: Boolean,
+    val repeatType: ProgramRepeatType,
+    val repeatDaysOfWeek: List<Int> = emptyList(),
+    val repeatDaysOfMonth: List<Int> = emptyList(),
+    val repeatMonths: List<Int> = emptyList(),
+    val seasons: List<ProgramSeason> = emptyList(),
 ) {
     fun contains(date: LocalDate): Boolean {
-        if (endDate == null) return !startDate.isAfter(date)
-        return if (annualRepeatEnabled) {
-            annualWindowContains(startDate, endDate, date)
-        } else {
-            !startDate.isAfter(date) && !endDate.isBefore(date)
+        return when (repeatType) {
+            ProgramRepeatType.WEEKDAYS -> repeatDaysOfWeek.contains(date.dayOfWeek.value)
+            ProgramRepeatType.SEASONAL -> seasons.flatMap { it.months }.contains(date.monthValue)
+            ProgramRepeatType.CUSTOM -> if (startDate != null && endDate != null) {
+                annualWindowContains(startDate, endDate, date)
+            } else {
+                false
+            }
+            ProgramRepeatType.NONE -> when {
+                startDate == null && endDate == null -> true
+                startDate != null && endDate != null -> !date.isBefore(startDate) && !date.isAfter(endDate)
+                startDate != null -> !date.isBefore(startDate)
+                else -> !date.isAfter(endDate)
+            }
         }
     }
 }
@@ -208,17 +249,42 @@ private fun effectiveWindow(
     autoScheduleEnabled: Boolean,
     scheduleStartDate: LocalDate?,
     scheduleEndDate: LocalDate?,
-    annualRepeatEnabled: Boolean,
+    repeatType: ProgramRepeatType,
+    repeatDaysOfWeek: List<Int>,
+    repeatDaysOfMonth: List<Int>,
+    repeatMonths: List<Int>,
+    seasons: List<ProgramSeason>,
     today: LocalDate,
 ): ProgramEffectiveWindow? {
     if (!active) return null
-    if (!autoScheduleEnabled) return ProgramEffectiveWindow(startDate = today, endDate = null, annualRepeatEnabled = false)
-    if (scheduleStartDate == null || scheduleEndDate == null || scheduleEndDate.isBefore(scheduleStartDate)) return null
-    return ProgramEffectiveWindow(
-        startDate = scheduleStartDate,
-        endDate = scheduleEndDate,
-        annualRepeatEnabled = annualRepeatEnabled,
-    )
+    if (!autoScheduleEnabled) return ProgramEffectiveWindow(startDate = today, endDate = null, repeatType = ProgramRepeatType.NONE)
+    return when (repeatType) {
+        ProgramRepeatType.WEEKDAYS -> ProgramEffectiveWindow(
+            startDate = null,
+            endDate = null,
+            repeatType = repeatType,
+            repeatDaysOfWeek = repeatDaysOfWeek,
+            seasons = seasons,
+        )
+        ProgramRepeatType.SEASONAL -> ProgramEffectiveWindow(
+            startDate = null,
+            endDate = null,
+            repeatType = repeatType,
+            repeatDaysOfWeek = repeatDaysOfWeek,
+            seasons = seasons,
+        )
+        ProgramRepeatType.CUSTOM -> {
+            if (scheduleStartDate == null || scheduleEndDate == null || scheduleEndDate.isBefore(scheduleStartDate)) return null
+            ProgramEffectiveWindow(
+                startDate = scheduleStartDate,
+                endDate = scheduleEndDate,
+                repeatType = repeatType,
+                repeatDaysOfWeek = repeatDaysOfWeek,
+                seasons = seasons,
+            )
+        }
+        ProgramRepeatType.NONE -> null
+    }
 }
 
 private fun RewardProgram.toEffectiveWindow(today: LocalDate): ProgramEffectiveWindow? = effectiveWindow(
@@ -226,7 +292,11 @@ private fun RewardProgram.toEffectiveWindow(today: LocalDate): ProgramEffectiveW
     autoScheduleEnabled = autoScheduleEnabled,
     scheduleStartDate = scheduleStartDate,
     scheduleEndDate = scheduleEndDate,
-    annualRepeatEnabled = annualRepeatEnabled,
+    repeatType = repeatType,
+    repeatDaysOfWeek = repeatDaysOfWeek,
+    repeatDaysOfMonth = repeatDaysOfMonth,
+    repeatMonths = repeatMonths,
+    seasons = seasons,
     today = today,
 )
 
@@ -235,13 +305,6 @@ private fun windowsOverlap(
     right: ProgramEffectiveWindow?,
 ): Boolean {
     if (right == null) return false
-    if (left.annualRepeatEnabled || right.annualRepeatEnabled) {
-        val leftWindows = comparisonWindows(left, right)
-        val rightWindows = comparisonWindows(right, left)
-        return leftWindows.any { leftWindow ->
-            rightWindows.any { rightWindow -> simpleWindowsOverlap(leftWindow, rightWindow) }
-        }
-    }
     return simpleWindowsOverlap(left, right)
 }
 
@@ -249,77 +312,38 @@ private fun simpleWindowsOverlap(
     left: ProgramEffectiveWindow,
     right: ProgramEffectiveWindow,
 ): Boolean {
-    val leftEnd = left.endDate ?: LocalDate.MAX
-    val rightEnd = right.endDate ?: LocalDate.MAX
-    return !left.startDate.isAfter(rightEnd) && !right.startDate.isAfter(leftEnd)
-}
-
-private fun comparisonWindows(
-    window: ProgramEffectiveWindow,
-    other: ProgramEffectiveWindow,
-): List<ProgramEffectiveWindow> {
-    if (!window.annualRepeatEnabled || window.endDate == null) return listOf(window)
-    if (other.endDate == null) return listOf(projectAnnualWindow(window, other.startDate.year))
-    val years = (other.startDate.year - 1..other.endDate.year + 1).toList()
-    return years.map { projectAnnualWindow(window, it) }
-}
-
-private fun projectAnnualWindow(
-    window: ProgramEffectiveWindow,
-    year: Int,
-): ProgramEffectiveWindow {
-    val startMonthDay = MonthDay.from(window.startDate)
-    val endMonthDay = MonthDay.from(window.endDate!!)
-    val startDate = startMonthDay.atYear(year)
-    val endDate = if (!endMonthDay.isBefore(startMonthDay)) {
-        endMonthDay.atYear(year)
-    } else {
-        endMonthDay.atYear(year + 1)
-    }
-    return ProgramEffectiveWindow(
-        startDate = startDate,
-        endDate = endDate,
-        annualRepeatEnabled = false,
-    )
+    if (left.repeatType != ProgramRepeatType.CUSTOM || right.repeatType != ProgramRepeatType.CUSTOM) return true
+    val leftStart = left.startDate ?: return true
+    val rightStart = right.startDate ?: return true
+    val leftEnd = left.endDate ?: return true
+    val rightEnd = right.endDate ?: return true
+    return !leftStart.isAfter(rightEnd) && !rightStart.isAfter(leftEnd)
 }
 
 private fun annualWindowContains(start: LocalDate, end: LocalDate, date: LocalDate): Boolean {
-    val projectedWindow = if (!MonthDay.from(end).isBefore(MonthDay.from(start))) {
-        ProgramEffectiveWindow(
-            startDate = MonthDay.from(start).atYear(date.year),
-            endDate = MonthDay.from(end).atYear(date.year),
-            annualRepeatEnabled = false,
-        )
-    } else if (!MonthDay.from(date).isBefore(MonthDay.from(start))) {
-        ProgramEffectiveWindow(
-            startDate = MonthDay.from(start).atYear(date.year),
-            endDate = MonthDay.from(end).atYear(date.year + 1),
-            annualRepeatEnabled = false,
-        )
+    val startMonthDay = java.time.MonthDay.from(start)
+    val endMonthDay = java.time.MonthDay.from(end)
+    val dateMonthDay = java.time.MonthDay.from(date)
+    val projectedWindow = if (!endMonthDay.isBefore(startMonthDay)) {
+        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year)
+    } else if (!dateMonthDay.isBefore(startMonthDay)) {
+        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year + 1)
     } else {
-        ProgramEffectiveWindow(
-            startDate = MonthDay.from(start).atYear(date.year - 1),
-            endDate = MonthDay.from(end).atYear(date.year),
-            annualRepeatEnabled = false,
-        )
+        startMonthDay.atYear(date.year - 1) to endMonthDay.atYear(date.year)
     }
-    return simpleWindowsOverlap(
-        projectedWindow,
-        ProgramEffectiveWindow(date, date, annualRepeatEnabled = false),
-    )
+    return !date.isBefore(projectedWindow.first) && !date.isAfter(projectedWindow.second)
 }
 
-private fun nextAnnualWindowStart(start: LocalDate, end: LocalDate, today: LocalDate): LocalDate? {
-    val startMonthDay = MonthDay.from(start)
-    val endMonthDay = MonthDay.from(end)
-    val thisYearStart = startMonthDay.atYear(today.year)
-    val thisYearEnd = if (!endMonthDay.isBefore(startMonthDay)) endMonthDay.atYear(today.year) else endMonthDay.atYear(today.year + 1)
-    return if (today.isBefore(thisYearStart)) {
-        thisYearStart
-    } else if (today.isAfter(thisYearEnd)) {
-        startMonthDay.atYear(today.year + 1)
+private fun currentCustomOccurrence(start: LocalDate, end: LocalDate, date: LocalDate): Pair<LocalDate, LocalDate> {
+    val startMonthDay = java.time.MonthDay.from(start)
+    val endMonthDay = java.time.MonthDay.from(end)
+    val dateMonthDay = java.time.MonthDay.from(date)
+    return if (!endMonthDay.isBefore(startMonthDay)) {
+        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year)
+    } else if (!dateMonthDay.isBefore(startMonthDay)) {
+        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year + 1)
     } else {
-        null
+        startMonthDay.atYear(date.year - 1) to endMonthDay.atYear(date.year)
     }
 }
 

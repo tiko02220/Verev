@@ -40,7 +40,6 @@ fun AppEntryScreen(
     onAuthFlowCompleted: () -> Unit,
     onLogout: () -> Unit,
 ) {
-    val merchantNavController = rememberNavController()
     val connectivityStatus = rememberConnectivityStatus()
     val destination = securityState.toRootDestination()
     var backendRetryToken by rememberSaveable { mutableStateOf(0) }
@@ -91,11 +90,12 @@ fun AppEntryScreen(
             onLogout = onLogout,
         )
 
-        AppRootDestination.Merchant -> MerchantAppNavHost(
-            navController = merchantNavController,
-            scanViewModel = scanViewModel,
-            startDestination = Screen.Dashboard.route,
-        )
+        AppRootDestination.Merchant -> key(securityState.authEntryNonce, securityState.session?.user?.id) {
+            MerchantAppNavHost(
+                scanViewModel = scanViewModel,
+                startDestination = Screen.Dashboard.route,
+            )
+        }
     }
 }
 

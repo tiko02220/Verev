@@ -19,7 +19,6 @@ internal object ScanTransactionMetadata {
         RewardProgramScanAction.EARN_POINTS -> DEFAULT_PURCHASE_SCAN_PROGRAM
         RewardProgramScanAction.REDEEM_REWARDS -> "reward_redemption"
         RewardProgramScanAction.CHECK_IN -> DEFAULT_CHECK_IN_PROGRAM
-        RewardProgramScanAction.APPLY_CASHBACK -> "cashback"
         RewardProgramScanAction.TRACK_TIER_PROGRESS -> "tier_progress"
     }
 }

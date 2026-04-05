@@ -138,7 +138,6 @@ private fun programsActionCount(type: LoyaltyProgramType, totalCount: Int, activ
         LoyaltyProgramType.DIGITAL_STAMP -> 1
         LoyaltyProgramType.PURCHASE_FREQUENCY -> 1
         LoyaltyProgramType.REFERRAL -> 1
-        LoyaltyProgramType.HYBRID -> 5
     }
     return if (activeCount == 0) 0 else (activeCount * perProgramActions).coerceAtLeast(totalCount)
 }
@@ -240,17 +239,6 @@ internal fun ProgramTypeInsightCard(
                     stringResource(R.string.merchant_program_form_referral_referrer_points) to leadProgram.configuration.referralRule.referrerRewardOutcome.displayValue(),
                     stringResource(R.string.merchant_program_form_referral_referee_points) to leadProgram.configuration.referralRule.refereeRewardOutcome.displayValue(),
                     stringResource(R.string.merchant_program_form_referral_prefix) to leadProgram.configuration.referralRule.referralCodePrefix,
-                ),
-            )
-            LoyaltyProgramType.HYBRID -> ProgramFactGrid(
-                facts = listOf(
-                    stringResource(R.string.merchant_program_form_points_awarded) to leadProgram.configuration.pointsRule.pointsAwardedPerStep.toString(),
-                    stringResource(R.string.merchant_program_form_checkin_visits) to leadProgram.configuration.checkInRule.visitsRequired.toString(),
-                    stringResource(R.string.merchant_program_form_tier_bonus_percent) to leadProgram.configuration.tierRule.configurableLevels
-                        .lastOrNull()
-                        ?.let { "${it.name} ${it.bonusPercent}%" }
-                        .orEmpty(),
-                    stringResource(R.string.merchant_program_form_coupon_name) to leadProgram.configuration.couponRule.couponName,
                 ),
             )
         }

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
@@ -37,6 +38,7 @@ class MainActivity : FragmentActivity() {
     private var suppressRelockUntilResume = false
     private var pendingExternalNfcResult: PendingExternalNfcResult? = null
     private var hasRequestedNotificationPermission = false
+    private var lastBackgroundedAtMs: Long = 0L
 
     @Inject lateinit var nfcCardWriteCoordinator: NfcCardWriteCoordinator
     @Inject lateinit var googleWalletProvisioningManager: GoogleWalletProvisioningManager
@@ -109,16 +111,14 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onPause() {
-        if ((shouldRelockOnPause || isFinishing) && !isChangingConfigurations && !suppressRelockUntilResume) {
-            appSecurityViewModel.onAppBackgrounded()
-        }
         nfcAdapter?.disableForegroundDispatch(this)
         super.onPause()
     }
 
     override fun onStop() {
         if (!isChangingConfigurations && !isFinishing && shouldRelockOnPause && !suppressRelockUntilResume) {
-            appSecurityViewModel.onAppBackgrounded()
+            lastBackgroundedAtMs = SystemClock.elapsedRealtime()
+            appSecurityViewModel.onAppBackgrounded(lastBackgroundedAtMs)
             didEnterBackground = true
         }
         super.onStop()
@@ -132,7 +132,10 @@ class MainActivity : FragmentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && didEnterBackground) {
-            appSecurityViewModel.onAppForegrounded()
+            appSecurityViewModel.onAppForegrounded(
+                foregroundedAtMs = SystemClock.elapsedRealtime(),
+                lockDelayMs = BACKGROUND_UNLOCK_DELAY_MS,
+            )
             shouldRelockOnPause = false
             didEnterBackground = false
         }
@@ -145,8 +148,10 @@ class MainActivity : FragmentActivity() {
     private fun handleNfcIntent(intent: Intent?) {
         val action = intent?.action ?: return
         if (action == NfcAdapter.ACTION_TAG_DISCOVERED || action == NfcAdapter.ACTION_NDEF_DISCOVERED) {
+            suppressRelockForTransientSystemUi()
             if (nfcCardWriteCoordinator.handleIntent(intent)) return
             val tagId = NfcCardPayloadParser.extractLoyaltyId(intent)
+            maybeDismissTransientUnlockForNfcIntent()
             if (appSecurityViewModel.uiState.value.requiresUnlock) {
                 pendingExternalNfcResult = if (tagId.isNullOrBlank()) {
                     PendingExternalNfcResult.Failure
@@ -161,6 +166,16 @@ class MainActivity : FragmentActivity() {
             }
             scanViewModel.onExternalNfcScan(tagId)
         }
+    }
+
+    private fun maybeDismissTransientUnlockForNfcIntent() {
+        val state = appSecurityViewModel.uiState.value
+        if (!state.requiresUnlock || state.session == null || state.authEntryDestination != null) return
+        val elapsedSinceBackgroundMs = SystemClock.elapsedRealtime() - lastBackgroundedAtMs
+        if (elapsedSinceBackgroundMs > TRANSIENT_NFC_UNLOCK_BYPASS_WINDOW_MS) return
+        appSecurityViewModel.dismissTransientUnlockForExternalIntent()
+        didEnterBackground = false
+        shouldRelockOnPause = false
     }
 
     private fun deliverPendingExternalNfcResult() {
@@ -185,5 +200,10 @@ class MainActivity : FragmentActivity() {
     private sealed interface PendingExternalNfcResult {
         data object Failure : PendingExternalNfcResult
         data class Success(val loyaltyId: String) : PendingExternalNfcResult
+    }
+
+    private companion object {
+        const val TRANSIENT_NFC_UNLOCK_BYPASS_WINDOW_MS = 2_000L
+        const val BACKGROUND_UNLOCK_DELAY_MS = 30_000L
     }
 }

@@ -22,7 +22,6 @@ internal fun LoyaltyProgramType.icon(): ImageVector = when (this) {
     LoyaltyProgramType.COUPON -> Icons.Default.Sell
     LoyaltyProgramType.PURCHASE_FREQUENCY -> Icons.Default.Repeat
     LoyaltyProgramType.REFERRAL -> Icons.Default.GroupAdd
-    LoyaltyProgramType.HYBRID -> Icons.Default.Campaign
 }
 
 internal fun LoyaltyProgramType.gradient(): List<Color> = when (this) {
@@ -32,7 +31,6 @@ internal fun LoyaltyProgramType.gradient(): List<Color> = when (this) {
     LoyaltyProgramType.COUPON -> listOf(Color(0xFFF59E0B), Color(0xFFD97706))
     LoyaltyProgramType.PURCHASE_FREQUENCY -> listOf(Color(0xFF5B8DEF), Color(0xFF315EBD))
     LoyaltyProgramType.REFERRAL -> listOf(Color(0xFF22A06B), Color(0xFF0F7A4A))
-    LoyaltyProgramType.HYBRID -> listOf(VerevColors.Gold, VerevColors.Forest)
 }
 
 @StringRes
@@ -43,7 +41,6 @@ internal fun LoyaltyProgramType.displayNameRes(): Int = when (this) {
     LoyaltyProgramType.COUPON -> R.string.merchant_coupons_manager_title
     LoyaltyProgramType.PURCHASE_FREQUENCY -> R.string.merchant_purchase_frequency_title
     LoyaltyProgramType.REFERRAL -> R.string.merchant_referral_rewards_title
-    LoyaltyProgramType.HYBRID -> R.string.merchant_hybrid_programs_title
 }
 
 @StringRes
@@ -54,7 +51,6 @@ internal fun LoyaltyProgramType.templateSubtitleRes(): Int = when (this) {
     LoyaltyProgramType.DIGITAL_STAMP -> R.string.merchant_program_module_checkin_subtitle
     LoyaltyProgramType.PURCHASE_FREQUENCY -> R.string.merchant_program_module_frequency_subtitle
     LoyaltyProgramType.REFERRAL -> R.string.merchant_program_module_referral_subtitle
-    LoyaltyProgramType.HYBRID -> R.string.merchant_program_module_hybrid_subtitle
 }
 
 @StringRes
@@ -65,5 +61,4 @@ internal fun LoyaltyProgramType.summaryTitleRes(): Int = when (this) {
     LoyaltyProgramType.COUPON -> R.string.merchant_program_section_coupon
     LoyaltyProgramType.PURCHASE_FREQUENCY -> R.string.merchant_program_section_purchase_frequency
     LoyaltyProgramType.REFERRAL -> R.string.merchant_program_section_referral
-    LoyaltyProgramType.HYBRID -> R.string.merchant_program_section_hybrid
 }

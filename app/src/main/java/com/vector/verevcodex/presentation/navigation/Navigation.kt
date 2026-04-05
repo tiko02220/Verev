@@ -149,9 +149,6 @@ sealed class Screen(val route: String, @StringRes val labelRes: Int) {
     data object ReferralRewards : Screen("programs/referrals?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_referral_rewards_title) {
         fun createRoute(openEditor: Boolean = false): String = "programs/referrals?$PROGRAM_EDITOR_QUERY=$openEditor"
     }
-    data object HybridPrograms : Screen("programs/hybrid?$PROGRAM_EDITOR_QUERY={$PROGRAM_EDITOR_QUERY}", R.string.merchant_hybrid_programs_title) {
-        fun createRoute(openEditor: Boolean = false): String = "programs/hybrid?$PROGRAM_EDITOR_QUERY=$openEditor"
-    }
     data object Promotions : Screen("promotions", R.string.merchant_promotions_title)
     data object Staff : Screen("staff", R.string.merchant_staff)
     data object BusinessDetails : Screen("business_details", R.string.merchant_business_details_title)
@@ -423,7 +420,6 @@ fun MerchantAppNavHost(
                     onOpenCheckinRewards = { navController.navigate(Screen.CheckinRewards.route) },
                     onOpenPurchaseFrequency = { navController.navigate(Screen.PurchaseFrequency.route) },
                     onOpenReferralRewards = { navController.navigate(Screen.ReferralRewards.route) },
-                    onOpenHybridPrograms = { navController.navigate(Screen.HybridPrograms.route) },
                 )
             }
         }
@@ -438,7 +434,6 @@ fun MerchantAppNavHost(
                     onOpenCheckinRewards = { navController.navigate(Screen.CheckinRewards.createRoute(openEditor = true)) },
                     onOpenPurchaseFrequency = { navController.navigate(Screen.PurchaseFrequency.createRoute(openEditor = true)) },
                     onOpenReferralRewards = { navController.navigate(Screen.ReferralRewards.createRoute(openEditor = true)) },
-                    onOpenHybridPrograms = { navController.navigate(Screen.HybridPrograms.createRoute(openEditor = true)) },
                 )
             }
         }
@@ -563,26 +558,6 @@ fun MerchantAppNavHost(
             MerchantShell(navController = navController) { padding ->
                 ProgramTypeManagementScreen(
                     type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.REFERRAL,
-                    contentPadding = padding,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToProgramsRoot = { navController.openProgramsRoot() },
-                    onOpenRewardsCatalog = { navController.navigate(Screen.LoyaltyPrograms.createRoute(Screen.LoyaltyPrograms.TAB_REWARDS)) },
-                    onOpenProgramsCatalog = { navController.openProgramsRoot() },
-                    openEditorOnLaunch = openEditor,
-                )
-            }
-        }
-        composable(
-            route = Screen.HybridPrograms.route,
-            arguments = listOf(navArgument(PROGRAM_EDITOR_QUERY) {
-                type = NavType.BoolType
-                defaultValue = false
-            }),
-        ) { entry ->
-            val openEditor = entry.arguments?.getBoolean(PROGRAM_EDITOR_QUERY) ?: false
-            MerchantShell(navController = navController) { padding ->
-                ProgramTypeManagementScreen(
-                    type = com.vector.verevcodex.domain.model.common.LoyaltyProgramType.HYBRID,
                     contentPadding = padding,
                     onBack = { navController.popBackStack() },
                     onNavigateToProgramsRoot = { navController.openProgramsRoot() },
@@ -777,7 +752,6 @@ fun MerchantAppNavHost(
                             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.DIGITAL_STAMP -> Screen.CheckinRewards.route
                             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.PURCHASE_FREQUENCY -> Screen.PurchaseFrequency.route
                             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.REFERRAL -> Screen.ReferralRewards.route
-                            com.vector.verevcodex.domain.model.common.LoyaltyProgramType.HYBRID -> Screen.HybridPrograms.route
                         }
                         navController.navigate(route)
                     },

@@ -1288,14 +1288,6 @@ private fun ScanSelectedActionContent(
                     )
                 }
                 RewardProgramScanAction.CHECK_IN -> Unit
-                RewardProgramScanAction.APPLY_CASHBACK -> {
-                    ScanAmountField(
-                        amount = amount,
-                        onAmountChanged = onAmountChanged,
-                        label = stringResource(R.string.merchant_scan_cashback_amount_label),
-                        errorRes = fieldErrors[SCAN_FIELD_AMOUNT],
-                    )
-                }
                 RewardProgramScanAction.TRACK_TIER_PROGRESS -> Unit
             }
         }
@@ -1392,7 +1384,6 @@ private fun RewardProgramScanAction.label(): String = when (this) {
     RewardProgramScanAction.EARN_POINTS -> stringResource(R.string.merchant_scan_action_add_points)
     RewardProgramScanAction.REDEEM_REWARDS -> stringResource(R.string.merchant_scan_action_redeem_points)
     RewardProgramScanAction.CHECK_IN -> stringResource(R.string.merchant_scan_action_check_in)
-    RewardProgramScanAction.APPLY_CASHBACK -> stringResource(R.string.merchant_scan_action_apply_cashback)
     RewardProgramScanAction.TRACK_TIER_PROGRESS -> stringResource(R.string.merchant_scan_action_track_tier)
 }
 
@@ -1409,8 +1400,6 @@ private fun RewardProgramScanAction.supportingText(
         stringResource(R.string.merchant_scan_redeem_supporting, customerPoints)
     RewardProgramScanAction.CHECK_IN ->
         stringResource(R.string.merchant_scan_check_in_configured_supporting, activePrograms.checkInRewardSummary())
-    RewardProgramScanAction.APPLY_CASHBACK ->
-        stringResource(R.string.merchant_scan_cashback_preview, activePrograms.calculateCashbackCredit(amount.toDoubleOrNull() ?: 0.0))
     RewardProgramScanAction.TRACK_TIER_PROGRESS ->
         stringResource(R.string.merchant_scan_tier_progress_supporting)
 }

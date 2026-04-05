@@ -132,7 +132,6 @@ fun LoyaltyProgramManagementScreen(
     onOpenCheckinRewards: () -> Unit = {},
     onOpenPurchaseFrequency: () -> Unit = {},
     onOpenReferralRewards: () -> Unit = {},
-    onOpenHybridPrograms: () -> Unit = {},
     viewModel: LoyaltyViewModel = hiltViewModel(),
     shellViewModel: ShellViewModel = hiltViewModel(),
 ) {
@@ -176,7 +175,6 @@ fun LoyaltyProgramManagementScreen(
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.DIGITAL_STAMP -> onOpenCheckinRewards()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.PURCHASE_FREQUENCY -> onOpenPurchaseFrequency()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.REFERRAL -> onOpenReferralRewards()
-            com.vector.verevcodex.domain.model.common.LoyaltyProgramType.HYBRID -> onOpenHybridPrograms()
         }
     }
 
@@ -236,7 +234,11 @@ fun LoyaltyProgramManagementScreen(
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
-            onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onRepeatTypeChange = viewModel::updateEditorRepeatType,
+            onToggleRepeatDayOfWeek = viewModel::toggleEditorRepeatDayOfWeek,
+            onToggleRepeatDayOfMonth = viewModel::toggleEditorRepeatDayOfMonth,
+            onToggleRepeatMonth = viewModel::toggleEditorRepeatMonth,
+            onToggleSeason = viewModel::toggleEditorSeason,
             onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
             onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,
@@ -472,7 +474,6 @@ fun ProgramModulesScreen(
     onOpenCheckinRewards: () -> Unit = {},
     onOpenPurchaseFrequency: () -> Unit = {},
     onOpenReferralRewards: () -> Unit = {},
-    onOpenHybridPrograms: () -> Unit = {},
 ) {
     var infoType by rememberSaveable { mutableStateOf<LoyaltyProgramType?>(null) }
 
@@ -507,7 +508,6 @@ fun ProgramModulesScreen(
                     onOpenCheckinRewards = onOpenCheckinRewards,
                     onOpenPurchaseFrequency = onOpenPurchaseFrequency,
                     onOpenReferralRewards = onOpenReferralRewards,
-                    onOpenHybridPrograms = onOpenHybridPrograms,
                     onOpenProgramInfo = { infoType = it },
                 )
             }
@@ -607,7 +607,11 @@ fun ConfiguredProgramsScreen(
             onAutoScheduleEnabledChange = viewModel::updateEditorAutoScheduleEnabled,
             onScheduleStartDateChange = viewModel::updateEditorScheduleStartDate,
             onScheduleEndDateChange = viewModel::updateEditorScheduleEndDate,
-            onAnnualRepeatEnabledChange = viewModel::updateEditorAnnualRepeatEnabled,
+            onRepeatTypeChange = viewModel::updateEditorRepeatType,
+            onToggleRepeatDayOfWeek = viewModel::toggleEditorRepeatDayOfWeek,
+            onToggleRepeatDayOfMonth = viewModel::toggleEditorRepeatDayOfMonth,
+            onToggleRepeatMonth = viewModel::toggleEditorRepeatMonth,
+            onToggleSeason = viewModel::toggleEditorSeason,
             onBenefitResetTypeChange = viewModel::updateEditorBenefitResetType,
             onBenefitResetCustomDaysChange = viewModel::updateEditorBenefitResetCustomDays,
             onPointsSpendStepAmountChange = viewModel::updatePointsSpendStepAmount,

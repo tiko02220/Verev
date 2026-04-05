@@ -88,14 +88,12 @@ class ExecuteScanActionUseCase @Inject constructor(
                     program.type in setOf(
                         LoyaltyProgramType.POINTS,
                         LoyaltyProgramType.TIER,
-                        LoyaltyProgramType.HYBRID,
                     )
             }
             .sortedBy { program ->
                 when (program.type) {
                     LoyaltyProgramType.POINTS -> 0
                     LoyaltyProgramType.TIER -> 1
-                    LoyaltyProgramType.HYBRID -> 2
                     else -> 9
                 }
             }

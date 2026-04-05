@@ -85,7 +85,6 @@ private fun buildBranchProgramCards(programs: List<RewardProgram>): List<BranchP
         LoyaltyProgramType.DIGITAL_STAMP,
         LoyaltyProgramType.PURCHASE_FREQUENCY,
         LoyaltyProgramType.REFERRAL,
-        LoyaltyProgramType.HYBRID,
     ).map { type ->
         val typedPrograms = programs.filter { it.type == type }
         BranchProgramCardUi(

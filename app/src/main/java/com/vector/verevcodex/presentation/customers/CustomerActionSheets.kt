@@ -942,16 +942,6 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                     ),
                 )
             }
-            LoyaltyProgramType.HYBRID -> {
-                CustomerProgramDetailRow(
-                    label = stringResource(R.string.merchant_customer_program_details_earn_rate),
-                    value = stringResource(
-                        R.string.merchant_customer_program_details_points_rule,
-                        program.configuration.pointsRule.pointsAwardedPerStep,
-                        program.configuration.pointsRule.spendStepAmount,
-                    ),
-                )
-            }
         }
     }
 }
