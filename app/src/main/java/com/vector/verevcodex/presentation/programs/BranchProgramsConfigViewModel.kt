@@ -81,7 +81,6 @@ private fun buildBranchProgramCards(programs: List<RewardProgram>): List<BranchP
     listOf(
         LoyaltyProgramType.POINTS,
         LoyaltyProgramType.TIER,
-        LoyaltyProgramType.COUPON,
         LoyaltyProgramType.DIGITAL_STAMP,
         LoyaltyProgramType.PURCHASE_FREQUENCY,
         LoyaltyProgramType.REFERRAL,

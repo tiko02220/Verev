@@ -59,18 +59,6 @@ object RewardProgramConfigurationFactory {
                 pointsRule = PointsProgramRule(),
                 tierRule = TierProgramRule(),
             )
-            LoyaltyProgramType.COUPON -> RewardProgramConfiguration(
-                earningEnabled = false,
-                rewardRedemptionEnabled = true,
-                visitCheckInEnabled = false,
-                cashbackEnabled = false,
-                tierTrackingEnabled = false,
-                couponEnabled = true,
-                purchaseFrequencyEnabled = false,
-                referralEnabled = false,
-                scanActions = setOf(RewardProgramScanAction.REDEEM_REWARDS),
-                couponRule = CouponProgramRule(),
-            )
             LoyaltyProgramType.PURCHASE_FREQUENCY -> RewardProgramConfiguration(
                 earningEnabled = true,
                 rewardRedemptionEnabled = false,

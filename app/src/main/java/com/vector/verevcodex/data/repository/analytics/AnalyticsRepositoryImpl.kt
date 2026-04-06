@@ -561,7 +561,6 @@ private fun rewardUsageBreakdown(transactions: List<Transaction>): List<Analytic
 private fun estimateProgramMemberCount(program: RewardProgram, transactions: List<Transaction>): Int = when (program.type) {
     LoyaltyProgramType.POINTS,
     LoyaltyProgramType.TIER,
-    LoyaltyProgramType.COUPON,
     LoyaltyProgramType.PURCHASE_FREQUENCY,
     LoyaltyProgramType.REFERRAL -> transactions.filter { it.pointsEarned > 0 || it.pointsRedeemed > 0 }.map(Transaction::customerId).distinct().size
     LoyaltyProgramType.DIGITAL_STAMP -> transactions.map(Transaction::customerId).distinct().size
@@ -570,7 +569,6 @@ private fun estimateProgramMemberCount(program: RewardProgram, transactions: Lis
 private fun estimateProgramRedemptionRate(program: RewardProgram, transactions: List<Transaction>): Double = when (program.type) {
     LoyaltyProgramType.POINTS,
     LoyaltyProgramType.TIER,
-    LoyaltyProgramType.COUPON,
     LoyaltyProgramType.PURCHASE_FREQUENCY,
     LoyaltyProgramType.REFERRAL -> {
         val earned = transactions.sumOf(Transaction::pointsEarned)

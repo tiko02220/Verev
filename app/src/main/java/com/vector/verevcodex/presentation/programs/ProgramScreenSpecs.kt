@@ -24,12 +24,6 @@ internal fun LoyaltyProgramType.screenSpec(): ProgramScreenSpec = when (this) {
         emptyTitleRes = R.string.merchant_tiered_loyalty_empty_title,
         emptySubtitleRes = R.string.merchant_tiered_loyalty_empty_subtitle,
     )
-    LoyaltyProgramType.COUPON -> ProgramScreenSpec(
-        titleRes = R.string.merchant_coupons_manager_title,
-        subtitleRes = R.string.merchant_coupons_manager_subtitle,
-        emptyTitleRes = R.string.merchant_coupons_manager_empty_title,
-        emptySubtitleRes = R.string.merchant_coupons_manager_empty_subtitle,
-    )
     LoyaltyProgramType.DIGITAL_STAMP -> ProgramScreenSpec(
         titleRes = R.string.merchant_checkin_rewards_title,
         subtitleRes = R.string.merchant_checkin_rewards_subtitle,

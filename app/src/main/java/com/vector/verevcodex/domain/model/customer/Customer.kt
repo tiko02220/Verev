@@ -11,6 +11,7 @@ data class Customer(
     val lastName: String,
     val phoneNumber: String,
     val email: String,
+    val birthDate: LocalDate? = null,
     val loyaltyId: String,
     val enrolledDate: LocalDate,
     val totalVisits: Int,

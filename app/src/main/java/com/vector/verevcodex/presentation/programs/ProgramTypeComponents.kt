@@ -134,7 +134,6 @@ private fun programsActionCount(type: LoyaltyProgramType, totalCount: Int, activ
     val perProgramActions = when (type) {
         LoyaltyProgramType.POINTS -> 2
         LoyaltyProgramType.TIER -> 2
-        LoyaltyProgramType.COUPON -> 1
         LoyaltyProgramType.DIGITAL_STAMP -> 1
         LoyaltyProgramType.PURCHASE_FREQUENCY -> 1
         LoyaltyProgramType.REFERRAL -> 1
@@ -212,14 +211,6 @@ internal fun ProgramTypeInsightCard(
             )
             LoyaltyProgramType.TIER -> ProgramFactGrid(
                 facts = leadProgram.configuration.tierRule.toInsightFacts(),
-            )
-            LoyaltyProgramType.COUPON -> ProgramFactGrid(
-                facts = listOf(
-                    stringResource(R.string.merchant_program_form_coupon_name) to leadProgram.configuration.couponRule.couponName,
-                    stringResource(R.string.merchant_program_form_coupon_points_cost) to leadProgram.configuration.couponRule.pointsCost.toString(),
-                    stringResource(R.string.merchant_program_form_coupon_discount_amount) to formatWholeCurrency(leadProgram.configuration.couponRule.discountAmount, currencyCode),
-                    stringResource(R.string.merchant_program_form_coupon_minimum_spend) to formatWholeCurrency(leadProgram.configuration.couponRule.minimumSpendAmount, currencyCode),
-                ),
             )
             LoyaltyProgramType.DIGITAL_STAMP -> ProgramFactGrid(
                 facts = listOf(

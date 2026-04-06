@@ -2,6 +2,7 @@ package com.vector.verevcodex.presentation.programs
 
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.business.Store
+import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
@@ -22,6 +23,7 @@ data class LoyaltyUiState(
     val allPrograms: List<RewardProgram> = emptyList(),
     val rewards: List<Reward> = emptyList(),
     val campaigns: List<Campaign> = emptyList(),
+    val customers: List<Customer> = emptyList(),
     val activeScanActions: List<RewardProgramScanAction> = emptyList(),
     val activeSubEditor: ProgramSubEditor? = null,
     val activeBenefitEditor: ProgramBenefitEditorTarget? = null,
@@ -32,8 +34,12 @@ data class LoyaltyUiState(
     val rewardEditorState: RewardEditorState? = null,
     val rewardEditorFieldErrors: Map<String, Int> = emptyMap(),
     val rewardDeleteCandidate: Reward? = null,
+    val giveawayEditorState: GiveawayEditorState? = null,
+    val giveawayEditorFieldErrors: Map<String, Int> = emptyMap(),
+    val giveawayDeleteCandidate: Campaign? = null,
     val busyProgramId: String? = null,
     val busyRewardId: String? = null,
+    val busyCampaignId: String? = null,
     val isSubmitting: Boolean = false,
     val formErrorRes: Int? = null,
     val messageRes: Int? = null,

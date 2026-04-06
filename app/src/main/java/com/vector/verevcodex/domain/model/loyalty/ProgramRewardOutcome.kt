@@ -90,7 +90,6 @@ fun ProgramRewardOutcomeType.impliedProgramType(): LoyaltyProgramType? = when (t
     ProgramRewardOutcomeType.PROGRAM_POINTS -> LoyaltyProgramType.POINTS
     ProgramRewardOutcomeType.PROGRAM_DIGITAL_STAMP -> LoyaltyProgramType.DIGITAL_STAMP
     ProgramRewardOutcomeType.PROGRAM_TIER -> LoyaltyProgramType.TIER
-    ProgramRewardOutcomeType.PROGRAM_COUPON -> LoyaltyProgramType.COUPON
     ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY -> LoyaltyProgramType.PURCHASE_FREQUENCY
     ProgramRewardOutcomeType.PROGRAM_REFERRAL -> LoyaltyProgramType.REFERRAL
     else -> null

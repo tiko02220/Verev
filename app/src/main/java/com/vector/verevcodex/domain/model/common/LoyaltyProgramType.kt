@@ -4,14 +4,12 @@ enum class LoyaltyProgramType {
     POINTS,
     DIGITAL_STAMP,
     TIER,
-    COUPON,
     PURCHASE_FREQUENCY,
     REFERRAL,
 }
 
 fun LoyaltyProgramType.supportsOneTimePerCustomer(): Boolean = when (this) {
     LoyaltyProgramType.DIGITAL_STAMP,
-    LoyaltyProgramType.COUPON,
     LoyaltyProgramType.PURCHASE_FREQUENCY,
         -> true
     LoyaltyProgramType.POINTS,

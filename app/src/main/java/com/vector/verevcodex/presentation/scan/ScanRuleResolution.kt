@@ -69,8 +69,7 @@ private fun RewardProgram.priorityFor(action: RewardProgramScanAction): Int = wh
         else -> 9
     }
     RewardProgramScanAction.REDEEM_REWARDS -> when (type) {
-        LoyaltyProgramType.COUPON -> 0
-        LoyaltyProgramType.POINTS -> 1
+        LoyaltyProgramType.POINTS -> 0
         else -> 9
     }
     RewardProgramScanAction.CHECK_IN -> when (type) {

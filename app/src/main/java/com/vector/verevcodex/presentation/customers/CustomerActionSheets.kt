@@ -900,20 +900,6 @@ private fun CustomerProgramDetailsCard(program: RewardProgram) {
                     value = program.configuration.tierRule.customerTierBenefitsSummary(),
                 )
             }
-            LoyaltyProgramType.COUPON -> {
-                CustomerProgramDetailRow(
-                    label = stringResource(R.string.merchant_customer_program_details_coupon),
-                    value = program.configuration.couponRule.couponName,
-                )
-                CustomerProgramDetailRow(
-                    label = stringResource(R.string.merchant_customer_program_details_cost),
-                    value = "${program.configuration.couponRule.pointsCost} pts",
-                )
-                CustomerProgramDetailRow(
-                    label = stringResource(R.string.merchant_customer_program_details_discount),
-                    value = formatWholeCurrency(program.configuration.couponRule.discountAmount),
-                )
-            }
             LoyaltyProgramType.PURCHASE_FREQUENCY -> {
                 CustomerProgramDetailRow(
                     label = stringResource(R.string.merchant_customer_program_details_frequency_goal),

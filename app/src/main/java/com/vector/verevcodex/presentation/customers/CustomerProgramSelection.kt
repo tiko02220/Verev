@@ -21,7 +21,6 @@ internal fun RewardProgram.programTypeLabelRes(): Int = when (type) {
     LoyaltyProgramType.POINTS -> R.string.merchant_points_rewards_title
     LoyaltyProgramType.DIGITAL_STAMP -> R.string.merchant_checkin_rewards_title
     LoyaltyProgramType.TIER -> R.string.merchant_tiered_loyalty_title
-    LoyaltyProgramType.COUPON -> R.string.merchant_coupons_manager_title
     LoyaltyProgramType.PURCHASE_FREQUENCY -> R.string.merchant_purchase_frequency_title
     LoyaltyProgramType.REFERRAL -> R.string.merchant_referral_rewards_title
 }

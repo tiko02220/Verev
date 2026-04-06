@@ -26,6 +26,9 @@ fun CustomerDetailResponseDto.toCustomer() = Customer(
     lastName = customer?.lastName.orEmpty(),
     phoneNumber = customer?.phoneNumber.orEmpty(),
     email = customer?.email.orEmpty(),
+    birthDate = customer?.birthDate?.take(10)?.takeIf { it.isNotBlank() }?.let {
+        runCatching { LocalDate.parse(it) }.getOrNull()
+    },
     loyaltyId = customer?.loyaltyId.orEmpty(),
     enrolledDate = runCatching { LocalDate.parse(customer?.enrolledDate.orEmpty().take(10)) }.getOrElse { LocalDate.now() },
     totalVisits = profile?.totalVisits ?: 0,

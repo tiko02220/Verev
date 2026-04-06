@@ -15,6 +15,7 @@ data class TierLevelEditorState(
     val threshold: String,
     val benefitType: TierBenefitType,
     val bonusPercent: String,
+    val perkEnabled: Boolean = false,
     val rewardOutcome: ProgramRewardOutcomeEditorState = ProgramRewardOutcomeEditorState(),
 )
 
@@ -50,6 +51,7 @@ data class ProgramEditorState(
     val cashbackPercent: String = "5",
     val cashbackMinimumSpendAmount: String = "0",
     val tierThresholdBasis: TierThresholdBasis = TierThresholdBasis.POINTS,
+    val tierBenefitType: TierBenefitType = TierBenefitType.BONUS_PERCENT,
     val tierLevels: List<TierLevelEditorState> = listOf(
         TierLevelEditorState(
             id = "tier_1",

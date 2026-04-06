@@ -50,6 +50,7 @@ fun defaultProgramEditorState(type: LoyaltyProgramType = LoyaltyProgramType.POIN
         cashbackPercent = decimalString(configuration.cashbackRule.cashbackPercent),
         cashbackMinimumSpendAmount = "",
         tierThresholdBasis = configuration.tierRule.thresholdBasis,
+        tierBenefitType = configuration.tierRule.sortedLevels.firstOrNull()?.benefitType ?: TierBenefitType.BONUS_PERCENT,
         tierLevels = configuration.tierRule.sortedLevels.toEditorState().map { level ->
             level.copy(
                 bonusPercent = "0",
@@ -111,6 +112,7 @@ fun RewardProgram.toEditorState(): ProgramEditorState = ProgramEditorState(
     cashbackPercent = decimalString(configuration.cashbackRule.cashbackPercent),
     cashbackMinimumSpendAmount = decimalString(configuration.cashbackRule.minimumSpendAmount),
     tierThresholdBasis = configuration.tierRule.thresholdBasis,
+    tierBenefitType = configuration.tierRule.sortedLevels.firstOrNull()?.benefitType ?: TierBenefitType.BONUS_PERCENT,
     tierLevels = configuration.tierRule.sortedLevels.toEditorState(),
     couponName = configuration.couponRule.couponName,
     couponPointsCost = configuration.couponRule.pointsCost.toString(),
@@ -260,11 +262,6 @@ fun ProgramEditorState.validate(): Map<String, Int> {
                 }
             }
         }
-        LoyaltyProgramType.COUPON -> {
-            if (couponName.isBlank()) errors[PROGRAM_FIELD_COUPON_NAME] = R.string.merchant_program_error_coupon_name_required
-            if (positiveInt(couponPointsCost) == null) errors[PROGRAM_FIELD_COUPON_POINTS] = R.string.merchant_program_error_positive_required
-            if (positiveDecimal(couponDiscountAmount) == null) errors[PROGRAM_FIELD_COUPON_DISCOUNT] = R.string.merchant_program_error_positive_required
-        }
         LoyaltyProgramType.PURCHASE_FREQUENCY -> {
             if (positiveInt(purchaseFrequencyCount) == null) errors[PROGRAM_FIELD_FREQUENCY_COUNT] = R.string.merchant_program_error_positive_required
             if (positiveInt(purchaseFrequencyWindowDays) == null) errors[PROGRAM_FIELD_FREQUENCY_WINDOW] = R.string.merchant_program_error_positive_required
@@ -326,13 +323,8 @@ fun ProgramEditorState.toConfiguration(
             availablePrograms = availablePrograms,
             availableRewards = availableRewards,
             thresholdBasis = tierThresholdBasis,
+            benefitType = tierBenefitType,
         ),
-    )
-    val couponRule = CouponProgramRule(
-        couponName = couponName.trim().ifBlank { baseConfiguration.couponRule.couponName },
-        pointsCost = positiveInt(couponPointsCost) ?: baseConfiguration.couponRule.pointsCost,
-        discountAmount = positiveDecimal(couponDiscountAmount) ?: baseConfiguration.couponRule.discountAmount,
-        minimumSpendAmount = nonNegativeDecimal(couponMinimumSpendAmount) ?: baseConfiguration.couponRule.minimumSpendAmount,
     )
     val checkInRewardOutcome = checkInReward.toDomainOutcome(
         availablePrograms = availablePrograms,
@@ -426,18 +418,6 @@ fun ProgramEditorState.toConfiguration(
             scanActions = if (active) setOf(RewardProgramScanAction.EARN_POINTS, RewardProgramScanAction.TRACK_TIER_PROGRESS) else emptySet(),
             pointsRule = pointsRule,
             tierRule = tierRule,
-        )
-        LoyaltyProgramType.COUPON -> RewardProgramConfiguration(
-            earningEnabled = false,
-            rewardRedemptionEnabled = true,
-            visitCheckInEnabled = false,
-            cashbackEnabled = false,
-            tierTrackingEnabled = false,
-            couponEnabled = true,
-            purchaseFrequencyEnabled = false,
-            referralEnabled = false,
-            scanActions = if (active) setOf(RewardProgramScanAction.REDEEM_REWARDS) else emptySet(),
-            couponRule = couponRule,
         )
         LoyaltyProgramType.PURCHASE_FREQUENCY -> RewardProgramConfiguration(
             earningEnabled = true,
@@ -540,6 +520,9 @@ private fun List<TierLevelRule>.toEditorState(): List<TierLevelEditorState> =
             threshold = level.threshold.toString(),
             benefitType = level.benefitType,
             bonusPercent = level.bonusPercent.coerceAtLeast(0).toString(),
+            perkEnabled = level.rewardOutcome.pointsAmount > 0 ||
+                !level.rewardOutcome.rewardId.isNullOrBlank() ||
+                !level.rewardOutcome.programId.isNullOrBlank(),
             rewardOutcome = level.rewardOutcome.toEditorState(
                 fallbackPoints = level.rewardOutcome.pointsAmount,
                 fallbackLabel = level.rewardOutcome.label,
@@ -552,6 +535,7 @@ private fun List<TierLevelEditorState>.toDomainLevels(
     availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
     thresholdBasis: TierThresholdBasis,
+    benefitType: TierBenefitType,
 ): List<TierLevelRule> {
     val fallbackById = fallback.associateBy { it.id }
     val normalized = mapIndexedNotNull { index, level ->
@@ -574,7 +558,7 @@ private fun List<TierLevelEditorState>.toDomainLevels(
                     name = name,
                     threshold = threshold,
                     thresholdBasis = thresholdBasis,
-                    benefitType = level.benefitType,
+                    benefitType = benefitType,
                     bonusPercent = bonusPercent,
                     rewardOutcome = rewardOutcome,
                 )
@@ -596,7 +580,6 @@ private fun LoyaltyProgramType.toOutcomeType(): ProgramRewardOutcomeType = when 
     LoyaltyProgramType.POINTS -> ProgramRewardOutcomeType.PROGRAM_POINTS
     LoyaltyProgramType.DIGITAL_STAMP -> ProgramRewardOutcomeType.PROGRAM_DIGITAL_STAMP
     LoyaltyProgramType.TIER -> ProgramRewardOutcomeType.PROGRAM_TIER
-    LoyaltyProgramType.COUPON -> ProgramRewardOutcomeType.PROGRAM_COUPON
     LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY
     LoyaltyProgramType.REFERRAL -> ProgramRewardOutcomeType.PROGRAM_REFERRAL
 }

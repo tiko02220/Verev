@@ -3,18 +3,24 @@ package com.vector.verevcodex.presentation.programs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.common.CouponBenefitType
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.RewardCatalogType
 import com.vector.verevcodex.domain.model.common.supportsOneTimePerCustomer
 import com.vector.verevcodex.domain.model.common.RewardType
+import com.vector.verevcodex.domain.model.common.CampaignSegment
 import com.vector.verevcodex.domain.model.loyalty.ProgramBenefitResetType
 import com.vector.verevcodex.domain.model.loyalty.ProgramRepeatType
 import com.vector.verevcodex.domain.model.loyalty.ProgramSeason
 import com.vector.verevcodex.domain.model.loyalty.ProgramRewardOutcomeType
+import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
 import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.loyalty.usesProgramBenefit
 import com.vector.verevcodex.domain.model.loyalty.usesRewardItem
+import com.vector.verevcodex.domain.model.loyalty.RewardDraft
+import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.usecase.loyalty.CreateRewardUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.AdjustRewardInventoryUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.DeleteRewardUseCase
@@ -30,7 +36,13 @@ import com.vector.verevcodex.domain.usecase.loyalty.SetProgramEnabledUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateRewardUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.UpdateProgramUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
+import com.vector.verevcodex.domain.usecase.customer.ObserveCustomersUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveStoresUseCase
+import com.vector.verevcodex.domain.usecase.promotions.CreatePromotionUseCase
+import com.vector.verevcodex.domain.usecase.promotions.DeletePromotionUseCase
+import com.vector.verevcodex.domain.usecase.promotions.SetPromotionEnabledUseCase
+import com.vector.verevcodex.domain.usecase.promotions.UpdatePromotionUseCase
+import com.vector.verevcodex.domain.model.promotions.GiveawayType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +63,7 @@ class LoyaltyViewModel @Inject constructor(
     observeRewardsUseCase: ObserveRewardsUseCase,
     observeCampaignsUseCase: ObserveCampaignsUseCase,
     observeActiveScanActionsUseCase: ObserveActiveScanActionsUseCase,
+    observeCustomersUseCase: ObserveCustomersUseCase,
     private val createRewardUseCase: CreateRewardUseCase,
     private val updateRewardUseCase: UpdateRewardUseCase,
     private val setRewardEnabledUseCase: SetRewardEnabledUseCase,
@@ -60,6 +73,10 @@ class LoyaltyViewModel @Inject constructor(
     private val updateProgramUseCase: UpdateProgramUseCase,
     private val setProgramEnabledUseCase: SetProgramEnabledUseCase,
     private val deleteProgramUseCase: DeleteProgramUseCase,
+    private val createPromotionUseCase: CreatePromotionUseCase,
+    private val updatePromotionUseCase: UpdatePromotionUseCase,
+    private val setPromotionEnabledUseCase: SetPromotionEnabledUseCase,
+    private val deletePromotionUseCase: DeletePromotionUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoyaltyUiState())
     val uiState: StateFlow<LoyaltyUiState> = _uiState
@@ -80,6 +97,7 @@ class LoyaltyViewModel @Inject constructor(
         val rewardsFlow = selectedStoreFlow.flatMapLatest { store -> observeRewardsUseCase(store?.id) }
         val campaignsFlow = selectedStoreFlow.flatMapLatest { store -> observeCampaignsUseCase(store?.id) }
         val activeScanActionsFlow = selectedStoreFlow.flatMapLatest { store -> observeActiveScanActionsUseCase(store?.id) }
+        val customersFlow = selectedStoreFlow.flatMapLatest { store -> observeCustomersUseCase(store?.id) }
 
         val storeContextFlow = combine(selectedStoreFlow, storesFlow) { store, stores ->
             store to stores
@@ -91,7 +109,10 @@ class LoyaltyViewModel @Inject constructor(
                 rewards = rewards,
                 campaigns = campaigns,
                 activeScanActions = activeScanActions,
+                customers = emptyList(),
             )
+        }.combine(customersFlow) { snapshot, customers ->
+            snapshot.copy(customers = customers)
         }
 
         combine(storeContextFlow, loyaltyDataFlow) { storeContext, data ->
@@ -110,6 +131,7 @@ class LoyaltyViewModel @Inject constructor(
                 allPrograms = data.allPrograms,
                 rewards = rewards,
                 campaigns = campaigns,
+                customers = data.customers,
                 activeScanActions = data.activeScanActions,
                 busyProgramId = _uiState.value.busyProgramId?.takeIf { busyId -> programs.any { it.id == busyId } },
                 busyRewardId = _uiState.value.busyRewardId?.takeIf { busyId -> rewards.any { it.id == busyId } },
@@ -122,9 +144,12 @@ class LoyaltyViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    fun openCreateReward() {
+    fun openCreateReward(refreshSource: Reward? = null) {
         _uiState.value = _uiState.value.copy(
-            rewardEditorState = RewardEditorState(),
+            rewardEditorState = (refreshSource?.toEditorState() ?: RewardEditorState()).copy(
+                rewardId = null,
+                activeStatus = true,
+            ),
             rewardEditorFieldErrors = emptyMap(),
             rewardDeleteCandidate = null,
             formErrorRes = null,
@@ -183,8 +208,128 @@ class LoyaltyViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(rewardDeleteCandidate = null)
     }
 
+    fun openCreateGiveaway(refreshSource: com.vector.verevcodex.domain.model.promotions.Campaign? = null) {
+        _uiState.value = _uiState.value.copy(
+            giveawayEditorState = refreshSource?.toGiveawayEditorState(
+                linkedCoupon = refreshSource.rewardId?.let { rewardId ->
+                    _uiState.value.rewards.firstOrNull { it.id == rewardId && it.catalogType == RewardCatalogType.COUPON }
+                },
+            ) ?: defaultGiveawayEditorState(),
+            giveawayEditorFieldErrors = emptyMap(),
+            giveawayDeleteCandidate = null,
+            formErrorRes = null,
+            messageRes = null,
+        )
+    }
+
+    fun openEditGiveaway(campaignId: String) {
+        val campaign = _uiState.value.campaigns.firstOrNull { it.id == campaignId } ?: return
+        _uiState.value = _uiState.value.copy(
+            giveawayEditorState = campaign.toGiveawayEditorState(
+                linkedCoupon = campaign.rewardId?.let { rewardId ->
+                    _uiState.value.rewards.firstOrNull { it.id == rewardId && it.catalogType == RewardCatalogType.COUPON }
+                },
+            ),
+            giveawayEditorFieldErrors = emptyMap(),
+            giveawayDeleteCandidate = null,
+            formErrorRes = null,
+            messageRes = null,
+        )
+    }
+
+    fun dismissGiveawayEditor() {
+        _uiState.value = _uiState.value.copy(
+            giveawayEditorState = null,
+            giveawayEditorFieldErrors = emptyMap(),
+        )
+    }
+
+    fun requestDeleteGiveaway(campaignId: String) {
+        _uiState.value = _uiState.value.copy(
+            giveawayDeleteCandidate = _uiState.value.campaigns.firstOrNull { it.id == campaignId },
+        )
+    }
+
+    fun dismissGiveawayDeleteDialog() {
+        _uiState.value = _uiState.value.copy(giveawayDeleteCandidate = null)
+    }
+
+    fun updateGiveawayName(value: String) = updateGiveawayEditor { copy(name = value) }
+    fun updateGiveawayDescription(value: String) = updateGiveawayEditor { copy(description = value) }
+    fun updateGiveawayType(value: GiveawayType) = updateGiveawayEditor {
+        copy(
+            giveawayType = value,
+            rewardId = null,
+            rewardName = "",
+            rewardCatalogType = when (value) {
+                GiveawayType.COUPON -> RewardCatalogType.COUPON
+                else -> null
+            },
+            couponCode = if (value == GiveawayType.COUPON) couponCode else "",
+            couponDiscountPercent = if (value == GiveawayType.COUPON && couponBenefitType == CouponBenefitType.DISCOUNT_PERCENT) couponDiscountPercent else "",
+            couponBonusPoints = if (value == GiveawayType.COUPON && couponBenefitType == CouponBenefitType.BONUS_POINTS) couponBonusPoints else "",
+            couponAvailableQuantity = if (value == GiveawayType.COUPON) couponAvailableQuantity.ifBlank { "0" } else "0",
+        )
+    }
+    fun updateGiveawayBonusPoints(value: String) = updateGiveawayEditor { copy(bonusPointsAmount = value.filter(Char::isDigit)) }
+    fun updateGiveawayDiscountPercent(value: String) = updateGiveawayEditor {
+        copy(discountPercent = value.filter { it.isDigit() || it == '.' })
+    }
+    fun updateGiveawaySendMode(value: com.vector.verevcodex.domain.model.promotions.GiveawaySendMode) = updateGiveawayEditor { copy(sendMode = value) }
+    fun updateGiveawayScheduledDate(value: String) = updateGiveawayEditor { copy(scheduledDate = value) }
+    fun updateGiveawayExpirationEnabled(value: Boolean) = updateGiveawayEditor {
+        copy(expirationEnabled = value, expirationDate = if (value) expirationDate else "")
+    }
+    fun updateGiveawayExpirationDate(value: String) = updateGiveawayEditor { copy(expirationDate = value) }
+    fun updateGiveawayAudienceAll(value: Boolean) = updateGiveawayEditor {
+        copy(
+            audienceAll = value,
+            audienceGender = if (value) "ALL" else audienceGender,
+            audienceAgeMin = if (value) "" else audienceAgeMin,
+            audienceAgeMax = if (value) "" else audienceAgeMax,
+            audienceTierName = if (value) null else audienceTierName,
+            audienceSegments = emptySet(),
+        )
+    }
+    fun updateGiveawayAudienceGender(value: String) = updateGiveawayEditor { copy(audienceGender = value.ifBlank { "ALL" }) }
+    fun updateGiveawayAudienceAgeMin(value: String) = updateGiveawayEditor { copy(audienceAgeMin = value.filter(Char::isDigit)) }
+    fun updateGiveawayAudienceAgeMax(value: String) = updateGiveawayEditor { copy(audienceAgeMax = value.filter(Char::isDigit)) }
+    fun updateGiveawayAudienceTier(value: String?) = updateGiveawayEditor { copy(audienceTierName = value?.takeIf { it.isNotBlank() }) }
+    fun updateGiveawayCouponBenefitType(value: CouponBenefitType) = updateGiveawayEditor {
+        copy(
+            couponBenefitType = value,
+            couponDiscountPercent = if (value == CouponBenefitType.DISCOUNT_PERCENT) couponDiscountPercent else "",
+            couponBonusPoints = if (value == CouponBenefitType.BONUS_POINTS) couponBonusPoints else "",
+        )
+    }
+    fun updateGiveawayCouponCode(value: String) = updateGiveawayEditor {
+        copy(couponCode = value.replace("\n", ""))
+    }
+    fun updateGiveawayCouponDiscountPercent(value: String) = updateGiveawayEditor {
+        copy(couponDiscountPercent = value.filter { it.isDigit() || it == '.' })
+    }
+    fun updateGiveawayCouponBonusPoints(value: String) = updateGiveawayEditor {
+        copy(couponBonusPoints = value.filter(Char::isDigit))
+    }
+    fun updateGiveawayCouponAvailableQuantity(value: String) = updateGiveawayEditor {
+        copy(couponAvailableQuantity = value.filter(Char::isDigit))
+    }
+
     fun updateRewardName(value: String) = updateRewardEditor { copy(name = value) }
     fun updateRewardDescription(value: String) = updateRewardEditor { copy(description = value) }
+    fun updateRewardCatalogType(value: RewardCatalogType) = updateRewardEditor {
+        copy(
+            catalogType = value,
+            rewardType = if (value == RewardCatalogType.REWARD) rewardType else rewardType,
+            imageUri = if (value == RewardCatalogType.REWARD) imageUri else "",
+            couponCode = if (value == RewardCatalogType.COUPON) couponCode else "",
+            couponBenefitType = if (value == RewardCatalogType.COUPON) couponBenefitType else CouponBenefitType.DISCOUNT_PERCENT,
+            couponDiscountPercent = if (value == RewardCatalogType.COUPON) couponDiscountPercent else "",
+            couponBonusPoints = if (value == RewardCatalogType.COUPON) couponBonusPoints else "",
+            couponRewardId = if (value == RewardCatalogType.COUPON) couponRewardId else null,
+            couponRewardName = if (value == RewardCatalogType.COUPON) couponRewardName else "",
+        )
+    }
     fun updateRewardImageUri(value: String) = updateRewardEditor { copy(imageUri = value) }
     fun updateRewardExpirationEnabled(value: Boolean) = updateRewardEditor {
         copy(
@@ -194,6 +339,24 @@ class LoyaltyViewModel @Inject constructor(
     }
     fun updateRewardExpirationDate(value: String) = updateRewardEditor { copy(expirationDate = value) }
     fun updateRewardAvailableQuantity(value: String) = updateRewardEditor { copy(availableQuantity = value) }
+    fun updateCouponCode(value: String) = updateRewardEditor { copy(couponCode = value.replace("\n", "")) }
+    fun updateCouponBenefitType(value: CouponBenefitType) = updateRewardEditor {
+        copy(
+            couponBenefitType = value,
+            couponDiscountPercent = if (value == CouponBenefitType.DISCOUNT_PERCENT) couponDiscountPercent else "",
+            couponBonusPoints = if (value == CouponBenefitType.BONUS_POINTS) couponBonusPoints else "",
+            couponRewardId = if (value == CouponBenefitType.REWARD) couponRewardId else null,
+            couponRewardName = if (value == CouponBenefitType.REWARD) couponRewardName else "",
+        )
+    }
+    fun updateCouponDiscountPercent(value: String) = updateRewardEditor { copy(couponDiscountPercent = value) }
+    fun updateCouponBonusPoints(value: String) = updateRewardEditor { copy(couponBonusPoints = value) }
+    fun updateCouponRewardSelection(rewardId: String?, rewardName: String) = updateRewardEditor {
+        copy(
+            couponRewardId = rewardId,
+            couponRewardName = rewardName,
+        )
+    }
 
     fun openCreateProgram(type: LoyaltyProgramType = LoyaltyProgramType.POINTS) {
         val state = _uiState.value
@@ -467,6 +630,8 @@ class LoyaltyViewModel @Inject constructor(
                 pointsMinimumRedeem = defaults.pointsMinimumRedeem,
                 cashbackPercent = defaults.cashbackPercent,
                 cashbackMinimumSpendAmount = defaults.cashbackMinimumSpendAmount,
+                tierThresholdBasis = defaults.tierThresholdBasis,
+                tierBenefitType = defaults.tierBenefitType,
                 tierLevels = defaults.tierLevels,
                 couponName = defaults.couponName,
                 couponPointsCost = defaults.couponPointsCost,
@@ -491,23 +656,45 @@ class LoyaltyViewModel @Inject constructor(
     fun updateCashbackPercent(value: String) = updateEditor { copy(cashbackPercent = value) }
     fun updateCashbackMinimumSpendAmount(value: String) = updateEditor { copy(cashbackMinimumSpendAmount = value) }
     fun updateTierThresholdBasis(value: TierThresholdBasis) = updateEditor { copy(tierThresholdBasis = value) }
+    fun updateTierBenefitType(value: TierBenefitType) = updateEditor {
+        copy(
+            tierBenefitType = value,
+            tierLevels = tierLevels.map { level -> level.copy(benefitType = value) },
+        )
+    }
     fun updateTierLevelName(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(name = value) else level })
     }
     fun updateTierLevelThreshold(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(threshold = value) else level })
     }
-    fun updateTierLevelBenefitType(levelId: String, value: TierBenefitType) = updateEditor {
-        copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(benefitType = value) else level })
-    }
     fun updateTierLevelBonusPercent(levelId: String, value: String) = updateEditor {
         copy(tierLevels = tierLevels.map { level -> if (level.id == levelId) level.copy(bonusPercent = value) else level })
+    }
+    fun updateTierLevelPerkEnabled(levelId: String, enabled: Boolean) = updateEditor {
+        copy(
+            tierLevels = tierLevels.map { level ->
+                if (level.id == levelId) {
+                    if (enabled) {
+                        level.copy(perkEnabled = true)
+                    } else {
+                        level.copy(
+                            perkEnabled = false,
+                            rewardOutcome = ProgramRewardOutcomeEditorState(),
+                        )
+                    }
+                } else {
+                    level
+                }
+            },
+        )
     }
     fun updateTierLevelRewardType(levelId: String, value: ProgramRewardOutcomeType) = updateEditor {
         copy(
             tierLevels = tierLevels.map { level ->
                 if (level.id == levelId) {
                     level.copy(
+                        perkEnabled = true,
                         rewardOutcome = level.rewardOutcome.copy(
                             type = value,
                             pointsAmount = if (value == ProgramRewardOutcomeType.POINTS) level.rewardOutcome.pointsAmount else "",
@@ -587,8 +774,9 @@ class LoyaltyViewModel @Inject constructor(
                 id = "tier_${System.currentTimeMillis()}",
                 name = DefaultTierNames.getOrNull(nextIndex) ?: "Custom Tier ${nextIndex + 1}",
                 threshold = (lastThreshold + 250).toString(),
-                benefitType = TierBenefitType.BONUS_PERCENT,
+                benefitType = tierBenefitType,
                 bonusPercent = "0",
+                perkEnabled = false,
                 rewardOutcome = ProgramRewardOutcomeEditorState(),
             ),
         )
@@ -740,7 +928,6 @@ class LoyaltyViewModel @Inject constructor(
         return when (type) {
             LoyaltyProgramType.DIGITAL_STAMP -> ProgramRewardOutcomeType.PROGRAM_DIGITAL_STAMP
             LoyaltyProgramType.TIER -> ProgramRewardOutcomeType.PROGRAM_TIER
-            LoyaltyProgramType.COUPON -> ProgramRewardOutcomeType.PROGRAM_COUPON
             LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramRewardOutcomeType.PROGRAM_PURCHASE_FREQUENCY
             LoyaltyProgramType.REFERRAL -> ProgramRewardOutcomeType.PROGRAM_REFERRAL
             else -> ProgramRewardOutcomeType.PROGRAM_POINTS
@@ -870,6 +1057,123 @@ class LoyaltyViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(messageRes = null, formErrorRes = null, programToggleCandidate = null)
+    }
+
+    fun saveGiveaway() {
+        val state = _uiState.value
+        val editor = state.giveawayEditorState ?: return
+        val storeId = state.selectedStoreId ?: run {
+            _uiState.value = state.copy(formErrorRes = R.string.merchant_reward_error_store_required)
+            return
+        }
+        val fieldErrors = validateGiveawayEditor(editor)
+        if (fieldErrors.isNotEmpty()) {
+            _uiState.value = state.copy(
+                giveawayEditorFieldErrors = fieldErrors,
+                formErrorRes = R.string.merchant_form_issue_title,
+            )
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = state.copy(
+                isSubmitting = true,
+                giveawayEditorFieldErrors = emptyMap(),
+                formErrorRes = null,
+                messageRes = null,
+            )
+            runCatching {
+                val resolvedRewardId = if (editor.giveawayType == GiveawayType.COUPON) {
+                    val couponDraft = RewardDraft(
+                        storeId = storeId,
+                        name = editor.name.trim(),
+                        description = editor.description.trim(),
+                        pointsRequired = 1,
+                        rewardType = RewardType.DISCOUNT_COUPON,
+                        imageUri = null,
+                        expirationDate = editor.expirationDate.takeIf { editor.expirationEnabled && it.isNotBlank() }?.let(java.time.LocalDate::parse),
+                        usageLimit = 1,
+                        inventoryTracked = true,
+                        availableQuantity = editor.couponAvailableQuantity.toIntOrNull() ?: 0,
+                        activeStatus = editor.active,
+                        catalogType = RewardCatalogType.COUPON,
+                        couponBenefitType = editor.couponBenefitType,
+                        couponDiscountPercent = editor.couponDiscountPercent.toDoubleOrNull(),
+                        couponBonusPoints = editor.couponBonusPoints.toIntOrNull(),
+                        couponRewardId = null,
+                    )
+                    val coupon = if (editor.rewardId.isNullOrBlank()) {
+                        createRewardUseCase(couponDraft)
+                    } else {
+                        updateRewardUseCase(editor.rewardId, couponDraft)
+                    }
+                    coupon.id
+                } else {
+                    null
+                }
+                val draft = editor.toDraft(storeId, resolvedRewardId)
+                if (editor.campaignId == null) createPromotionUseCase(draft) else updatePromotionUseCase(editor.campaignId, draft)
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    isSubmitting = false,
+                    giveawayEditorState = null,
+                    giveawayEditorFieldErrors = emptyMap(),
+                    messageRes = R.string.merchant_giveaway_saved_message,
+                )
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isSubmitting = false,
+                    formErrorRes = R.string.merchant_giveaway_error_save_failed,
+                )
+            }
+        }
+    }
+
+    fun toggleGiveawayEnabled(campaignId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                busyCampaignId = campaignId,
+                messageRes = null,
+                formErrorRes = null,
+            )
+            runCatching { setPromotionEnabledUseCase(campaignId, enabled) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        busyCampaignId = null,
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        busyCampaignId = null,
+                        formErrorRes = R.string.merchant_giveaway_error_save_failed,
+                    )
+                }
+        }
+    }
+
+    fun confirmDeleteGiveaway() {
+        val campaign = _uiState.value.giveawayDeleteCandidate ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSubmitting = true,
+                formErrorRes = null,
+                messageRes = null,
+            )
+            runCatching { deletePromotionUseCase(campaign.id) }
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isSubmitting = false,
+                        giveawayDeleteCandidate = null,
+                        messageRes = R.string.merchant_giveaway_deleted_message,
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isSubmitting = false,
+                        giveawayDeleteCandidate = null,
+                        formErrorRes = R.string.merchant_giveaway_error_delete_failed,
+                    )
+                }
+        }
     }
 
     fun saveReward() {
@@ -1041,6 +1345,15 @@ class LoyaltyViewModel @Inject constructor(
             formErrorRes = null,
         )
     }
+
+    private fun updateGiveawayEditor(transform: GiveawayEditorState.() -> GiveawayEditorState) {
+        val current = _uiState.value.giveawayEditorState ?: return
+        _uiState.value = _uiState.value.copy(
+            giveawayEditorState = current.transform(),
+            giveawayEditorFieldErrors = emptyMap(),
+            formErrorRes = null,
+        )
+    }
 }
 
 private fun String.belongsToSubEditor(
@@ -1143,4 +1456,5 @@ private data class LoyaltyStoreSnapshot(
     val rewards: List<com.vector.verevcodex.domain.model.loyalty.Reward>,
     val campaigns: List<com.vector.verevcodex.domain.model.promotions.Campaign>,
     val activeScanActions: List<com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction>,
+    val customers: List<Customer>,
 )

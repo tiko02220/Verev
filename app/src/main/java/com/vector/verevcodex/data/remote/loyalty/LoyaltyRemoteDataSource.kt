@@ -23,7 +23,9 @@ import com.vector.verevcodex.data.remote.core.buildRemoteIdempotencyKey
 import com.vector.verevcodex.data.remote.core.remoteResult
 import com.vector.verevcodex.data.remote.core.unwrap
 import com.vector.verevcodex.domain.model.common.CampaignSegment
+import com.vector.verevcodex.domain.model.common.CouponBenefitType
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.RewardCatalogType
 import com.vector.verevcodex.domain.model.common.RewardType
 import com.vector.verevcodex.domain.model.loyalty.CashbackProgramRule
 import com.vector.verevcodex.domain.model.loyalty.CheckInProgramRule
@@ -47,6 +49,8 @@ import com.vector.verevcodex.domain.model.loyalty.TierProgramRule
 import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
 import com.vector.verevcodex.domain.model.promotions.Campaign
 import com.vector.verevcodex.domain.model.promotions.CampaignTarget
+import com.vector.verevcodex.domain.model.promotions.GiveawaySendMode
+import com.vector.verevcodex.domain.model.promotions.GiveawayType
 import com.vector.verevcodex.domain.model.promotions.PromotionDraft
 import com.vector.verevcodex.domain.model.promotions.PromotionBoostLevel
 import com.vector.verevcodex.domain.model.promotions.PromotionType
@@ -298,6 +302,12 @@ class LoyaltyRemoteDataSource @Inject constructor(
             inventoryTracked = draft.inventoryTracked,
             availableQuantity = draft.availableQuantity,
             activeStatus = draft.activeStatus,
+            catalogType = draft.catalogType.name,
+            couponCode = draft.couponCode,
+            couponBenefitType = draft.couponBenefitType?.name,
+            couponDiscountPercent = draft.couponDiscountPercent,
+            couponBonusPoints = draft.couponBonusPoints,
+            couponRewardId = draft.couponRewardId,
         )
         val response = rewardsApi.create(
             request = request,
@@ -314,6 +324,12 @@ class LoyaltyRemoteDataSource @Inject constructor(
                 request.inventoryTracked.toString(),
                 request.availableQuantity?.toString().orEmpty(),
                 request.activeStatus.toString(),
+                request.catalogType,
+                request.couponCode.orEmpty(),
+                request.couponBenefitType.orEmpty(),
+                request.couponDiscountPercent?.toString().orEmpty(),
+                request.couponBonusPoints?.toString().orEmpty(),
+                request.couponRewardId.orEmpty(),
             ),
         )
         response.unwrap { it.toDomain() }
@@ -333,6 +349,12 @@ class LoyaltyRemoteDataSource @Inject constructor(
             inventoryTracked = draft.inventoryTracked,
             availableQuantity = draft.availableQuantity,
             activeStatus = draft.activeStatus,
+            catalogType = draft.catalogType.name,
+            couponCode = draft.couponCode,
+            couponBenefitType = draft.couponBenefitType?.name,
+            couponDiscountPercent = draft.couponDiscountPercent,
+            couponBonusPoints = draft.couponBonusPoints,
+            couponRewardId = draft.couponRewardId,
         )
         val response = rewardsApi.update(
             rewardId = rewardId,
@@ -399,9 +421,22 @@ class LoyaltyRemoteDataSource @Inject constructor(
             boostLevel = draft.boostLevel?.name,
             paymentFlowEnabled = draft.paymentFlowEnabled,
             active = draft.active,
-            segments = emptyList(),
+            segments = draft.segments.map { it.name },
             targetSegment = draft.targetSegment.name,
             targetDescription = draft.targetDescription,
+            sendMode = draft.sendMode.name,
+            scheduledDate = draft.scheduledDate?.toString(),
+            expirationEnabled = draft.expirationEnabled,
+            expirationDate = draft.expirationDate?.toString(),
+            giveawayType = draft.giveawayType?.name,
+            bonusPointsAmount = draft.bonusPointsAmount,
+            discountPercent = draft.discountPercent,
+            rewardId = draft.rewardId,
+            audienceAll = draft.audienceAll,
+            audienceGender = draft.audienceGender,
+            audienceAgeMin = draft.audienceAgeMin,
+            audienceAgeMax = draft.audienceAgeMax,
+            audienceTierName = draft.audienceTierName,
         )
         val response = campaignsApi.create(
             request = request,
@@ -413,6 +448,16 @@ class LoyaltyRemoteDataSource @Inject constructor(
                 draft.startDate.toString(),
                 draft.endDate.toString(),
                 draft.active.toString(),
+                draft.sendMode.name,
+                draft.giveawayType?.name,
+                draft.bonusPointsAmount?.toString(),
+                draft.discountPercent?.toString(),
+                draft.rewardId,
+                draft.audienceAll.toString(),
+                draft.audienceGender,
+                draft.audienceAgeMin?.toString(),
+                draft.audienceAgeMax?.toString(),
+                draft.audienceTierName,
             ),
         )
         response.unwrap { it.toDomain() }
@@ -435,9 +480,22 @@ class LoyaltyRemoteDataSource @Inject constructor(
             boostLevel = draft.boostLevel?.name,
             paymentFlowEnabled = draft.paymentFlowEnabled,
             active = draft.active,
-            segments = emptyList(),
+            segments = draft.segments.map { it.name },
             targetSegment = draft.targetSegment.name,
             targetDescription = draft.targetDescription,
+            sendMode = draft.sendMode.name,
+            scheduledDate = draft.scheduledDate?.toString(),
+            expirationEnabled = draft.expirationEnabled,
+            expirationDate = draft.expirationDate?.toString(),
+            giveawayType = draft.giveawayType?.name,
+            bonusPointsAmount = draft.bonusPointsAmount,
+            discountPercent = draft.discountPercent,
+            rewardId = draft.rewardId,
+            audienceAll = draft.audienceAll,
+            audienceGender = draft.audienceGender,
+            audienceAgeMin = draft.audienceAgeMin,
+            audienceAgeMax = draft.audienceAgeMax,
+            audienceTierName = draft.audienceTierName,
         )
         val response = campaignsApi.update(
             campaignId = campaignId,
@@ -451,6 +509,16 @@ class LoyaltyRemoteDataSource @Inject constructor(
                 draft.startDate.toString(),
                 draft.endDate.toString(),
                 draft.active.toString(),
+                draft.sendMode.name,
+                draft.giveawayType?.name,
+                draft.bonusPointsAmount?.toString(),
+                draft.discountPercent?.toString(),
+                draft.rewardId,
+                draft.audienceAll.toString(),
+                draft.audienceGender,
+                draft.audienceAgeMin?.toString(),
+                draft.audienceAgeMax?.toString(),
+                draft.audienceTierName,
             ),
         )
         response.unwrap { it.toDomain() }
@@ -743,16 +811,34 @@ private fun RewardViewDto.toDomain() = Reward(
     inventoryTracked = inventoryTracked ?: false,
     availableQuantity = availableQuantity,
     activeStatus = activeStatus ?: false,
+    catalogType = catalogType
+        ?.uppercase()
+        ?.let { kotlin.runCatching { RewardCatalogType.valueOf(it) }.getOrNull() }
+        ?: RewardCatalogType.REWARD,
+    couponCode = couponCode,
+    couponBenefitType = couponBenefitType
+        ?.uppercase()
+        ?.let { kotlin.runCatching { CouponBenefitType.valueOf(it) }.getOrNull() },
+    couponDiscountPercent = couponDiscountPercent,
+    couponBonusPoints = couponBonusPoints,
+    couponRewardId = couponRewardId,
+    couponRewardName = couponRewardName.orEmpty(),
 )
 
 private fun CampaignViewDto.toDomain(): Campaign {
-    val firstTarget = targets?.firstOrNull()
-    val segment = kotlin.runCatching { CampaignSegment.valueOf(firstTarget?.segment ?: "ALL_CUSTOMERS") }.getOrElse { CampaignSegment.ALL_CUSTOMERS }
-    val target = CampaignTarget(
-        id = firstTarget?.id ?: id.orEmpty(),
+    val resolvedTargets = targets.orEmpty().map { targetDto ->
+        CampaignTarget(
+            id = targetDto.id.orEmpty(),
+            campaignId = id.orEmpty(),
+            segment = kotlin.runCatching { CampaignSegment.valueOf(targetDto.segment ?: "ALL_CUSTOMERS") }.getOrElse { CampaignSegment.ALL_CUSTOMERS },
+            description = targetDto.description.orEmpty(),
+        )
+    }
+    val primaryTarget = resolvedTargets.firstOrNull() ?: CampaignTarget(
+        id = id.orEmpty(),
         campaignId = id.orEmpty(),
-        segment = segment,
-        description = firstTarget?.description ?: "",
+        segment = CampaignSegment.ALL_CUSTOMERS,
+        description = "",
     )
     val promoType = kotlin.runCatching { PromotionType.valueOf(promotionType.orEmpty()) }.getOrElse { PromotionType.PERCENT_DISCOUNT }
     return Campaign(
@@ -772,7 +858,28 @@ private fun CampaignViewDto.toDomain(): Campaign {
         boostLevel = boostLevel?.let { kotlin.runCatching { PromotionBoostLevel.valueOf(it) }.getOrNull() },
         paymentFlowEnabled = paymentFlowEnabled ?: false,
         active = active ?: false,
-        target = target,
+        target = primaryTarget,
+        targets = resolvedTargets.ifEmpty { listOf(primaryTarget) },
+        sendMode = sendMode
+            ?.uppercase()
+            ?.let { kotlin.runCatching { GiveawaySendMode.valueOf(it) }.getOrNull() }
+            ?: GiveawaySendMode.IMMEDIATE,
+        scheduledDate = scheduledDate?.take(10)?.takeIf { it.isNotBlank() }?.let(LocalDate::parse),
+        expirationEnabled = expirationEnabled ?: false,
+        expirationDate = expirationDate?.take(10)?.takeIf { it.isNotBlank() }?.let(LocalDate::parse),
+        giveawayType = giveawayType
+            ?.uppercase()
+            ?.let { kotlin.runCatching { GiveawayType.valueOf(it) }.getOrNull() },
+        bonusPointsAmount = bonusPointsAmount,
+        discountPercent = discountPercent,
+        rewardId = rewardId,
+        rewardName = rewardName.orEmpty(),
+        rewardCatalogType = rewardCatalogType,
+        audienceAll = audienceAll ?: true,
+        audienceGender = audienceGender.orEmpty().ifBlank { "ALL" },
+        audienceAgeMin = audienceAgeMin,
+        audienceAgeMax = audienceAgeMax,
+        audienceTierName = audienceTierName?.takeIf { it.isNotBlank() },
     )
 }
 

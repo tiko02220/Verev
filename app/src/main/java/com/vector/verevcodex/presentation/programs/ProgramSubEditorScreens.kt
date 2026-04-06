@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -250,8 +251,9 @@ internal fun TierEditScreen(
     onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
-    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
+    onTierBenefitTypeChange: (TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
+    onTierPerkEnabledChange: (String, Boolean) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardPointsChange: (String, String) -> Unit,
     onTierRewardRewardIdChange: (String, String?) -> Unit,
@@ -273,6 +275,7 @@ internal fun TierEditScreen(
         item {
             TierProgramLevelsEditor(
                 tierThresholdBasis = editorState.tierThresholdBasis,
+                tierBenefitType = editorState.tierBenefitType,
                 tierLevels = editorState.tierLevels,
                 availablePrograms = availablePrograms,
                 availableRewards = availableRewards,
@@ -283,6 +286,7 @@ internal fun TierEditScreen(
                 onTierThresholdChange = onTierThresholdChange,
                 onTierBenefitTypeChange = onTierBenefitTypeChange,
                 onTierBonusPercentChange = onTierBonusPercentChange,
+                onTierPerkEnabledChange = onTierPerkEnabledChange,
                 onTierRewardTypeChange = onTierRewardTypeChange,
                 onTierRewardPointsChange = onTierRewardPointsChange,
                 onTierRewardRewardIdChange = onTierRewardRewardIdChange,
@@ -300,6 +304,7 @@ internal fun TierEditScreen(
 @Composable
 internal fun TierProgramLevelsEditor(
     tierThresholdBasis: TierThresholdBasis,
+    tierBenefitType: TierBenefitType,
     tierLevels: List<TierLevelEditorState>,
     availablePrograms: List<RewardProgram>,
     availableRewards: List<Reward>,
@@ -308,8 +313,9 @@ internal fun TierProgramLevelsEditor(
     onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
-    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
+    onTierBenefitTypeChange: (TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
+    onTierPerkEnabledChange: (String, Boolean) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardPointsChange: (String, String) -> Unit,
     onTierRewardRewardIdChange: (String, String?) -> Unit,
@@ -320,82 +326,46 @@ internal fun TierProgramLevelsEditor(
     onOpenRewardsCatalog: () -> Unit,
     onOpenProgramsCatalog: () -> Unit,
 ) {
-    Text(
-        text = stringResource(R.string.merchant_program_tier_threshold_basis_title),
-        style = MaterialTheme.typography.titleSmall,
-        color = VerevColors.Forest,
-        fontWeight = FontWeight.SemiBold,
-    )
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TierThresholdBasis.entries.forEach { basis ->
-            MerchantFilterChip(
-                text = stringResource(
-                    if (basis == TierThresholdBasis.POINTS) {
-                        R.string.merchant_program_tier_threshold_basis_points
-                    } else {
-                        R.string.merchant_program_tier_threshold_basis_spend
-                    },
-                ),
-                selected = tierThresholdBasis == basis,
-                onClick = { onTierThresholdBasisChange(basis) },
-            )
-        }
-    }
-    tierLevels.forEachIndexed { index, level ->
-        val errorKey = tierLevelFieldKey(level.id, index)
-        val errorText = fieldErrors[errorKey]?.let { stringResource(id = it) }
         Column(
-            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = level.name.ifBlank {
-                    if (index == 0) {
-                        stringResource(R.string.merchant_program_tier_entry_title)
-                    } else {
-                        stringResource(R.string.merchant_program_tier_level_title, index + 1)
-                    }
-                },
-                style = MaterialTheme.typography.titleMedium,
+                text = stringResource(R.string.merchant_program_tier_threshold_basis_title),
+                style = MaterialTheme.typography.titleSmall,
                 color = VerevColors.Forest,
                 fontWeight = FontWeight.SemiBold,
             )
-            TierNamePresetSelector(
-                selectedName = level.name,
-                onSelect = { onTierNameChange(level.id, it) },
-            )
-            MerchantFormField(
-                value = level.name,
-                onValueChange = { onTierNameChange(level.id, it) },
-                label = stringResource(R.string.merchant_program_form_tier_name),
-                leadingIcon = Icons.Default.Loyalty,
-                supportingText = null,
-                isError = errorText != null && level.name.isBlank(),
-                errorText = errorText?.takeIf { level.name.isBlank() },
-            )
-            MerchantFormField(
-                value = level.threshold,
-                onValueChange = { onTierThresholdChange(level.id, it) },
-                label = stringResource(
-                    if (tierThresholdBasis == TierThresholdBasis.POINTS) {
-                        R.string.merchant_program_form_tier_threshold_points
-                    } else {
-                        R.string.merchant_program_form_tier_threshold_spend
-                    },
-                ),
-                leadingIcon = if (tierThresholdBasis == TierThresholdBasis.POINTS) Icons.Default.Star else Icons.Default.Payments,
-                supportingText = stringResource(
-                    if (tierThresholdBasis == TierThresholdBasis.POINTS) {
-                        R.string.merchant_program_form_tier_threshold_points_supporting
-                    } else {
-                        R.string.merchant_program_form_tier_threshold_spend_supporting
-                    },
-                ),
-                isError = errorText != null && level.threshold.isBlank(),
-                errorText = errorText?.takeIf { level.threshold.isBlank() },
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TierThresholdBasis.entries.forEach { basis ->
+                    MerchantFilterChip(
+                        text = stringResource(
+                            if (basis == TierThresholdBasis.POINTS) {
+                                R.string.merchant_program_tier_threshold_basis_points
+                            } else {
+                                R.string.merchant_program_tier_threshold_basis_spend
+                            },
+                        ),
+                        selected = tierThresholdBasis == basis,
+                        onClick = { onTierThresholdBasisChange(basis) },
+                    )
+                }
+            }
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.merchant_program_tier_benefit_mode_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = VerevColors.Forest,
+                fontWeight = FontWeight.SemiBold,
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -410,78 +380,156 @@ internal fun TierProgramLevelsEditor(
                                 R.string.merchant_program_tier_benefit_discount
                             },
                         ),
-                        selected = level.benefitType == benefitType,
-                        onClick = { onTierBenefitTypeChange(level.id, benefitType) },
+                        selected = tierBenefitType == benefitType,
+                        onClick = { onTierBenefitTypeChange(benefitType) },
                     )
                 }
             }
-            MerchantFormField(
-                value = level.bonusPercent,
-                onValueChange = { onTierBonusPercentChange(level.id, it) },
-                label = stringResource(
-                    if (level.benefitType == TierBenefitType.BONUS_PERCENT) {
-                        R.string.merchant_program_form_tier_bonus_percent
-                    } else {
-                        R.string.merchant_program_form_tier_discount_percent
-                    },
-                ),
-                leadingIcon = if (level.benefitType == TierBenefitType.BONUS_PERCENT) Icons.Default.Percent else Icons.Default.LocalOffer,
-                supportingText = stringResource(
-                    if (level.benefitType == TierBenefitType.BONUS_PERCENT) {
-                        R.string.merchant_program_form_tier_bonus_percent_supporting
-                    } else {
-                        R.string.merchant_program_form_tier_discount_percent_supporting
-                    },
-                ),
-                isError = errorText != null && level.bonusPercent.isBlank(),
-                errorText = errorText?.takeIf { level.bonusPercent.isBlank() },
-            )
-            if (errorText != null && level.threshold.isNotBlank()) {
-                InlineProgramError(errorRes = fieldErrors.getValue(errorKey))
-            }
-            Text(
-                text = stringResource(R.string.merchant_program_tier_reward_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = VerevColors.Forest,
-                fontWeight = FontWeight.SemiBold,
-            )
-            ProgramBenefitEditorFields(
-                state = level.rewardOutcome,
-                availablePrograms = availablePrograms,
-                availableRewards = availableRewards,
-                errorRes = fieldErrors[errorKey],
-                pointsLabel = stringResource(R.string.merchant_program_reward_points_checkin_label),
-                currencyCode = currencyCode,
-                optional = true,
-                onChoiceChange = { choice ->
-                    onTierRewardTypeChange(
-                        level.id,
-                        when (choice) {
-                            ProgramBenefitChoice.POINTS -> ProgramRewardOutcomeType.POINTS
-                            ProgramBenefitChoice.REWARD_CATALOG -> ProgramRewardOutcomeType.FREE_PRODUCT
-                            ProgramBenefitChoice.PROGRAM -> ProgramRewardOutcomeType.PROGRAM_POINTS
-                        },
-                    )
-                },
-                onPointsChange = { onTierRewardPointsChange(level.id, it) },
-                onRewardIdChange = { onTierRewardRewardIdChange(level.id, it) },
-                onProgramIdChange = { onTierRewardProgramIdChange(level.id, it) },
-                onOpenRewardsCatalog = onOpenRewardsCatalog,
-                onOpenProgramsCatalog = onOpenProgramsCatalog,
-                onClear = { onClearTierBenefit(level.id) },
-            )
-            if (tierLevels.size > 2) {
-                OutlinedButton(
-                    onClick = { onRemoveTier(level.id) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.ErrorText),
+        }
+        tierLevels.forEachIndexed { index, level ->
+            val errorKey = tierLevelFieldKey(level.id, index)
+            val errorText = fieldErrors[errorKey]?.let { stringResource(id = it) }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = VerevColors.AppBackground,
+                shape = RoundedCornerShape(26.dp),
+                border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.08f)),
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.merchant_program_remove_tier_action),
-                        modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp),
-                        fontWeight = FontWeight.SemiBold,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (index == 0) {
+                                stringResource(R.string.merchant_program_tier_entry_title)
+                            } else {
+                                stringResource(R.string.merchant_program_tier_level_title, index + 1)
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = VerevColors.Forest,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (tierLevels.size > 2) {
+                            OutlinedButton(
+                                onClick = { onRemoveTier(level.id) },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = VerevColors.ErrorText),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Icon(Icons.Default.DeleteOutline, contentDescription = null)
+                                Text(
+                                    text = stringResource(R.string.merchant_program_remove_tier_action),
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                    TierNamePresetSelector(
+                        selectedName = level.name,
+                        onSelect = { onTierNameChange(level.id, it) },
                     )
+                    MerchantFormField(
+                        value = level.name,
+                        onValueChange = { onTierNameChange(level.id, it) },
+                        label = stringResource(R.string.merchant_program_form_tier_name),
+                        leadingIcon = Icons.Default.Loyalty,
+                        supportingText = stringResource(R.string.merchant_program_form_tier_name_supporting),
+                        isError = errorText != null && level.name.isBlank(),
+                        errorText = errorText?.takeIf { level.name.isBlank() },
+                    )
+                    MerchantFormField(
+                        value = level.threshold,
+                        onValueChange = { onTierThresholdChange(level.id, it) },
+                        label = stringResource(
+                            if (tierThresholdBasis == TierThresholdBasis.POINTS) {
+                                R.string.merchant_program_form_tier_threshold_points
+                            } else {
+                                R.string.merchant_program_form_tier_threshold_spend
+                            },
+                        ),
+                        leadingIcon = if (tierThresholdBasis == TierThresholdBasis.POINTS) Icons.Default.Star else Icons.Default.Payments,
+                        supportingText = stringResource(
+                            if (tierThresholdBasis == TierThresholdBasis.POINTS) {
+                                R.string.merchant_program_form_tier_threshold_points_supporting
+                            } else {
+                                R.string.merchant_program_form_tier_threshold_spend_supporting
+                            },
+                        ),
+                        isError = errorText != null && level.threshold.isBlank(),
+                        errorText = errorText?.takeIf { level.threshold.isBlank() },
+                    )
+                    MerchantFormField(
+                        value = level.bonusPercent,
+                        onValueChange = { onTierBonusPercentChange(level.id, it) },
+                        label = stringResource(
+                            if (tierBenefitType == TierBenefitType.BONUS_PERCENT) {
+                                R.string.merchant_program_form_tier_bonus_percent
+                            } else {
+                                R.string.merchant_program_form_tier_discount_percent
+                            },
+                        ),
+                        leadingIcon = if (tierBenefitType == TierBenefitType.BONUS_PERCENT) Icons.Default.Percent else Icons.Default.LocalOffer,
+                        supportingText = stringResource(
+                            if (tierBenefitType == TierBenefitType.BONUS_PERCENT) {
+                                R.string.merchant_program_form_tier_bonus_percent_supporting
+                            } else {
+                                R.string.merchant_program_form_tier_discount_percent_supporting
+                            },
+                        ),
+                        isError = errorText != null && level.bonusPercent.isBlank(),
+                        errorText = errorText?.takeIf { level.bonusPercent.isBlank() },
+                    )
+                    if (errorText != null && level.name.isNotBlank() && level.threshold.isNotBlank() && level.bonusPercent.isNotBlank()) {
+                        InlineProgramError(errorRes = fieldErrors.getValue(errorKey))
+                    }
+                    ProgramToggleRow(
+                        title = stringResource(R.string.merchant_program_tier_perk_toggle_title),
+                        subtitle = stringResource(R.string.merchant_program_tier_perk_toggle_subtitle),
+                        checked = level.perkEnabled,
+                        onCheckedChange = { onTierPerkEnabledChange(level.id, it) },
+                    )
+                    if (level.perkEnabled) {
+                        Text(
+                            text = stringResource(R.string.merchant_program_tier_reward_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = VerevColors.Forest,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        ProgramBenefitEditorFields(
+                            state = level.rewardOutcome,
+                            availablePrograms = availablePrograms,
+                            availableRewards = availableRewards,
+                            errorRes = fieldErrors[errorKey],
+                            pointsLabel = stringResource(R.string.merchant_program_reward_points_tier_label),
+                            currencyCode = currencyCode,
+                            optional = true,
+                            onChoiceChange = { choice ->
+                                onTierRewardTypeChange(
+                                    level.id,
+                                    when (choice) {
+                                        ProgramBenefitChoice.POINTS -> ProgramRewardOutcomeType.POINTS
+                                        ProgramBenefitChoice.REWARD_CATALOG -> ProgramRewardOutcomeType.FREE_PRODUCT
+                                        ProgramBenefitChoice.PROGRAM -> ProgramRewardOutcomeType.PROGRAM_POINTS
+                                    },
+                                )
+                            },
+                            onPointsChange = { onTierRewardPointsChange(level.id, it) },
+                            onRewardIdChange = { onTierRewardRewardIdChange(level.id, it) },
+                            onProgramIdChange = { onTierRewardProgramIdChange(level.id, it) },
+                            onOpenRewardsCatalog = onOpenRewardsCatalog,
+                            onOpenProgramsCatalog = onOpenProgramsCatalog,
+                            onClear = { onClearTierBenefit(level.id) },
+                        )
+                    }
                 }
             }
         }
@@ -536,6 +584,9 @@ private fun TierNamePresetSelector(
     selectedName: String,
     onSelect: (String) -> Unit,
 ) {
+    val customSelected = selectedName.isBlank() || DefaultTierNames.none { preset ->
+        selectedName.equals(preset, ignoreCase = true)
+    }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -547,6 +598,15 @@ private fun TierNamePresetSelector(
                 onClick = { onSelect(name) },
             )
         }
+        MerchantFilterChip(
+            text = stringResource(R.string.merchant_program_tier_name_custom),
+            selected = customSelected,
+            onClick = {
+                if (!customSelected) {
+                    onSelect("")
+                }
+            },
+        )
     }
 }
 
@@ -629,7 +689,7 @@ internal fun RewardEditScreen(
     ProgramSubEditorLayout(
         title = stringResource(R.string.merchant_program_reward_edit_action),
         subtitle = stringResource(R.string.merchant_program_editor_coupon_setup_subtitle),
-        headerColors = LoyaltyProgramType.COUPON.gradient(),
+        headerColors = listOf(VerevColors.Gold, VerevColors.Tan),
         onBack = onBack,
         onSave = onSave,
     ) {

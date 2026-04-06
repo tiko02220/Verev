@@ -490,7 +490,6 @@ internal fun ProgramsManagementBanner(
 internal fun ProgramModulesSection(
     onOpenPointsRewards: () -> Unit,
     onOpenTieredLoyalty: () -> Unit,
-    onOpenCouponsManager: () -> Unit,
     onOpenCheckinRewards: () -> Unit,
     onOpenPurchaseFrequency: () -> Unit,
     onOpenReferralRewards: () -> Unit,
@@ -513,14 +512,6 @@ internal fun ProgramModulesSection(
                 colors = listOf(Color(0xFFB97E4B), Color(0xFF8B5A2B)),
                 onClick = onOpenTieredLoyalty,
                 onOpenInfo = { onOpenProgramInfo(LoyaltyProgramType.TIER) },
-            )
-            ProgramModuleTile(
-                title = stringResource(R.string.merchant_coupons_manager_title),
-                subtitle = stringResource(R.string.merchant_program_module_coupons_subtitle),
-                icon = Icons.Default.Sell,
-                colors = listOf(VerevColors.Tan, VerevColors.Gold),
-                onClick = onOpenCouponsManager,
-                onOpenInfo = { onOpenProgramInfo(LoyaltyProgramType.COUPON) },
             )
             ProgramModuleTile(
                 title = stringResource(R.string.merchant_checkin_rewards_title),
@@ -1320,8 +1311,9 @@ internal fun ProgramEditorSheet(
     onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
-    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
+    onTierBenefitTypeChange: (TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
+    onTierPerkEnabledChange: (String, Boolean) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardLabelChange: (String, String) -> Unit,
     onTierRewardPointsChange: (String, String) -> Unit,
@@ -1461,51 +1453,112 @@ internal fun ProgramEditorSheet(
                         }
 
                         ProgramCreationStep.GOAL -> {
-                            ProgramSectionCard(
-                                title = stringResource(R.string.merchant_program_creation_goal_title),
-                                subtitle = stringResource(R.string.merchant_program_creation_goal_subtitle),
-                            ) {
-                                ProgramGoalStepFields(
-                                    editorState = editorState,
-                                    availablePrograms = availablePrograms,
-                                    availableRewards = availableRewards,
-                                    currencyCode = currencyCode,
-                                    fieldErrors = fieldErrors,
-                                    onPointsSpendStepAmountChange = onPointsSpendStepAmountChange,
-                                    onPointsAwardedPerStepChange = onPointsAwardedPerStepChange,
-                                    onPointsWelcomeBonusChange = onPointsWelcomeBonusChange,
-                                    onPointsMinimumRedeemChange = onPointsMinimumRedeemChange,
-                                    onCashbackPercentChange = onCashbackPercentChange,
-                                    onCashbackMinimumSpendAmountChange = onCashbackMinimumSpendAmountChange,
-                                    onTierThresholdBasisChange = onTierThresholdBasisChange,
-                                    onTierNameChange = onTierNameChange,
-                                    onTierThresholdChange = onTierThresholdChange,
-                                    onTierBenefitTypeChange = onTierBenefitTypeChange,
-                                    onTierBonusPercentChange = onTierBonusPercentChange,
-                                    onTierRewardTypeChange = onTierRewardTypeChange,
-                                    onTierRewardLabelChange = onTierRewardLabelChange,
-                                    onTierRewardPointsChange = onTierRewardPointsChange,
-                                    onTierRewardRewardIdChange = onTierRewardRewardIdChange,
-                                    onTierRewardProgramIdChange = onTierRewardProgramIdChange,
-                                    onAddTier = onAddTier,
-                                    onRemoveTier = onRemoveTier,
-                                    onCouponNameChange = onCouponNameChange,
-                                    onCouponPointsCostChange = onCouponPointsCostChange,
-                                    onCouponDiscountAmountChange = onCouponDiscountAmountChange,
-                                    onCouponMinimumSpendAmountChange = onCouponMinimumSpendAmountChange,
-                                    onCheckInVisitsRequiredChange = onCheckInVisitsRequiredChange,
-                                    onPurchaseFrequencyCountChange = onPurchaseFrequencyCountChange,
-                                    onPurchaseFrequencyWindowDaysChange = onPurchaseFrequencyWindowDaysChange,
-                                    onReferralCodePrefixChange = onReferralCodePrefixChange,
-                                    onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
-                                    onRewardOutcomePointsChange = onRewardOutcomePointsChange,
-                                    onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
-                                    onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
-                                    onOpenTierBenefitEditor = onOpenTierBenefitEditor,
-                                    onClearTierBenefit = onClearTierBenefit,
-                                    onOpenRewardsCatalog = onOpenRewardsCatalog,
-                                    onOpenProgramsCatalog = onOpenProgramsCatalog,
-                                )
+                            if (editorState.type == LoyaltyProgramType.TIER) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.merchant_program_creation_goal_title),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = VerevColors.Forest,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.merchant_program_creation_goal_subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = VerevColors.Forest.copy(alpha = 0.62f),
+                                    )
+                                    ProgramGoalStepFields(
+                                        editorState = editorState,
+                                        availablePrograms = availablePrograms,
+                                        availableRewards = availableRewards,
+                                        currencyCode = currencyCode,
+                                        fieldErrors = fieldErrors,
+                                        onPointsSpendStepAmountChange = onPointsSpendStepAmountChange,
+                                        onPointsAwardedPerStepChange = onPointsAwardedPerStepChange,
+                                        onPointsWelcomeBonusChange = onPointsWelcomeBonusChange,
+                                        onPointsMinimumRedeemChange = onPointsMinimumRedeemChange,
+                                        onCashbackPercentChange = onCashbackPercentChange,
+                                        onCashbackMinimumSpendAmountChange = onCashbackMinimumSpendAmountChange,
+                                        onTierThresholdBasisChange = onTierThresholdBasisChange,
+                                        onTierNameChange = onTierNameChange,
+                                        onTierThresholdChange = onTierThresholdChange,
+                                        onTierBenefitTypeChange = onTierBenefitTypeChange,
+                                        onTierBonusPercentChange = onTierBonusPercentChange,
+                                        onTierPerkEnabledChange = onTierPerkEnabledChange,
+                                        onTierRewardTypeChange = onTierRewardTypeChange,
+                                        onTierRewardLabelChange = onTierRewardLabelChange,
+                                        onTierRewardPointsChange = onTierRewardPointsChange,
+                                        onTierRewardRewardIdChange = onTierRewardRewardIdChange,
+                                        onTierRewardProgramIdChange = onTierRewardProgramIdChange,
+                                        onAddTier = onAddTier,
+                                        onRemoveTier = onRemoveTier,
+                                        onCouponNameChange = onCouponNameChange,
+                                        onCouponPointsCostChange = onCouponPointsCostChange,
+                                        onCouponDiscountAmountChange = onCouponDiscountAmountChange,
+                                        onCouponMinimumSpendAmountChange = onCouponMinimumSpendAmountChange,
+                                        onCheckInVisitsRequiredChange = onCheckInVisitsRequiredChange,
+                                        onPurchaseFrequencyCountChange = onPurchaseFrequencyCountChange,
+                                        onPurchaseFrequencyWindowDaysChange = onPurchaseFrequencyWindowDaysChange,
+                                        onReferralCodePrefixChange = onReferralCodePrefixChange,
+                                        onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
+                                        onRewardOutcomePointsChange = onRewardOutcomePointsChange,
+                                        onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                                        onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
+                                        onOpenTierBenefitEditor = onOpenTierBenefitEditor,
+                                        onClearTierBenefit = onClearTierBenefit,
+                                        onOpenRewardsCatalog = onOpenRewardsCatalog,
+                                        onOpenProgramsCatalog = onOpenProgramsCatalog,
+                                    )
+                                }
+                            } else {
+                                ProgramSectionCard(
+                                    title = stringResource(R.string.merchant_program_creation_goal_title),
+                                    subtitle = stringResource(R.string.merchant_program_creation_goal_subtitle),
+                                ) {
+                                    ProgramGoalStepFields(
+                                        editorState = editorState,
+                                        availablePrograms = availablePrograms,
+                                        availableRewards = availableRewards,
+                                        currencyCode = currencyCode,
+                                        fieldErrors = fieldErrors,
+                                        onPointsSpendStepAmountChange = onPointsSpendStepAmountChange,
+                                        onPointsAwardedPerStepChange = onPointsAwardedPerStepChange,
+                                        onPointsWelcomeBonusChange = onPointsWelcomeBonusChange,
+                                        onPointsMinimumRedeemChange = onPointsMinimumRedeemChange,
+                                        onCashbackPercentChange = onCashbackPercentChange,
+                                        onCashbackMinimumSpendAmountChange = onCashbackMinimumSpendAmountChange,
+                                        onTierThresholdBasisChange = onTierThresholdBasisChange,
+                                        onTierNameChange = onTierNameChange,
+                                        onTierThresholdChange = onTierThresholdChange,
+                                        onTierBenefitTypeChange = onTierBenefitTypeChange,
+                                        onTierBonusPercentChange = onTierBonusPercentChange,
+                                        onTierPerkEnabledChange = onTierPerkEnabledChange,
+                                        onTierRewardTypeChange = onTierRewardTypeChange,
+                                        onTierRewardLabelChange = onTierRewardLabelChange,
+                                        onTierRewardPointsChange = onTierRewardPointsChange,
+                                        onTierRewardRewardIdChange = onTierRewardRewardIdChange,
+                                        onTierRewardProgramIdChange = onTierRewardProgramIdChange,
+                                        onAddTier = onAddTier,
+                                        onRemoveTier = onRemoveTier,
+                                        onCouponNameChange = onCouponNameChange,
+                                        onCouponPointsCostChange = onCouponPointsCostChange,
+                                        onCouponDiscountAmountChange = onCouponDiscountAmountChange,
+                                        onCouponMinimumSpendAmountChange = onCouponMinimumSpendAmountChange,
+                                        onCheckInVisitsRequiredChange = onCheckInVisitsRequiredChange,
+                                        onPurchaseFrequencyCountChange = onPurchaseFrequencyCountChange,
+                                        onPurchaseFrequencyWindowDaysChange = onPurchaseFrequencyWindowDaysChange,
+                                        onReferralCodePrefixChange = onReferralCodePrefixChange,
+                                        onRewardOutcomeTypeChange = onRewardOutcomeTypeChange,
+                                        onRewardOutcomePointsChange = onRewardOutcomePointsChange,
+                                        onRewardOutcomeRewardIdChange = onRewardOutcomeRewardIdChange,
+                                        onRewardOutcomeProgramIdChange = onRewardOutcomeProgramIdChange,
+                                        onOpenTierBenefitEditor = onOpenTierBenefitEditor,
+                                        onClearTierBenefit = onClearTierBenefit,
+                                        onOpenRewardsCatalog = onOpenRewardsCatalog,
+                                        onOpenProgramsCatalog = onOpenProgramsCatalog,
+                                    )
+                                }
                             }
                         }
 
@@ -1812,7 +1865,6 @@ private fun ProgramEditOverviewContent(
 private fun LoyaltyProgramType.primaryGoalSubEditor(): ProgramSubEditor = when (this) {
     LoyaltyProgramType.POINTS -> ProgramSubEditor.EARN_RULES_EDIT
     LoyaltyProgramType.TIER -> ProgramSubEditor.TIER_EDIT
-    LoyaltyProgramType.COUPON -> ProgramSubEditor.REWARD_EDIT
     LoyaltyProgramType.DIGITAL_STAMP -> ProgramSubEditor.CHECKIN_EDIT
     LoyaltyProgramType.PURCHASE_FREQUENCY -> ProgramSubEditor.FREQUENCY_EDIT
     LoyaltyProgramType.REFERRAL -> ProgramSubEditor.REFERRAL_EDIT
@@ -2206,11 +2258,6 @@ internal fun customerExperienceSummary(
             "${level.name.ifBlank { "Tier" }} ${level.threshold.toIntOrNull() ?: 0}"
         }
         .ifBlank { stringResource(R.string.merchant_program_preview_tier_empty_message) }
-    LoyaltyProgramType.COUPON -> stringResource(
-        R.string.merchant_program_preview_coupon_message,
-        editorState.couponName.ifBlank { stringResource(R.string.merchant_program_form_coupon_name) },
-        editorState.couponPointsCost.toIntOrNull() ?: 0,
-    )
     LoyaltyProgramType.PURCHASE_FREQUENCY -> stringResource(
         R.string.merchant_program_preview_frequency_message,
         editorState.purchaseFrequencyCount.toIntOrNull() ?: 0,
@@ -2239,7 +2286,6 @@ private fun RewardProgram.programBenefitSubtitle(currencyCode: String): String =
             LoyaltyProgramType.POINTS -> "Points rewards"
             LoyaltyProgramType.DIGITAL_STAMP -> "Check-in rewards"
             LoyaltyProgramType.TIER -> "Tiered loyalty"
-            LoyaltyProgramType.COUPON -> "Coupon rewards"
             LoyaltyProgramType.PURCHASE_FREQUENCY -> "Purchase frequency"
             LoyaltyProgramType.REFERRAL -> "Referral rewards"
         },
@@ -2559,8 +2605,9 @@ private fun ProgramGoalStepFields(
     onTierThresholdBasisChange: (TierThresholdBasis) -> Unit,
     onTierNameChange: (String, String) -> Unit,
     onTierThresholdChange: (String, String) -> Unit,
-    onTierBenefitTypeChange: (String, TierBenefitType) -> Unit,
+    onTierBenefitTypeChange: (TierBenefitType) -> Unit,
     onTierBonusPercentChange: (String, String) -> Unit,
+    onTierPerkEnabledChange: (String, Boolean) -> Unit,
     onTierRewardTypeChange: (String, ProgramRewardOutcomeType) -> Unit,
     onTierRewardLabelChange: (String, String) -> Unit,
     onTierRewardPointsChange: (String, String) -> Unit,
@@ -2654,6 +2701,7 @@ private fun ProgramGoalStepFields(
             TierProgressExplainer()
             TierProgramLevelsEditor(
                 tierThresholdBasis = editorState.tierThresholdBasis,
+                tierBenefitType = editorState.tierBenefitType,
                 tierLevels = editorState.tierLevels,
                 availablePrograms = availablePrograms,
                 availableRewards = availableRewards,
@@ -2664,6 +2712,7 @@ private fun ProgramGoalStepFields(
                 onTierThresholdChange = onTierThresholdChange,
                 onTierBenefitTypeChange = onTierBenefitTypeChange,
                 onTierBonusPercentChange = onTierBonusPercentChange,
+                onTierPerkEnabledChange = onTierPerkEnabledChange,
                 onTierRewardTypeChange = onTierRewardTypeChange,
                 onTierRewardPointsChange = onTierRewardPointsChange,
                 onTierRewardRewardIdChange = onTierRewardRewardIdChange,
@@ -2673,41 +2722,6 @@ private fun ProgramGoalStepFields(
                 onRemoveTier = onRemoveTier,
                 onOpenRewardsCatalog = onOpenRewardsCatalog,
                 onOpenProgramsCatalog = onOpenProgramsCatalog,
-            )
-        }
-
-        LoyaltyProgramType.COUPON -> {
-            TextField(
-                value = editorState.couponName,
-                onValueChange = onCouponNameChange,
-                label = stringResource(R.string.merchant_program_form_coupon_name),
-                icon = Icons.Default.CardGiftcard,
-                errorRes = fieldErrors[PROGRAM_FIELD_COUPON_NAME],
-                supportingText = null,
-            )
-            IntegerField(
-                value = editorState.couponPointsCost,
-                onValueChange = onCouponPointsCostChange,
-                label = stringResource(R.string.merchant_program_form_coupon_points_cost),
-                icon = Icons.Default.Star,
-                errorRes = fieldErrors[PROGRAM_FIELD_COUPON_POINTS],
-                supportingText = null,
-            )
-            DecimalField(
-                value = editorState.couponDiscountAmount,
-                onValueChange = onCouponDiscountAmountChange,
-                label = stringResource(R.string.merchant_program_form_coupon_discount_amount),
-                icon = Icons.Default.Payments,
-                errorRes = fieldErrors[PROGRAM_FIELD_COUPON_DISCOUNT],
-                supportingText = null,
-            )
-            DecimalField(
-                value = editorState.couponMinimumSpendAmount,
-                onValueChange = onCouponMinimumSpendAmountChange,
-                label = stringResource(R.string.merchant_program_form_coupon_minimum_spend),
-                icon = Icons.Default.Payments,
-                errorRes = null,
-                supportingText = null,
             )
         }
 
@@ -3013,12 +3027,6 @@ private fun reviewGoalSummary(
         benefitSummary(editorState.checkInReward, availableRewards),
     )
     LoyaltyProgramType.TIER -> tierSummary(editorState, availableRewards)
-    LoyaltyProgramType.COUPON -> stringResource(
-        R.string.merchant_program_coupon_summary,
-        editorState.couponName.ifBlank { stringResource(R.string.merchant_program_form_coupon_name) },
-        formatWholeCurrency(editorState.couponDiscountAmount.toDoubleOrNull() ?: 0.0, currencyCode),
-        editorState.couponPointsCost.ifBlank { "0" },
-    )
     LoyaltyProgramType.PURCHASE_FREQUENCY -> stringResource(
         R.string.merchant_program_frequency_summary,
         editorState.purchaseFrequencyCount,
@@ -3106,21 +3114,6 @@ private fun ProgramRuleFields(
                 summary = tierSummary(editorState, availableRewards),
                 errorRes = fieldErrors.values.firstOrNull(),
                 onEdit = { onOpenSubEditor(ProgramSubEditor.TIER_EDIT) },
-            )
-        }
-        LoyaltyProgramType.COUPON -> {
-            CompactProgramRuleCard(
-                title = stringResource(R.string.merchant_program_reward_edit_action),
-                summary = stringResource(
-                    R.string.merchant_program_coupon_summary,
-                    editorState.couponName.ifBlank { stringResource(R.string.merchant_program_form_coupon_name) },
-                    formatWholeCurrency(editorState.couponDiscountAmount.toDoubleOrNull() ?: 0.0, currencyCode),
-                    editorState.couponPointsCost.ifBlank { "0" },
-                ),
-                errorRes = fieldErrors[PROGRAM_FIELD_COUPON_NAME]
-                    ?: fieldErrors[PROGRAM_FIELD_COUPON_DISCOUNT]
-                    ?: fieldErrors[PROGRAM_FIELD_COUPON_POINTS],
-                onEdit = { onOpenSubEditor(ProgramSubEditor.REWARD_EDIT) },
             )
         }
         LoyaltyProgramType.PURCHASE_FREQUENCY -> {

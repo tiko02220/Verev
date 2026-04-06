@@ -47,6 +47,8 @@ import androidx.compose.material.icons.filled.Loyalty
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -88,10 +90,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
+import com.vector.verevcodex.domain.model.common.CouponBenefitType
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.domain.model.common.RewardCatalogType
+import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.presentation.merchant.common.MerchantBackHeader
 import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
+import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.merchant.common.MerchantInlineToggle
 import com.vector.verevcodex.presentation.merchant.common.MerchantLoadingOverlay
@@ -113,7 +119,8 @@ import androidx.compose.ui.unit.sp
 
 private enum class ProgramsHomeTab(val routeValue: String) {
     PROGRAMS("programs"),
-    REWARDS("rewards");
+    REWARDS("rewards"),
+    GIVEAWAY("giveaway");
 
     companion object {
         fun fromRouteValue(value: String?): ProgramsHomeTab =
@@ -129,7 +136,6 @@ fun LoyaltyProgramManagementScreen(
     onOpenProgramModules: () -> Unit = {},
     onOpenPointsRewards: () -> Unit = {},
     onOpenTieredLoyalty: () -> Unit = {},
-    onOpenCouponsManager: () -> Unit = {},
     onOpenCheckinRewards: () -> Unit = {},
     onOpenPurchaseFrequency: () -> Unit = {},
     onOpenReferralRewards: () -> Unit = {},
@@ -172,7 +178,6 @@ fun LoyaltyProgramManagementScreen(
         when (programType) {
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.POINTS -> onOpenPointsRewards()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.TIER -> onOpenTieredLoyalty()
-            com.vector.verevcodex.domain.model.common.LoyaltyProgramType.COUPON -> onOpenCouponsManager()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.DIGITAL_STAMP -> onOpenCheckinRewards()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.PURCHASE_FREQUENCY -> onOpenPurchaseFrequency()
             com.vector.verevcodex.domain.model.common.LoyaltyProgramType.REFERRAL -> onOpenReferralRewards()
@@ -191,6 +196,8 @@ fun LoyaltyProgramManagementScreen(
             },
             onNameChange = viewModel::updateRewardName,
             onDescriptionChange = viewModel::updateRewardDescription,
+            availableRewards = state.rewards.filter { it.id != editor.rewardId && it.catalogType == RewardCatalogType.REWARD },
+            onCatalogTypeChange = viewModel::updateRewardCatalogType,
             onImageUriChange = viewModel::updateRewardImageUri,
             onPickImage = {
                 activity?.suppressRelockForTransientSystemUi()
@@ -199,7 +206,57 @@ fun LoyaltyProgramManagementScreen(
             onExpirationEnabledChange = viewModel::updateRewardExpirationEnabled,
             onExpirationDateChange = viewModel::updateRewardExpirationDate,
             onAvailableQuantityChange = viewModel::updateRewardAvailableQuantity,
+            onCouponCodeChange = viewModel::updateCouponCode,
+            onCouponBenefitTypeChange = viewModel::updateCouponBenefitType,
+            onCouponDiscountPercentChange = viewModel::updateCouponDiscountPercent,
+            onCouponBonusPointsChange = viewModel::updateCouponBonusPoints,
+            onCouponRewardSelected = viewModel::updateCouponRewardSelection,
             onSave = viewModel::saveReward,
+        )
+        state.formErrorRes?.let { errorRes ->
+            MerchantErrorDialog(
+                message = stringResource(errorRes),
+                onDismiss = viewModel::clearMessage,
+            )
+        }
+        return
+    }
+
+    state.giveawayEditorState?.let { editor ->
+        GiveawayEditorScreen(
+            editorState = editor,
+            fieldErrors = state.giveawayEditorFieldErrors,
+            isSubmitting = state.isSubmitting,
+            contentPadding = contentPadding,
+            availableTierNames = state.programs
+                .filter { it.configuration.tierTrackingEnabled }
+                .flatMap { it.configuration.tierRule.sortedLevels.map { level -> level.name } }
+                .distinct(),
+            customers = state.customers,
+            onDismiss = {
+                viewModel.dismissGiveawayEditor()
+                selectedTabRoute = ProgramsHomeTab.GIVEAWAY.routeValue
+            },
+            onNameChange = viewModel::updateGiveawayName,
+            onDescriptionChange = viewModel::updateGiveawayDescription,
+            onGiveawayTypeChange = viewModel::updateGiveawayType,
+            onBonusPointsChange = viewModel::updateGiveawayBonusPoints,
+            onDiscountPercentChange = viewModel::updateGiveawayDiscountPercent,
+            onCouponBenefitTypeChange = viewModel::updateGiveawayCouponBenefitType,
+            onCouponDiscountPercentChange = viewModel::updateGiveawayCouponDiscountPercent,
+            onCouponBonusPointsChange = viewModel::updateGiveawayCouponBonusPoints,
+            onCouponAvailableQuantityChange = viewModel::updateGiveawayCouponAvailableQuantity,
+            onSendModeChange = viewModel::updateGiveawaySendMode,
+            onScheduledDateChange = viewModel::updateGiveawayScheduledDate,
+            onExpirationEnabledChange = viewModel::updateGiveawayExpirationEnabled,
+            onExpirationDateChange = viewModel::updateGiveawayExpirationDate,
+            onAudienceAllChange = viewModel::updateGiveawayAudienceAll,
+            onAudienceGenderChange = viewModel::updateGiveawayAudienceGender,
+            onAudienceAgeMinChange = viewModel::updateGiveawayAudienceAgeMin,
+            onAudienceAgeMaxChange = viewModel::updateGiveawayAudienceAgeMax,
+            onAudienceTierChange = viewModel::updateGiveawayAudienceTier,
+            onCouponCodeChange = viewModel::updateGiveawayCouponCode,
+            onSave = viewModel::saveGiveaway,
         )
         state.formErrorRes?.let { errorRes ->
             MerchantErrorDialog(
@@ -251,8 +308,9 @@ fun LoyaltyProgramManagementScreen(
             onTierThresholdBasisChange = viewModel::updateTierThresholdBasis,
             onTierNameChange = viewModel::updateTierLevelName,
             onTierThresholdChange = viewModel::updateTierLevelThreshold,
-            onTierBenefitTypeChange = viewModel::updateTierLevelBenefitType,
+            onTierBenefitTypeChange = viewModel::updateTierBenefitType,
             onTierBonusPercentChange = viewModel::updateTierLevelBonusPercent,
+            onTierPerkEnabledChange = viewModel::updateTierLevelPerkEnabled,
             onTierRewardTypeChange = viewModel::updateTierLevelRewardType,
             onTierRewardLabelChange = viewModel::updateTierLevelRewardLabel,
             onTierRewardPointsChange = viewModel::updateTierLevelRewardPoints,
@@ -292,8 +350,8 @@ fun LoyaltyProgramManagementScreen(
                 .fillMaxSize()
                 .navigationBarsPadding(),
             contentPadding = PaddingValues(
-                start = 20.dp,
-                end = 20.dp,
+                start = 16.dp,
+                end = 16.dp,
                 top = contentPadding.calculateTopPadding() + 24.dp,
                 bottom = contentPadding.calculateBottomPadding() + 112.dp,
             ),
@@ -321,6 +379,7 @@ fun LoyaltyProgramManagementScreen(
                     selectedTab = selectedTab,
                     programCount = visiblePrograms.size,
                     rewardCount = state.rewards.size,
+                    giveawayCount = state.campaigns.size,
                     onTabSelected = { selectedTabRoute = it.routeValue },
                 )
             }
@@ -386,8 +445,22 @@ fun LoyaltyProgramManagementScreen(
                             viewModel.openCreateReward()
                         },
                         onEditReward = viewModel::openEditReward,
+                        onRefreshReward = viewModel::openCreateReward,
                         onToggleRewardEnabled = viewModel::toggleRewardEnabled,
                         onDeleteReward = viewModel::requestDeleteReward,
+                    )
+                }
+                ProgramsHomeTab.GIVEAWAY == selectedTab -> {
+                    giveawayItems(
+                        state = state,
+                        onCreateGiveaway = {
+                            selectedTabRoute = ProgramsHomeTab.GIVEAWAY.routeValue
+                            viewModel.openCreateGiveaway()
+                        },
+                        onEditGiveaway = viewModel::openEditGiveaway,
+                        onRefreshGiveaway = viewModel::openCreateGiveaway,
+                        onToggleGiveawayEnabled = viewModel::toggleGiveawayEnabled,
+                        onDeleteGiveaway = viewModel::requestDeleteGiveaway,
                     )
                 }
             }
@@ -429,26 +502,39 @@ fun LoyaltyProgramManagementScreen(
             )
         }
     }
+    state.giveawayDeleteCandidate?.let { campaign ->
+        MerchantConfirmationDialog(
+            title = stringResource(R.string.merchant_giveaway_delete_title),
+            message = stringResource(R.string.merchant_giveaway_delete_message, campaign.name),
+            confirmLabel = stringResource(R.string.merchant_delete_action),
+            dismissLabel = stringResource(R.string.auth_cancel),
+            onDismiss = viewModel::dismissGiveawayDeleteDialog,
+            onConfirm = viewModel::confirmDeleteGiveaway,
+        )
+    }
 }
 
 private fun LazyListScope.rewardsCatalogItems(
     state: LoyaltyUiState,
     onCreateReward: () -> Unit,
     onEditReward: (String) -> Unit,
+    onRefreshReward: (com.vector.verevcodex.domain.model.loyalty.Reward) -> Unit,
     onToggleRewardEnabled: (String, Boolean) -> Unit,
     onDeleteReward: (String) -> Unit,
 ) {
+    val activeItems = state.rewards.filterNot(::isEndedReward)
+    val endedItems = state.rewards.filter(::isEndedReward)
     if (state.rewards.isNotEmpty()) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = stringResource(R.string.merchant_rewards_title),
+                    text = stringResource(R.string.merchant_rewards_active_section_title),
                     style = MaterialTheme.typography.titleLarge,
                     color = VerevColors.Forest,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = stringResource(R.string.merchant_rewards_subtitle, state.rewards.size),
+                    text = stringResource(R.string.merchant_rewards_active_section_subtitle, activeItems.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = VerevColors.Forest.copy(alpha = 0.62f),
                 )
@@ -463,12 +549,21 @@ private fun LazyListScope.rewardsCatalogItems(
                 icon = Icons.Default.CardGiftcard,
             )
         }
+    } else if (activeItems.isEmpty()) {
+        item {
+            ProgramsEmptyStateCard(
+                title = stringResource(R.string.merchant_rewards_empty_title),
+                subtitle = stringResource(R.string.merchant_rewards_empty_subtitle),
+                icon = Icons.Default.CardGiftcard,
+            )
+        }
     } else {
-        items(state.rewards, key = { it.id }) { reward ->
+        items(activeItems, key = { it.id }) { reward ->
             RewardCatalogListItem(
                 reward = reward,
                 busyRewardId = state.busyRewardId,
                 onEditReward = onEditReward,
+                onRefreshReward = onRefreshReward,
                 onToggleRewardEnabled = onToggleRewardEnabled,
                 onDeleteReward = onDeleteReward,
             )
@@ -493,6 +588,778 @@ private fun LazyListScope.rewardsCatalogItems(
             )
         }
     }
+    if (endedItems.isNotEmpty()) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(R.string.merchant_rewards_ended_section_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(R.string.merchant_rewards_ended_section_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.62f),
+                )
+            }
+        }
+        items(endedItems, key = { "ended_${it.id}" }) { reward ->
+            RewardCatalogListItem(
+                reward = reward,
+                busyRewardId = state.busyRewardId,
+                onEditReward = onEditReward,
+                onRefreshReward = onRefreshReward,
+                onToggleRewardEnabled = onToggleRewardEnabled,
+                onDeleteReward = onDeleteReward,
+            )
+        }
+    }
+}
+
+private fun LazyListScope.giveawayItems(
+    state: LoyaltyUiState,
+    onCreateGiveaway: () -> Unit,
+    onEditGiveaway: (String) -> Unit,
+    onRefreshGiveaway: (com.vector.verevcodex.domain.model.promotions.Campaign) -> Unit,
+    onToggleGiveawayEnabled: (String, Boolean) -> Unit,
+    onDeleteGiveaway: (String) -> Unit,
+) {
+    if (state.campaigns.isEmpty()) {
+        item {
+            ProgramsEmptyStateCard(
+                title = stringResource(R.string.merchant_giveaway_empty_title),
+                subtitle = stringResource(R.string.merchant_giveaway_empty_subtitle),
+                icon = Icons.Default.Campaign,
+            )
+        }
+    } else {
+        items(state.campaigns, key = { it.id }) { campaign ->
+            GiveawayListItem(
+                campaign = campaign,
+                isBusy = state.busyCampaignId == campaign.id,
+                onEdit = onEditGiveaway,
+                onRefresh = onRefreshGiveaway,
+                onToggleEnabled = onToggleGiveawayEnabled,
+                onDelete = onDeleteGiveaway,
+            )
+        }
+    }
+    item {
+        Button(
+            onClick = onCreateGiveaway,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            contentPadding = PaddingValues(vertical = 18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = VerevColors.Gold,
+                contentColor = Color.White,
+            ),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(
+                text = stringResource(R.string.merchant_giveaway_add_action),
+                modifier = Modifier.padding(start = 8.dp),
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GiveawayListItem(
+    campaign: com.vector.verevcodex.domain.model.promotions.Campaign,
+    isBusy: Boolean,
+    onEdit: (String) -> Unit,
+    onRefresh: (com.vector.verevcodex.domain.model.promotions.Campaign) -> Unit,
+    onToggleEnabled: (String, Boolean) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = campaign.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = VerevColors.Forest,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = giveawayOutcomeSummary(campaign),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.72f),
+                    )
+                }
+                MerchantStatusPill(
+                    text = giveawayStatusLabel(campaign),
+                    backgroundColor = when {
+                        !campaign.active -> VerevColors.Forest.copy(alpha = 0.08f)
+                        giveawayIsExpired(campaign) -> VerevColors.Forest.copy(alpha = 0.08f)
+                        campaign.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED &&
+                            (campaign.scheduledDate ?: campaign.startDate).isAfter(LocalDate.now()) -> VerevColors.Gold.copy(alpha = 0.18f)
+                        else -> VerevColors.Moss.copy(alpha = 0.18f)
+                    },
+                    contentColor = VerevColors.Forest,
+                )
+            }
+            Text(
+                text = campaign.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                giveawayMetaRow(
+                    label = stringResource(R.string.merchant_giveaway_send_label),
+                    value = if (campaign.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.IMMEDIATE) {
+                        stringResource(R.string.merchant_giveaway_send_immediately)
+                    } else {
+                        stringResource(R.string.merchant_giveaway_send_scheduled_value, (campaign.scheduledDate ?: campaign.startDate).toString())
+                    },
+                )
+                giveawayMetaRow(
+                    label = stringResource(R.string.merchant_giveaway_audience_label),
+                    value = giveawayAudienceSummary(campaign),
+                )
+                if (campaign.expirationEnabled) {
+                    giveawayMetaRow(
+                        label = stringResource(R.string.merchant_giveaway_expiration_title),
+                        value = campaign.expirationDate?.toString().orEmpty(),
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(
+                    onClick = { onEdit(campaign.id) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text(stringResource(R.string.merchant_edit_action))
+                }
+                OutlinedButton(
+                    onClick = { onRefresh(campaign) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Text(stringResource(R.string.merchant_reward_refresh_action))
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = { onDelete(campaign.id) }) {
+                    Text(stringResource(R.string.merchant_delete_action), color = VerevColors.Forest)
+                }
+                MerchantInlineToggle(
+                    checked = campaign.active,
+                    onCheckedChange = { if (!isBusy) onToggleEnabled(campaign.id, it) },
+                    enabled = !isBusy,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun giveawayMetaRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = VerevColors.Forest.copy(alpha = 0.5f),
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = VerevColors.Forest,
+        )
+    }
+}
+
+@Composable
+private fun GiveawayEditorScreen(
+    editorState: GiveawayEditorState,
+    fieldErrors: Map<String, Int>,
+    isSubmitting: Boolean,
+    contentPadding: PaddingValues,
+    availableTierNames: List<String>,
+    customers: List<Customer>,
+    onDismiss: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onGiveawayTypeChange: (com.vector.verevcodex.domain.model.promotions.GiveawayType) -> Unit,
+    onBonusPointsChange: (String) -> Unit,
+    onDiscountPercentChange: (String) -> Unit,
+    onCouponBenefitTypeChange: (CouponBenefitType) -> Unit,
+    onCouponDiscountPercentChange: (String) -> Unit,
+    onCouponBonusPointsChange: (String) -> Unit,
+    onCouponAvailableQuantityChange: (String) -> Unit,
+    onSendModeChange: (com.vector.verevcodex.domain.model.promotions.GiveawaySendMode) -> Unit,
+    onScheduledDateChange: (String) -> Unit,
+    onExpirationEnabledChange: (Boolean) -> Unit,
+    onExpirationDateChange: (String) -> Unit,
+    onAudienceAllChange: (Boolean) -> Unit,
+    onAudienceGenderChange: (String) -> Unit,
+    onAudienceAgeMinChange: (String) -> Unit,
+    onAudienceAgeMaxChange: (String) -> Unit,
+    onAudienceTierChange: (String?) -> Unit,
+    onCouponCodeChange: (String) -> Unit,
+    onSave: () -> Unit,
+) {
+    val context = LocalContext.current
+    var showScheduledDatePicker by remember { mutableStateOf(false) }
+    var showExpirationDatePicker by remember { mutableStateOf(false) }
+    val affectedCustomerCount = remember(editorState, customers) {
+        calculateGiveawayAudienceCount(editorState, customers)
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = VerevColors.AppBackground,
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = contentPadding.calculateTopPadding() + 24.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 112.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                item {
+                    MerchantBackHeader(
+                        title = stringResource(
+                            if (editorState.campaignId == null) R.string.merchant_giveaway_editor_title_create
+                            else R.string.merchant_giveaway_editor_title_edit,
+                        ),
+                        subtitle = stringResource(R.string.merchant_giveaway_editor_subtitle),
+                        onBack = onDismiss,
+                    )
+                }
+                item {
+                    ProgramSectionCard(
+                        title = stringResource(R.string.merchant_giveaway_basics_title),
+                        subtitle = stringResource(R.string.merchant_giveaway_basics_subtitle),
+                    ) {
+                        MerchantFormField(
+                            value = editorState.name,
+                            onValueChange = onNameChange,
+                            label = stringResource(R.string.merchant_reward_name_label),
+                            leadingIcon = Icons.Default.Campaign,
+                            isError = fieldErrors.containsKey(GIVEAWAY_FIELD_NAME),
+                            errorText = fieldErrors[GIVEAWAY_FIELD_NAME]?.let { stringResource(it) },
+                        )
+                        MerchantFormField(
+                            value = editorState.description,
+                            onValueChange = onDescriptionChange,
+                            label = stringResource(R.string.merchant_reward_description_label),
+                            leadingIcon = Icons.Default.Description,
+                            singleLine = false,
+                            isError = fieldErrors.containsKey(GIVEAWAY_FIELD_DESCRIPTION),
+                            errorText = fieldErrors[GIVEAWAY_FIELD_DESCRIPTION]?.let { stringResource(it) },
+                        )
+                    }
+                }
+                item {
+                    ProgramSectionCard(
+                        title = stringResource(R.string.merchant_giveaway_type_title),
+                        subtitle = stringResource(R.string.merchant_giveaway_type_subtitle),
+                    ) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf(
+                                com.vector.verevcodex.domain.model.promotions.GiveawayType.BONUS_POINTS to R.string.merchant_giveaway_type_bonus_points,
+                                com.vector.verevcodex.domain.model.promotions.GiveawayType.DISCOUNT_PERCENT to R.string.merchant_giveaway_type_discount,
+                                com.vector.verevcodex.domain.model.promotions.GiveawayType.COUPON to R.string.merchant_giveaway_type_coupon,
+                            ).forEach { (type, labelRes) ->
+                                MerchantFilterChip(
+                                    text = stringResource(labelRes),
+                                    selected = editorState.giveawayType == type,
+                                    onClick = { onGiveawayTypeChange(type) },
+                                )
+                            }
+                        }
+                        when (editorState.giveawayType) {
+                            com.vector.verevcodex.domain.model.promotions.GiveawayType.BONUS_POINTS -> MerchantFormField(
+                                value = editorState.bonusPointsAmount,
+                                onValueChange = onBonusPointsChange,
+                                label = stringResource(R.string.merchant_giveaway_bonus_points_label),
+                                leadingIcon = Icons.Default.Stars,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                ),
+                                isError = fieldErrors.containsKey(GIVEAWAY_FIELD_BONUS_POINTS),
+                                errorText = fieldErrors[GIVEAWAY_FIELD_BONUS_POINTS]?.let { stringResource(it) },
+                            )
+                            com.vector.verevcodex.domain.model.promotions.GiveawayType.DISCOUNT_PERCENT -> MerchantFormField(
+                                value = editorState.discountPercent,
+                                onValueChange = onDiscountPercentChange,
+                                label = stringResource(R.string.merchant_giveaway_discount_percent_label),
+                                leadingIcon = Icons.Default.Percent,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                                ),
+                                isError = fieldErrors.containsKey(GIVEAWAY_FIELD_DISCOUNT_PERCENT),
+                                errorText = fieldErrors[GIVEAWAY_FIELD_DISCOUNT_PERCENT]?.let { stringResource(it) },
+                            )
+                            com.vector.verevcodex.domain.model.promotions.GiveawayType.COUPON -> {
+                                Text(
+                                    text = stringResource(R.string.merchant_giveaway_coupon_setup_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                                )
+                                MerchantFormField(
+                                    value = editorState.couponCode,
+                                    onValueChange = onCouponCodeChange,
+                                    label = stringResource(R.string.merchant_giveaway_coupon_code_label),
+                                    leadingIcon = Icons.Default.Sell,
+                                    isError = fieldErrors.containsKey(GIVEAWAY_FIELD_COUPON_CODE),
+                                    errorText = fieldErrors[GIVEAWAY_FIELD_COUPON_CODE]?.let { stringResource(it) },
+                                )
+                                Text(
+                                    text = stringResource(R.string.merchant_giveaway_coupon_code_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                                )
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    listOf(
+                                        CouponBenefitType.DISCOUNT_PERCENT to R.string.merchant_coupon_benefit_discount,
+                                        CouponBenefitType.BONUS_POINTS to R.string.merchant_coupon_benefit_bonus_points,
+                                    ).forEach { (type, labelRes) ->
+                                        MerchantFilterChip(
+                                            text = stringResource(labelRes),
+                                            selected = editorState.couponBenefitType == type,
+                                            onClick = { onCouponBenefitTypeChange(type) },
+                                        )
+                                    }
+                                }
+                                when (editorState.couponBenefitType) {
+                                    CouponBenefitType.DISCOUNT_PERCENT -> MerchantFormField(
+                                        value = editorState.couponDiscountPercent,
+                                        onValueChange = onCouponDiscountPercentChange,
+                                        label = stringResource(R.string.merchant_coupon_discount_percent_label),
+                                        leadingIcon = Icons.Default.Percent,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                                        ),
+                                        isError = fieldErrors.containsKey(GIVEAWAY_FIELD_COUPON_DISCOUNT_PERCENT),
+                                        errorText = fieldErrors[GIVEAWAY_FIELD_COUPON_DISCOUNT_PERCENT]?.let { stringResource(it) },
+                                    )
+                                    CouponBenefitType.BONUS_POINTS -> MerchantFormField(
+                                        value = editorState.couponBonusPoints,
+                                        onValueChange = onCouponBonusPointsChange,
+                                        label = stringResource(R.string.merchant_coupon_bonus_points_label),
+                                        leadingIcon = Icons.Default.Stars,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                        ),
+                                        isError = fieldErrors.containsKey(GIVEAWAY_FIELD_COUPON_BONUS_POINTS),
+                                        errorText = fieldErrors[GIVEAWAY_FIELD_COUPON_BONUS_POINTS]?.let { stringResource(it) },
+                                    )
+                                    CouponBenefitType.REWARD -> Unit
+                                }
+                                MerchantFormField(
+                                    value = editorState.couponAvailableQuantity,
+                                    onValueChange = onCouponAvailableQuantityChange,
+                                    label = stringResource(R.string.merchant_reward_available_count_label),
+                                    leadingIcon = Icons.Default.Inventory2,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                    ),
+                                    isError = fieldErrors.containsKey(GIVEAWAY_FIELD_COUPON_QUANTITY),
+                                    errorText = fieldErrors[GIVEAWAY_FIELD_COUPON_QUANTITY]?.let { stringResource(it) },
+                                )
+                            }
+                            com.vector.verevcodex.domain.model.promotions.GiveawayType.REWARD -> Unit
+                        }
+                    }
+                }
+                item {
+                    ProgramSectionCard(
+                        title = stringResource(R.string.merchant_giveaway_schedule_title),
+                        subtitle = stringResource(R.string.merchant_giveaway_schedule_subtitle),
+                    ) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf(
+                                com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.IMMEDIATE to R.string.merchant_giveaway_send_immediately,
+                                com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED to R.string.merchant_giveaway_send_schedule,
+                            ).forEach { (mode, labelRes) ->
+                                MerchantFilterChip(
+                                    text = stringResource(labelRes),
+                                    selected = editorState.sendMode == mode,
+                                    onClick = { onSendModeChange(mode) },
+                                )
+                            }
+                        }
+                        if (editorState.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED) {
+                            RewardDateSelectionField(
+                                value = editorState.scheduledDate,
+                                label = stringResource(R.string.merchant_giveaway_send_date_label),
+                                supportingText = stringResource(R.string.merchant_giveaway_send_date_supporting),
+                                onClick = { showScheduledDatePicker = true },
+                                isError = fieldErrors.containsKey(GIVEAWAY_FIELD_SCHEDULED_DATE),
+                                errorText = fieldErrors[GIVEAWAY_FIELD_SCHEDULED_DATE]?.let { stringResource(it) },
+                            )
+                        }
+                    }
+                }
+                item {
+                    ProgramSectionCard(
+                        title = stringResource(R.string.merchant_giveaway_expiration_title),
+                        subtitle = stringResource(R.string.merchant_giveaway_expiration_subtitle),
+                    ) {
+                        GiveawayTogglePanel(
+                            title = stringResource(R.string.merchant_reward_expiration_toggle_title),
+                            subtitle = stringResource(R.string.merchant_giveaway_expiration_supporting),
+                            checked = editorState.expirationEnabled,
+                            onCheckedChange = onExpirationEnabledChange,
+                        )
+                        if (editorState.expirationEnabled) {
+                            RewardDateSelectionField(
+                                value = editorState.expirationDate,
+                                label = stringResource(R.string.merchant_reward_expiration_label),
+                                supportingText = stringResource(R.string.merchant_giveaway_expiration_supporting),
+                                onClick = { showExpirationDatePicker = true },
+                                isError = fieldErrors.containsKey(GIVEAWAY_FIELD_EXPIRATION_DATE),
+                                errorText = fieldErrors[GIVEAWAY_FIELD_EXPIRATION_DATE]?.let { stringResource(it) },
+                            )
+                        }
+                    }
+                }
+                item {
+                    ProgramSectionCard(
+                        title = stringResource(R.string.merchant_giveaway_audience_title),
+                        subtitle = stringResource(R.string.merchant_giveaway_audience_subtitle),
+                    ) {
+                        GiveawayTogglePanel(
+                            title = stringResource(R.string.merchant_giveaway_audience_all_title),
+                            subtitle = stringResource(R.string.merchant_giveaway_audience_all_subtitle),
+                            checked = editorState.audienceAll,
+                            onCheckedChange = onAudienceAllChange,
+                        )
+                        CompactGiveawayAudienceCountRow(count = affectedCustomerCount)
+                        if (!editorState.audienceAll) {
+                            Surface(
+                                color = VerevColors.AppBackground,
+                                shape = RoundedCornerShape(18.dp),
+                                border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.10f)),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.merchant_giveaway_gender_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = VerevColors.Forest,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        listOf("ALL", "FEMALE", "MALE").forEach { gender ->
+                                            MerchantFilterChip(
+                                                text = stringResource(
+                                                    when (gender) {
+                                                        "FEMALE" -> R.string.merchant_add_customer_gender_female
+                                                        "MALE" -> R.string.merchant_add_customer_gender_male
+                                                        else -> R.string.merchant_target_all_customers
+                                                    },
+                                                ),
+                                                selected = editorState.audienceGender.equals(gender, ignoreCase = true),
+                                                onClick = { onAudienceGenderChange(gender) },
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = stringResource(R.string.merchant_program_age_range_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = VerevColors.Forest,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    MerchantFormField(
+                                        value = editorState.audienceAgeMin,
+                                        onValueChange = onAudienceAgeMinChange,
+                                        label = stringResource(R.string.merchant_program_age_min_label),
+                                        leadingIcon = Icons.Default.Add,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                        ),
+                                    )
+                                    MerchantFormField(
+                                        value = editorState.audienceAgeMax,
+                                        onValueChange = onAudienceAgeMaxChange,
+                                        label = stringResource(R.string.merchant_program_age_max_label),
+                                        leadingIcon = Icons.Default.Remove,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                        ),
+                                        isError = fieldErrors.containsKey(GIVEAWAY_FIELD_AGE_RANGE),
+                                        errorText = fieldErrors[GIVEAWAY_FIELD_AGE_RANGE]?.let { stringResource(it) },
+                                    )
+                                    if (availableTierNames.isNotEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.merchant_giveaway_tier_title),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = VerevColors.Forest,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            MerchantFilterChip(
+                                                text = stringResource(R.string.merchant_giveaway_tier_any),
+                                                selected = editorState.audienceTierName == null,
+                                                onClick = { onAudienceTierChange(null) },
+                                            )
+                                            availableTierNames.forEach { tierName ->
+                                                MerchantFilterChip(
+                                                    text = tierName,
+                                                    selected = editorState.audienceTierName == tierName,
+                                                    onClick = { onAudienceTierChange(tierName) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    fieldErrors[GIVEAWAY_FIELD_AUDIENCE]?.let { resId ->
+                                        Text(
+                                            text = stringResource(resId),
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Button(
+                        onClick = onSave,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(vertical = 18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = VerevColors.Gold,
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (editorState.campaignId == null) R.string.merchant_giveaway_add_action else R.string.merchant_save_changes,
+                            ),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+        if (isSubmitting) {
+            MerchantLoadingOverlay(
+                isVisible = true,
+                title = stringResource(
+                    if (editorState.campaignId == null) R.string.merchant_giveaway_add_action else R.string.merchant_save_changes,
+                ),
+                subtitle = stringResource(R.string.merchant_giveaway_loading_subtitle),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+    if (showScheduledDatePicker) {
+        RewardExpirationDatePickerDialog(
+            context = context,
+            currentValue = editorState.scheduledDate,
+            onDismiss = { showScheduledDatePicker = false },
+            onDateSelected = {
+                onScheduledDateChange(it.toString())
+                showScheduledDatePicker = false
+            },
+        )
+    }
+    if (showExpirationDatePicker) {
+        RewardExpirationDatePickerDialog(
+            context = context,
+            currentValue = editorState.expirationDate,
+            onDismiss = { showExpirationDatePicker = false },
+            onDateSelected = {
+                onExpirationDateChange(it.toString())
+                showExpirationDatePicker = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun CompactGiveawayAudienceCountRow(count: Int) {
+    Surface(
+        color = VerevColors.Forest.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.06f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.merchant_giveaway_audience_count_title),
+                    color = VerevColors.Forest,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(R.string.merchant_giveaway_audience_count_subtitle),
+                    color = VerevColors.Forest.copy(alpha = 0.58f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = VerevColors.Gold.copy(alpha = 0.16f),
+            ) {
+                Text(
+                    text = formatCompactCount(count),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    color = VerevColors.Gold,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GiveawayTogglePanel(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Surface(
+        color = VerevColors.AppBackground,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.10f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = VerevColors.Forest,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                MerchantInlineToggle(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                )
+            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = VerevColors.Forest.copy(alpha = 0.62f),
+            )
+        }
+    }
+}
+
+private fun calculateGiveawayAudienceCount(
+    editorState: GiveawayEditorState,
+    customers: List<Customer>,
+): Int = customers.count { customer -> matchesGiveawayAudience(editorState, customer) }
+
+private fun matchesGiveawayAudience(
+    editorState: GiveawayEditorState,
+    customer: Customer,
+): Boolean {
+    if (editorState.audienceAll) return true
+    when (editorState.audienceGender.uppercase()) {
+        "FEMALE" -> if (customer.gender?.name != "FEMALE") return false
+        "MALE" -> if (customer.gender?.name != "MALE") return false
+    }
+    val age = customer.birthDate?.let { java.time.Period.between(it, LocalDate.now()).years }
+    editorState.audienceAgeMin.toIntOrNull()?.let { min -> if (age == null || age < min) return false }
+    editorState.audienceAgeMax.toIntOrNull()?.let { max -> if (age == null || age > max) return false }
+    editorState.audienceTierName?.takeIf { it.isNotBlank() }?.let { tierName ->
+        if (!customer.loyaltyTierLabel.equals(tierName, ignoreCase = true)) return false
+    }
+    return true
+}
+
+private fun giveawayStatusLabel(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): String = when {
+    !campaign.active -> "Paused"
+    giveawayIsExpired(campaign) -> "Ended"
+    campaign.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED &&
+        (campaign.scheduledDate ?: campaign.startDate).isAfter(LocalDate.now()) -> "Scheduled"
+    else -> "Live"
+}
+
+private fun giveawayIsExpired(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): Boolean =
+    campaign.expirationEnabled && (campaign.expirationDate?.isBefore(LocalDate.now()) == true)
+
+private fun giveawayOutcomeSummary(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): String = when (campaign.giveawayType) {
+    com.vector.verevcodex.domain.model.promotions.GiveawayType.BONUS_POINTS -> "${campaign.bonusPointsAmount ?: 0} bonus points"
+    com.vector.verevcodex.domain.model.promotions.GiveawayType.DISCOUNT_PERCENT -> "${campaign.discountPercent?.let { if (it.rem(1.0) == 0.0) it.toInt().toString() else it.toString() } ?: "0"}% discount"
+    com.vector.verevcodex.domain.model.promotions.GiveawayType.COUPON -> campaign.rewardName.ifBlank { "Coupon" }
+    com.vector.verevcodex.domain.model.promotions.GiveawayType.REWARD -> campaign.rewardName.ifBlank { "Reward" }
+    null -> campaign.name
+}
+
+private fun giveawayAudienceSummary(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): String {
+    if (campaign.audienceAll) return "All customers"
+    val parts = mutableListOf<String>()
+    when (campaign.audienceGender.uppercase()) {
+        "FEMALE" -> parts += "Women"
+        "MALE" -> parts += "Men"
+    }
+    when {
+        campaign.audienceAgeMin != null && campaign.audienceAgeMax != null -> parts += "Ages ${campaign.audienceAgeMin}-${campaign.audienceAgeMax}"
+        campaign.audienceAgeMin != null -> parts += "Age ${campaign.audienceAgeMin}+"
+        campaign.audienceAgeMax != null -> parts += "Up to ${campaign.audienceAgeMax}"
+    }
+    campaign.audienceTierName?.takeIf { it.isNotBlank() }?.let { parts += "$it tier" }
+    return parts.joinToString(" • ").ifBlank { "Filtered customers" }
 }
 
 @Composable
@@ -501,7 +1368,6 @@ fun ProgramModulesScreen(
     onBack: () -> Unit,
     onOpenPointsRewards: () -> Unit = {},
     onOpenTieredLoyalty: () -> Unit = {},
-    onOpenCouponsManager: () -> Unit = {},
     onOpenCheckinRewards: () -> Unit = {},
     onOpenPurchaseFrequency: () -> Unit = {},
     onOpenReferralRewards: () -> Unit = {},
@@ -535,7 +1401,6 @@ fun ProgramModulesScreen(
                 ProgramModulesSection(
                     onOpenPointsRewards = onOpenPointsRewards,
                     onOpenTieredLoyalty = onOpenTieredLoyalty,
-                    onOpenCouponsManager = onOpenCouponsManager,
                     onOpenCheckinRewards = onOpenCheckinRewards,
                     onOpenPurchaseFrequency = onOpenPurchaseFrequency,
                     onOpenReferralRewards = onOpenReferralRewards,
@@ -654,8 +1519,9 @@ fun ConfiguredProgramsScreen(
             onTierThresholdBasisChange = viewModel::updateTierThresholdBasis,
             onTierNameChange = viewModel::updateTierLevelName,
             onTierThresholdChange = viewModel::updateTierLevelThreshold,
-            onTierBenefitTypeChange = viewModel::updateTierLevelBenefitType,
+            onTierBenefitTypeChange = viewModel::updateTierBenefitType,
             onTierBonusPercentChange = viewModel::updateTierLevelBonusPercent,
+            onTierPerkEnabledChange = viewModel::updateTierLevelPerkEnabled,
             onTierRewardTypeChange = viewModel::updateTierLevelRewardType,
             onTierRewardLabelChange = viewModel::updateTierLevelRewardLabel,
             onTierRewardPointsChange = viewModel::updateTierLevelRewardPoints,
@@ -800,6 +1666,8 @@ fun RewardManagementScreen(
             onDismiss = viewModel::dismissRewardEditor,
             onNameChange = viewModel::updateRewardName,
             onDescriptionChange = viewModel::updateRewardDescription,
+            availableRewards = state.rewards.filter { it.id != editor.rewardId && it.catalogType == RewardCatalogType.REWARD },
+            onCatalogTypeChange = viewModel::updateRewardCatalogType,
             onImageUriChange = viewModel::updateRewardImageUri,
             onPickImage = {
                 activity?.suppressRelockForTransientSystemUi()
@@ -808,6 +1676,11 @@ fun RewardManagementScreen(
             onExpirationEnabledChange = viewModel::updateRewardExpirationEnabled,
             onExpirationDateChange = viewModel::updateRewardExpirationDate,
             onAvailableQuantityChange = viewModel::updateRewardAvailableQuantity,
+            onCouponCodeChange = viewModel::updateCouponCode,
+            onCouponBenefitTypeChange = viewModel::updateCouponBenefitType,
+            onCouponDiscountPercentChange = viewModel::updateCouponDiscountPercent,
+            onCouponBonusPointsChange = viewModel::updateCouponBonusPoints,
+            onCouponRewardSelected = viewModel::updateCouponRewardSelection,
             onSave = viewModel::saveReward,
         )
         state.formErrorRes?.let { errorRes ->
@@ -851,6 +1724,7 @@ fun RewardManagementScreen(
                 state = state,
                 onCreateReward = viewModel::openCreateReward,
                 onEditReward = viewModel::openEditReward,
+                onRefreshReward = viewModel::openCreateReward,
                 onToggleRewardEnabled = viewModel::toggleRewardEnabled,
                 onDeleteReward = viewModel::requestDeleteReward,
             )
@@ -869,6 +1743,7 @@ private fun ProgramsHomeTabSelector(
     selectedTab: ProgramsHomeTab,
     programCount: Int,
     rewardCount: Int,
+    giveawayCount: Int,
     onTabSelected: (ProgramsHomeTab) -> Unit,
 ) {
     Surface(
@@ -880,38 +1755,45 @@ private fun ProgramsHomeTabSelector(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             ProgramsHomeTab.entries.forEach { tab ->
                 val selected = selectedTab == tab
                 val icon = when (tab) {
                     ProgramsHomeTab.PROGRAMS -> Icons.Default.Loyalty
                     ProgramsHomeTab.REWARDS -> Icons.Default.CardGiftcard
+                    ProgramsHomeTab.GIVEAWAY -> Icons.Default.Campaign
                 }
                 val title = stringResource(
                     when (tab) {
-                        ProgramsHomeTab.PROGRAMS -> R.string.merchant_programs_count_label
-                        ProgramsHomeTab.REWARDS -> R.string.merchant_rewards_title
+                        ProgramsHomeTab.PROGRAMS -> R.string.merchant_programs_tab_title_short
+                        ProgramsHomeTab.REWARDS -> R.string.merchant_rewards_tab_title_short
+                        ProgramsHomeTab.GIVEAWAY -> R.string.merchant_giveaway_tab_title
                     },
                 )
                 val count = when (tab) {
                     ProgramsHomeTab.PROGRAMS -> programCount
                     ProgramsHomeTab.REWARDS -> rewardCount
+                    ProgramsHomeTab.GIVEAWAY -> giveawayCount
                 }
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .background(
+                            color = if (selected) VerevColors.Gold.copy(alpha = 0.12f) else Color.Transparent,
+                            shape = RoundedCornerShape(14.dp),
+                        )
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) { onTabSelected(tab) }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -924,11 +1806,20 @@ private fun ProgramsHomeTabSelector(
                             text = title,
                             color = if (selected) VerevColors.Forest else VerevColors.Forest.copy(alpha = 0.62f),
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (selected) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.08f),
+                    ) {
                         Text(
-                            text = formatCompactCount(count),
-                            color = if (selected) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.38f),
+                            text = count.toString(),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
+                            color = if (selected) Color.White else VerevColors.Forest.copy(alpha = 0.58f),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -953,10 +1844,12 @@ private fun RewardCatalogListItem(
     reward: com.vector.verevcodex.domain.model.loyalty.Reward,
     busyRewardId: String?,
     onEditReward: (String) -> Unit,
+    onRefreshReward: (com.vector.verevcodex.domain.model.loyalty.Reward) -> Unit,
     onToggleRewardEnabled: (String, Boolean) -> Unit,
     onDeleteReward: (String) -> Unit,
 ) {
     val isBusy = busyRewardId == reward.id
+    val isEnded = isEndedReward(reward)
     val density = LocalDensity.current
     val revealWidthPx = with(density) { 104.dp.toPx() }
     val defaultShape = RoundedCornerShape(20.dp)
@@ -1111,6 +2004,17 @@ private fun RewardCatalogListItem(
                         ) {
                             MerchantStatusPill(
                                 text = stringResource(
+                                    if (reward.catalogType == RewardCatalogType.COUPON) {
+                                        R.string.merchant_reward_status_coupon
+                                    } else {
+                                        R.string.merchant_reward_status_reward
+                                    },
+                                ),
+                                backgroundColor = VerevColors.Forest.copy(alpha = 0.08f),
+                                contentColor = VerevColors.Forest,
+                            )
+                            MerchantStatusPill(
+                                text = stringResource(
                                     R.string.merchant_reward_available_count_format,
                                     reward.availableQuantity ?: 0,
                                 ),
@@ -1122,6 +2026,13 @@ private fun RewardCatalogListItem(
                                     text = stringResource(R.string.merchant_reward_expiration_short_format, it.toString()),
                                     backgroundColor = VerevColors.AppBackground,
                                     contentColor = VerevColors.Forest.copy(alpha = 0.7f),
+                                )
+                            }
+                            if (isEnded) {
+                                MerchantStatusPill(
+                                    text = stringResource(R.string.merchant_reward_status_ended),
+                                    backgroundColor = Color(0xFFFEF2F2),
+                                    contentColor = Color(0xFFB91C1C),
                                 )
                             }
                         }
@@ -1157,11 +2068,39 @@ private fun RewardCatalogListItem(
                             )
                         }
                     }
-                    MerchantInlineToggle(
-                        checked = reward.activeStatus,
-                        enabled = !isBusy,
-                        onCheckedChange = { onToggleRewardEnabled(reward.id, it) },
-                    )
+                    if (isEnded) {
+                        Surface(
+                            onClick = { onRefreshReward(reward) },
+                            enabled = !isBusy,
+                            color = VerevColors.Gold.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = VerevColors.Gold,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Text(
+                                    text = stringResource(R.string.merchant_reward_refresh_action),
+                                    color = VerevColors.Gold,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    } else {
+                        MerchantInlineToggle(
+                            checked = reward.activeStatus,
+                            enabled = !isBusy,
+                            onCheckedChange = { onToggleRewardEnabled(reward.id, it) },
+                        )
+                    }
                 }
             }
         }
@@ -1177,15 +2116,24 @@ private fun RewardCatalogEditorScreen(
     onDismiss: () -> Unit,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    availableRewards: List<com.vector.verevcodex.domain.model.loyalty.Reward>,
+    onCatalogTypeChange: (RewardCatalogType) -> Unit,
     onImageUriChange: (String) -> Unit,
     onPickImage: () -> Unit,
     onExpirationEnabledChange: (Boolean) -> Unit,
     onExpirationDateChange: (String) -> Unit,
     onAvailableQuantityChange: (String) -> Unit,
+    onCouponCodeChange: (String) -> Unit,
+    onCouponBenefitTypeChange: (CouponBenefitType) -> Unit,
+    onCouponDiscountPercentChange: (String) -> Unit,
+    onCouponBonusPointsChange: (String) -> Unit,
+    onCouponRewardSelected: (String?, String) -> Unit,
     onSave: () -> Unit,
 ) {
     val context = LocalContext.current
     var showExpirationDatePicker by remember { mutableStateOf(false) }
+    var showCouponRewardPicker by remember { mutableStateOf(false) }
+    var showNoRewardsDialog by remember { mutableStateOf(false) }
     Box(modifier = Modifier.fillMaxSize()) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -1206,12 +2154,62 @@ private fun RewardCatalogEditorScreen(
             item {
                 MerchantBackHeader(
                     title = stringResource(
-                        if (editorState.rewardId == null) R.string.merchant_reward_add_action
-                        else R.string.merchant_reward_edit_action,
+                        when {
+                            editorState.rewardId == null && editorState.catalogType == RewardCatalogType.COUPON ->
+                                R.string.merchant_reward_editor_title_coupon_create
+                            editorState.rewardId == null ->
+                                R.string.merchant_reward_editor_title_reward_create
+                            editorState.catalogType == RewardCatalogType.COUPON ->
+                                R.string.merchant_reward_editor_title_coupon_edit
+                            else ->
+                                R.string.merchant_reward_editor_title_reward_edit
+                        },
                     ),
                     subtitle = stringResource(R.string.merchant_rewards_editor_subtitle_compact),
                     onBack = onDismiss,
                 )
+            }
+            item {
+                ProgramSectionCard(
+                    title = stringResource(R.string.merchant_reward_catalog_type_title),
+                    subtitle = stringResource(R.string.merchant_reward_catalog_type_subtitle),
+                ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        RewardCatalogType.entries.forEach { type ->
+                            val selected = editorState.catalogType == type
+                            Surface(
+                                onClick = { onCatalogTypeChange(type) },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (selected) VerevColors.Gold.copy(alpha = 0.16f) else VerevColors.AppBackground,
+                                border = BorderStroke(1.dp, if (selected) VerevColors.Gold.copy(alpha = 0.28f) else VerevColors.Forest.copy(alpha = 0.10f)),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = if (type == RewardCatalogType.REWARD) Icons.Default.CardGiftcard else Icons.Default.Sell,
+                                        contentDescription = null,
+                                        tint = if (selected) VerevColors.Gold else VerevColors.Forest.copy(alpha = 0.74f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(
+                                            if (type == RewardCatalogType.REWARD) R.string.merchant_reward_catalog_type_reward
+                                            else R.string.merchant_reward_catalog_type_coupon,
+                                        ),
+                                        color = VerevColors.Forest,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             item {
                 ProgramSectionCard(
@@ -1311,11 +2309,93 @@ private fun RewardCatalogEditorScreen(
                         leadingIcon = Icons.Default.Description,
                         singleLine = false,
                     )
-                    RewardImagePickerCard(
-                        imageUri = editorState.imageUri,
-                        onPickImage = onPickImage,
-                        onClearImage = { onImageUriChange("") },
-                    )
+                    if (editorState.catalogType == RewardCatalogType.REWARD) {
+                        RewardImagePickerCard(
+                            imageUri = editorState.imageUri,
+                            onPickImage = onPickImage,
+                            onClearImage = { onImageUriChange("") },
+                        )
+                    }
+                }
+            }
+            if (editorState.catalogType == RewardCatalogType.COUPON) {
+            item {
+                ProgramSectionCard(
+                    title = stringResource(R.string.merchant_coupon_benefit_title),
+                    subtitle = stringResource(R.string.merchant_coupon_benefit_subtitle),
+                ) {
+                        MerchantFormField(
+                            value = editorState.couponCode,
+                            onValueChange = onCouponCodeChange,
+                            label = stringResource(R.string.merchant_coupon_code_label),
+                            leadingIcon = Icons.Default.Sell,
+                            isError = fieldErrors.containsKey(REWARD_FIELD_COUPON_CODE),
+                            errorText = fieldErrors[REWARD_FIELD_COUPON_CODE]?.let { stringResource(it) },
+                        )
+                        Text(
+                            text = stringResource(R.string.merchant_coupon_code_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = VerevColors.Forest.copy(alpha = 0.58f),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            listOf(
+                                CouponBenefitType.DISCOUNT_PERCENT to Icons.Default.Percent,
+                                CouponBenefitType.BONUS_POINTS to Icons.Default.Stars,
+                                CouponBenefitType.REWARD to Icons.Default.CardGiftcard,
+                            ).forEach { (type, _) ->
+                                MerchantFilterChip(
+                                    text = stringResource(
+                                        when (type) {
+                                            CouponBenefitType.DISCOUNT_PERCENT -> R.string.merchant_coupon_benefit_discount
+                                            CouponBenefitType.BONUS_POINTS -> R.string.merchant_coupon_benefit_bonus_points
+                                            CouponBenefitType.REWARD -> R.string.merchant_coupon_benefit_reward
+                                        },
+                                    ),
+                                    selected = editorState.couponBenefitType == type,
+                                    onClick = { onCouponBenefitTypeChange(type) },
+                                )
+                            }
+                        }
+                        when (editorState.couponBenefitType) {
+                            CouponBenefitType.DISCOUNT_PERCENT -> MerchantFormField(
+                                value = editorState.couponDiscountPercent,
+                                onValueChange = onCouponDiscountPercentChange,
+                                label = stringResource(R.string.merchant_coupon_discount_percent_label),
+                                leadingIcon = Icons.Default.Percent,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                                ),
+                                isError = fieldErrors.containsKey(REWARD_FIELD_COUPON_DISCOUNT_PERCENT),
+                                errorText = fieldErrors[REWARD_FIELD_COUPON_DISCOUNT_PERCENT]?.let { stringResource(it) },
+                            )
+                            CouponBenefitType.BONUS_POINTS -> MerchantFormField(
+                                value = editorState.couponBonusPoints,
+                                onValueChange = onCouponBonusPointsChange,
+                                label = stringResource(R.string.merchant_coupon_bonus_points_label),
+                                leadingIcon = Icons.Default.Stars,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                                ),
+                                isError = fieldErrors.containsKey(REWARD_FIELD_COUPON_BONUS_POINTS),
+                                errorText = fieldErrors[REWARD_FIELD_COUPON_BONUS_POINTS]?.let { stringResource(it) },
+                            )
+                            CouponBenefitType.REWARD -> RewardSelectionField(
+                                value = editorState.couponRewardName,
+                                label = stringResource(R.string.merchant_coupon_reward_label),
+                                supportingText = fieldErrors[REWARD_FIELD_COUPON_REWARD]?.let { stringResource(it) }
+                                    ?: stringResource(R.string.merchant_coupon_reward_pick_action),
+                                icon = Icons.Default.CardGiftcard,
+                                onClick = {
+                                    if (availableRewards.isEmpty()) showNoRewardsDialog = true else showCouponRewardPicker = true
+                                },
+                                isError = fieldErrors.containsKey(REWARD_FIELD_COUPON_REWARD),
+                                errorText = fieldErrors[REWARD_FIELD_COUPON_REWARD]?.let { stringResource(it) },
+                            )
+                        }
+                    }
                 }
             }
             item {
@@ -1351,8 +2431,7 @@ private fun RewardCatalogEditorScreen(
                 ) {
                     Text(
                         text = stringResource(
-                            if (editorState.rewardId == null) R.string.merchant_reward_add_action
-                            else R.string.merchant_save_changes,
+                            if (editorState.rewardId == null) R.string.merchant_reward_add_action else R.string.merchant_save_changes,
                         ),
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -1383,6 +2462,52 @@ private fun RewardCatalogEditorScreen(
             },
         )
     }
+    if (showCouponRewardPicker) {
+        AlertDialog(
+            onDismissRequest = { showCouponRewardPicker = false },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showCouponRewardPicker = false }) {
+                    Text(stringResource(R.string.auth_cancel))
+                }
+            },
+            title = { Text(stringResource(R.string.merchant_coupon_reward_label)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    availableRewards.forEach { reward ->
+                        Surface(
+                            onClick = {
+                                onCouponRewardSelected(reward.id, reward.name)
+                                showCouponRewardPicker = false
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            color = VerevColors.AppBackground,
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(reward.name, color = VerevColors.Forest, fontWeight = FontWeight.SemiBold)
+                                Text(reward.description, color = VerevColors.Forest.copy(alpha = 0.62f), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    }
+    if (showNoRewardsDialog) {
+        MerchantErrorDialog(
+            message = stringResource(R.string.merchant_coupon_reward_empty_message),
+            onDismiss = { showNoRewardsDialog = false },
+        )
+    }
+}
+
+private fun isEndedReward(reward: com.vector.verevcodex.domain.model.loyalty.Reward): Boolean {
+    val expired = reward.expirationDate?.isBefore(LocalDate.now()) == true
+    val outOfStock = (reward.availableQuantity ?: 0) <= 0
+    return !reward.activeStatus || expired || outOfStock
 }
 
 @Composable
@@ -1483,6 +2608,74 @@ private fun RewardDateSelectionField(
                 text = supportingText,
                 style = MaterialTheme.typography.bodySmall,
                 color = VerevColors.Forest.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RewardSelectionField(
+    value: String,
+    label: String,
+    supportingText: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    isError: Boolean,
+    errorText: String?,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(
+                1.dp,
+                if (isError) colorResource(R.color.error_red) else colorResource(R.color.text_hint).copy(alpha = 0.18f),
+            ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isError) colorResource(R.color.error_red) else VerevColors.Gold,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.56f),
+                    )
+                    Text(
+                        text = value.ifBlank { supportingText },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (value.isBlank()) VerevColors.Forest.copy(alpha = 0.62f) else VerevColors.Forest,
+                        fontWeight = if (value.isBlank()) FontWeight.Normal else FontWeight.Medium,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = VerevColors.Forest.copy(alpha = 0.38f),
+                )
+            }
+        }
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                color = colorResource(R.color.error_red),
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }

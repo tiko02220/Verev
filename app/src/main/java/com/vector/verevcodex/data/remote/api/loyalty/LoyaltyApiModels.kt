@@ -179,6 +179,13 @@ data class RewardViewDto(
     @SerializedName("inventoryTracked") val inventoryTracked: Boolean? = null,
     @SerializedName("availableQuantity") val availableQuantity: Int? = null,
     @SerializedName("activeStatus") val activeStatus: Boolean? = null,
+    @SerializedName("catalogType") val catalogType: String? = null,
+    @SerializedName("couponCode") val couponCode: String? = null,
+    @SerializedName("couponBenefitType") val couponBenefitType: String? = null,
+    @SerializedName("couponDiscountPercent") val couponDiscountPercent: Double? = null,
+    @SerializedName("couponBonusPoints") val couponBonusPoints: Int? = null,
+    @SerializedName("couponRewardId") val couponRewardId: String? = null,
+    @SerializedName("couponRewardName") val couponRewardName: String? = null,
 )
 
 data class RewardRequestDto(
@@ -193,6 +200,12 @@ data class RewardRequestDto(
     @SerializedName("inventoryTracked") val inventoryTracked: Boolean,
     @SerializedName("availableQuantity") val availableQuantity: Int?,
     @SerializedName("activeStatus") val activeStatus: Boolean,
+    @SerializedName("catalogType") val catalogType: String,
+    @SerializedName("couponCode") val couponCode: String? = null,
+    @SerializedName("couponBenefitType") val couponBenefitType: String? = null,
+    @SerializedName("couponDiscountPercent") val couponDiscountPercent: Double? = null,
+    @SerializedName("couponBonusPoints") val couponBonusPoints: Int? = null,
+    @SerializedName("couponRewardId") val couponRewardId: String? = null,
 )
 
 data class RewardInventoryAdjustmentRequestDto(
@@ -226,6 +239,21 @@ data class CampaignViewDto(
     @SerializedName("boostLevel") val boostLevel: String? = null,
     @SerializedName("paymentFlowEnabled") val paymentFlowEnabled: Boolean? = null,
     @SerializedName("active") val active: Boolean? = null,
+    @SerializedName("sendMode") val sendMode: String? = null,
+    @SerializedName("scheduledDate") val scheduledDate: String? = null,
+    @SerializedName("expirationEnabled") val expirationEnabled: Boolean? = null,
+    @SerializedName("expirationDate") val expirationDate: String? = null,
+    @SerializedName("giveawayType") val giveawayType: String? = null,
+    @SerializedName("bonusPointsAmount") val bonusPointsAmount: Int? = null,
+    @SerializedName("discountPercent") val discountPercent: Double? = null,
+    @SerializedName("rewardId") val rewardId: String? = null,
+    @SerializedName("rewardName") val rewardName: String? = null,
+    @SerializedName("rewardCatalogType") val rewardCatalogType: String? = null,
+    @SerializedName("audienceAll") val audienceAll: Boolean? = null,
+    @SerializedName("audienceGender") val audienceGender: String? = null,
+    @SerializedName("audienceAgeMin") val audienceAgeMin: Int? = null,
+    @SerializedName("audienceAgeMax") val audienceAgeMax: Int? = null,
+    @SerializedName("audienceTierName") val audienceTierName: String? = null,
     @SerializedName("targets") val targets: List<CampaignTargetViewDto>? = null,
 )
 
@@ -248,4 +276,17 @@ data class CampaignRequestDto(
     @SerializedName("segments") val segments: List<String>,
     @SerializedName("targetSegment") val targetSegment: String,
     @SerializedName("targetDescription") val targetDescription: String,
+    @SerializedName("sendMode") val sendMode: String,
+    @SerializedName("scheduledDate") val scheduledDate: String?,
+    @SerializedName("expirationEnabled") val expirationEnabled: Boolean,
+    @SerializedName("expirationDate") val expirationDate: String?,
+    @SerializedName("giveawayType") val giveawayType: String?,
+    @SerializedName("bonusPointsAmount") val bonusPointsAmount: Int?,
+    @SerializedName("discountPercent") val discountPercent: Double?,
+    @SerializedName("rewardId") val rewardId: String?,
+    @SerializedName("audienceAll") val audienceAll: Boolean,
+    @SerializedName("audienceGender") val audienceGender: String,
+    @SerializedName("audienceAgeMin") val audienceAgeMin: Int?,
+    @SerializedName("audienceAgeMax") val audienceAgeMax: Int?,
+    @SerializedName("audienceTierName") val audienceTierName: String?,
 )

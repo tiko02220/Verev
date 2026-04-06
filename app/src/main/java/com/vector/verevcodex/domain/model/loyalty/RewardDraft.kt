@@ -1,5 +1,7 @@
 package com.vector.verevcodex.domain.model.loyalty
 
+import com.vector.verevcodex.domain.model.common.CouponBenefitType
+import com.vector.verevcodex.domain.model.common.RewardCatalogType
 import com.vector.verevcodex.domain.model.common.RewardType
 import java.time.LocalDate
 
@@ -15,4 +17,10 @@ data class RewardDraft(
     val inventoryTracked: Boolean,
     val availableQuantity: Int?,
     val activeStatus: Boolean,
+    val catalogType: RewardCatalogType = RewardCatalogType.REWARD,
+    val couponCode: String? = null,
+    val couponBenefitType: CouponBenefitType? = null,
+    val couponDiscountPercent: Double? = null,
+    val couponBonusPoints: Int? = null,
+    val couponRewardId: String? = null,
 )
