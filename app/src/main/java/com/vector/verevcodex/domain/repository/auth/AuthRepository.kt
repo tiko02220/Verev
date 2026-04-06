@@ -30,8 +30,10 @@ interface AuthRepository {
     suspend fun verifyQuickPin(pin: String): Boolean
     suspend fun sendPasswordResetCode(email: String): Result<Unit>
     suspend fun sendQuickPinResetCode(email: String): Result<Unit>
+    suspend fun sendSignupEmailVerificationCode(email: String): Result<Unit>
     suspend fun verifyPasswordResetCode(email: String, code: String): Result<Unit>
     suspend fun verifyQuickPinResetCode(email: String, code: String): Result<Unit>
+    suspend fun verifySignupEmailVerificationCode(email: String, code: String): Result<Unit>
     suspend fun resetPassword(email: String, newPassword: String): Result<Unit>
     suspend fun resetQuickPin(email: String, newPin: String): Result<Unit>
     suspend fun activateSession(accountId: String): Result<Unit>

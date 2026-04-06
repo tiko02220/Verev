@@ -59,12 +59,22 @@ data class EmailQuickPinResetRequestDto(
     @SerializedName("channel") val channel: String,
 )
 
+data class EmailSignupVerificationRequestDto(
+    @SerializedName("email") val email: String,
+    @SerializedName("channel") val channel: String,
+)
+
 data class EmailPasswordResetVerifyRequestDto(
     @SerializedName("email") val email: String,
     @SerializedName("code") val code: String,
 )
 
 data class EmailQuickPinResetVerifyRequestDto(
+    @SerializedName("email") val email: String,
+    @SerializedName("code") val code: String,
+)
+
+data class EmailSignupVerificationVerifyRequestDto(
     @SerializedName("email") val email: String,
     @SerializedName("code") val code: String,
 )

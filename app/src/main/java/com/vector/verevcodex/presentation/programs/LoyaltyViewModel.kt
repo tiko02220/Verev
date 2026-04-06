@@ -113,8 +113,10 @@ class LoyaltyViewModel @Inject constructor(
                 activeScanActions = data.activeScanActions,
                 busyProgramId = _uiState.value.busyProgramId?.takeIf { busyId -> programs.any { it.id == busyId } },
                 busyRewardId = _uiState.value.busyRewardId?.takeIf { busyId -> rewards.any { it.id == busyId } },
-                enableCandidate = _uiState.value.enableCandidate?.let { candidate ->
-                    programs.firstOrNull { it.id == candidate.id }
+                programToggleCandidate = _uiState.value.programToggleCandidate?.let { candidate ->
+                    programs.firstOrNull { it.id == candidate.program.id }?.let { refreshed ->
+                        candidate.copy(program = refreshed)
+                    }
                 },
             )
         }.launchIn(viewModelScope)
@@ -339,22 +341,31 @@ class LoyaltyViewModel @Inject constructor(
     }
 
     fun requestProgramToggle(programId: String, enabled: Boolean) {
-        if (!enabled) {
+        val candidate = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
+        val requiresScheduleWarning = candidate.autoScheduleEnabled
+        if (!enabled && !requiresScheduleWarning) {
             toggleProgramEnabled(programId = programId, enabled = false)
             return
         }
-        val candidate = _uiState.value.programs.firstOrNull { it.id == programId } ?: return
-        _uiState.value = _uiState.value.copy(enableCandidate = candidate, formErrorRes = null, messageRes = null)
+        _uiState.value = _uiState.value.copy(
+            programToggleCandidate = ProgramToggleCandidate(
+                program = candidate,
+                enabled = enabled,
+                autoScheduleWarning = requiresScheduleWarning,
+            ),
+            formErrorRes = null,
+            messageRes = null,
+        )
     }
 
-    fun dismissProgramEnableDialog() {
-        _uiState.value = _uiState.value.copy(enableCandidate = null)
+    fun dismissProgramToggleDialog() {
+        _uiState.value = _uiState.value.copy(programToggleCandidate = null)
     }
 
-    fun confirmProgramEnable() {
-        val candidate = _uiState.value.enableCandidate ?: return
-        _uiState.value = _uiState.value.copy(enableCandidate = null)
-        toggleProgramEnabled(programId = candidate.id, enabled = true)
+    fun confirmProgramToggle() {
+        val candidate = _uiState.value.programToggleCandidate ?: return
+        _uiState.value = _uiState.value.copy(programToggleCandidate = null)
+        toggleProgramEnabled(programId = candidate.program.id, enabled = candidate.enabled)
     }
 
     fun updateEditorName(value: String) = updateEditor { copy(name = value) }
@@ -397,7 +408,11 @@ class LoyaltyViewModel @Inject constructor(
     fun updateEditorAutoScheduleEnabled(value: Boolean) = updateEditor {
         copy(
             autoScheduleEnabled = value,
-            repeatType = if (value) repeatType else ProgramRepeatType.NONE,
+            repeatType = if (value) {
+                repeatType.takeUnless { it == ProgramRepeatType.NONE } ?: ProgramRepeatType.WEEKDAYS
+            } else {
+                ProgramRepeatType.NONE
+            },
             repeatDaysOfWeek = if (value) repeatDaysOfWeek else emptyList(),
             repeatDaysOfMonth = if (value) repeatDaysOfMonth else emptyList(),
             repeatMonths = if (value) repeatMonths else emptyList(),
@@ -854,7 +869,7 @@ class LoyaltyViewModel @Inject constructor(
     }
 
     fun clearMessage() {
-        _uiState.value = _uiState.value.copy(messageRes = null, formErrorRes = null, enableCandidate = null)
+        _uiState.value = _uiState.value.copy(messageRes = null, formErrorRes = null, programToggleCandidate = null)
     }
 
     fun saveReward() {

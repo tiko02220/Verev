@@ -260,12 +260,20 @@ class AuthRemoteDataSource @Inject constructor(
         api.quickPinResetRequestByEmail(EmailQuickPinResetRequestDto(email = email, channel = "EMAIL")).unwrap { Unit }
     }
 
+    suspend fun requestSignupEmailVerification(email: String): Result<Unit> = remoteResult {
+        api.signupEmailVerificationRequest(EmailSignupVerificationRequestDto(email = email, channel = "EMAIL")).unwrap { Unit }
+    }
+
     suspend fun verifyPasswordResetByEmail(email: String, code: String): Result<Unit> = remoteResult {
         api.passwordResetVerifyByEmail(EmailPasswordResetVerifyRequestDto(email = email, code = code)).unwrap { Unit }
     }
 
     suspend fun verifyQuickPinResetByEmail(email: String, code: String): Result<Unit> = remoteResult {
         api.quickPinResetVerifyByEmail(EmailQuickPinResetVerifyRequestDto(email = email, code = code)).unwrap { Unit }
+    }
+
+    suspend fun verifySignupEmailVerificationByEmail(email: String, code: String): Result<Unit> = remoteResult {
+        api.signupEmailVerificationVerify(EmailSignupVerificationVerifyRequestDto(email = email, code = code)).unwrap { Unit }
     }
 
     suspend fun confirmPasswordResetByEmail(email: String, newPassword: String): Result<Unit> = remoteResult {

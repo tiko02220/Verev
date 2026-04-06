@@ -17,6 +17,9 @@
     <string name="auth_join_subtitle">Start building customer loyalty today</string>
     <string name="auth_business_information">Business Information</string>
     <string name="auth_business_information_subtitle">Tell us about your business</string>
+    <string name="auth_signup_verify_email_title">Verify business email</string>
+    <string name="auth_signup_verify_email_subtitle">We sent a 6-digit code to your business email. Verify it before continuing.</string>
+    <string name="auth_signup_verify_email_note">Use the code from your business inbox. After verification, we\'ll continue to owner account setup.</string>
     <string name="auth_business_email_label">Business email</string>
     <string name="auth_business_email_hint">hello@business.com</string>
     <string name="auth_account_information">Account Information</string>
@@ -70,6 +73,7 @@
     <string name="auth_error_required_full_name">Full name is required</string>
     <string name="auth_error_invalid_credentials">Invalid email or password</string>
     <string name="auth_error_connection_failed">No connection. Check your internet and try again.</string>
+    <string name="auth_error_signup_email_not_verified">Verify your business email before continuing</string>
     <string name="auth_error_code_incomplete">Please enter the complete 6-digit code</string>
     <string name="auth_error_code_invalid">Invalid or expired code. Please try again.</string>
     <string name="auth_error_reset_failed">Failed to reset password. Please try again.</string>
@@ -158,6 +162,8 @@
     <string name="auth_loader_login_subtitle">Securely verifying your account and preparing your workspace.</string>
     <string name="auth_loader_register_title">Creating your business account</string>
     <string name="auth_loader_register_subtitle">Setting up your business, owner profile, and default store.</string>
+    <string name="auth_loader_verify_email_title">Verifying business email</string>
+    <string name="auth_loader_verify_email_subtitle">Checking your email code and unlocking the next signup step.</string>
     <string name="auth_loader_security_title">Applying security setup</string>
     <string name="auth_loader_security_subtitle">Saving your PIN and authentication preferences securely.</string>
     <string name="auth_loader_staff_title">Setting up your team</string>
@@ -2309,6 +2315,10 @@
     <string name="merchant_program_enable_dialog_title">Enable this program?</string>
     <string name="merchant_program_enable_dialog_message">%1$s will become available in %2$s</string>
     <string name="merchant_program_enable_dialog_confirm">Enable program</string>
+    <string name="merchant_program_auto_schedule_override_title">Auto schedule is active</string>
+    <string name="merchant_program_auto_schedule_override_message">This program already follows its automatic schedule. Manual changes can override what staff expect today. Are you sure you want to switch it manually?</string>
+    <string name="merchant_program_manual_enable_action">Enable manually</string>
+    <string name="merchant_program_manual_disable_action">Disable manually</string>
     <string name="merchant_program_branch_impact_no_scan_actions">%1$s only. This setup runs outside live scan actions.</string>
     <string name="merchant_program_branch_impact_scan_actions">%1$s only. Affects %2$d live scan actions.</string>
     <string name="merchant_program_scan_action_earn_points">earn points</string>

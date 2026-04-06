@@ -64,11 +64,7 @@ internal fun resolveBackendAbsoluteUrl(
     }
     val baseUrl = backendEndpoint.httpBaseUrl.toHttpUrlOrNull()
         ?: error("Invalid backend base URL: ${backendEndpoint.httpBaseUrl}")
-    return baseUrl
-        .newBuilder()
-        .encodedPath(
-            "/" + normalized.trimStart('/'),
-        )
-        .build()
-        .toString()
+    return baseUrl.resolve(normalized)
+        ?.toString()
+        ?: error("Invalid backend URL or path: $urlOrPath")
 }

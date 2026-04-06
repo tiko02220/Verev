@@ -6,6 +6,12 @@ import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 
+data class ProgramToggleCandidate(
+    val program: RewardProgram,
+    val enabled: Boolean,
+    val autoScheduleWarning: Boolean,
+)
+
 data class LoyaltyUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
@@ -22,7 +28,7 @@ data class LoyaltyUiState(
     val editorState: ProgramEditorState? = null,
     val editorFieldErrors: Map<String, Int> = emptyMap(),
     val deleteCandidate: RewardProgram? = null,
-    val enableCandidate: RewardProgram? = null,
+    val programToggleCandidate: ProgramToggleCandidate? = null,
     val rewardEditorState: RewardEditorState? = null,
     val rewardEditorFieldErrors: Map<String, Int> = emptyMap(),
     val rewardDeleteCandidate: Reward? = null,

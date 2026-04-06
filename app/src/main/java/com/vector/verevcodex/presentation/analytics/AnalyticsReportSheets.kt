@@ -81,11 +81,12 @@ internal fun AnalyticsExportSheet(
     uiState: ReportsUiState,
     selectedRange: AnalyticsTimeRange,
     onDismiss: () -> Unit,
-    onExport: (ReportFormat, Set<ReportSection>) -> Unit,
+    onExport: (ReportFormat, AnalyticsTimeRange, Set<ReportSection>) -> Unit,
     onClearError: () -> Unit,
 ) {
     var selectedFormat by rememberSaveable { mutableStateOf(uiState.autoSettings.format) }
     var exportRequested by rememberSaveable { mutableStateOf(false) }
+    var exportRange by rememberSaveable(selectedRange) { mutableStateOf(selectedRange) }
     val selectedSections = remember { mutableStateListOf(*uiState.autoSettings.includedSections.toTypedArray()) }
 
     LaunchedEffect(exportRequested, uiState.isExporting, uiState.latestExport) {
@@ -140,8 +141,8 @@ internal fun AnalyticsExportSheet(
             AnalyticsTimeRange.entries.forEach { range ->
                 MerchantFilterChip(
                     text = stringResource(range.analyticsRangeLabelRes()),
-                    selected = range == selectedRange,
-                    onClick = {},
+                    selected = range == exportRange,
+                    onClick = { exportRange = range },
                 )
             }
         }
@@ -224,7 +225,7 @@ internal fun AnalyticsExportSheet(
             onClick = {
                 exportRequested = true
                 onClearError()
-                onExport(selectedFormat, selectedSections.toSet())
+                onExport(selectedFormat, exportRange, selectedSections.toSet())
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),

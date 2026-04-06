@@ -7,7 +7,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,11 +42,14 @@ fun AppEntryScreen(
     val connectivityStatus = rememberConnectivityStatus()
     val destination = securityState.toRootDestination()
     var backendRetryToken by rememberSaveable { mutableStateOf(0) }
-    val backendAvailable by produceState<Boolean?>(initialValue = null, connectivityStatus.isOnline, backendRetryToken) {
-        value = if (!connectivityStatus.isOnline) {
-            false
+    var backendAvailable by rememberSaveable { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(connectivityStatus.isOnline, backendRetryToken) {
+        if (!connectivityStatus.isOnline) {
+            backendAvailable = false
         } else {
-            checkBackendReachability()
+            val reachable = checkBackendReachability()
+            backendAvailable = reachable
         }
     }
 
@@ -56,6 +58,9 @@ fun AppEntryScreen(
             isOnline = connectivityStatus.isOnline && backendAvailable == null,
             onTryAgain = {
                 connectivityStatus.refresh()
+                if (connectivityStatus.isOnline) {
+                    backendAvailable = null
+                }
                 backendRetryToken += 1
             },
         )

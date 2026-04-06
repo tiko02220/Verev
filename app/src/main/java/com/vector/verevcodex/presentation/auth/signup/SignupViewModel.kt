@@ -22,13 +22,17 @@ import com.vector.verevcodex.domain.usecase.auth.ActivateSessionUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveAuthBootstrapStateUseCase
 import com.vector.verevcodex.domain.usecase.auth.RegisterBusinessUseCase
 import com.vector.verevcodex.domain.usecase.auth.SaveSecuritySetupUseCase
+import com.vector.verevcodex.domain.usecase.auth.SendSignupEmailVerificationCodeUseCase
 import com.vector.verevcodex.domain.usecase.auth.SetSignupOnboardingPendingUseCase
 import com.vector.verevcodex.domain.usecase.auth.UpdateSignupOnboardingProgressUseCase
+import com.vector.verevcodex.domain.usecase.auth.VerifySignupEmailVerificationCodeUseCase
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.store.SelectStoreUseCase
 import com.vector.verevcodex.presentation.auth.common.SignupStep
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +45,8 @@ class SignupViewModel @Inject constructor(
     observeAuthBootstrapStateUseCase: ObserveAuthBootstrapStateUseCase,
     private val registerBusinessUseCase: RegisterBusinessUseCase,
     private val saveSecuritySetupUseCase: SaveSecuritySetupUseCase,
+    private val sendSignupEmailVerificationCodeUseCase: SendSignupEmailVerificationCodeUseCase,
+    private val verifySignupEmailVerificationCodeUseCase: VerifySignupEmailVerificationCodeUseCase,
     private val addStaffMembersUseCase: AddStaffMembersUseCase,
     private val activateSessionUseCase: ActivateSessionUseCase,
     private val setSignupOnboardingPendingUseCase: SetSignupOnboardingPendingUseCase,
@@ -50,6 +56,7 @@ class SignupViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SignupUiState())
     val uiState: StateFlow<SignupUiState> = _uiState.asStateFlow()
+    private var resendCountdownJob: Job? = null
 
     init {
         observeAuthBootstrapStateUseCase()
@@ -106,8 +113,21 @@ class SignupViewModel @Inject constructor(
     fun updateIndustry(value: String) = update { copy(industry = value, errors = errors - "industry") }
     fun updateAddress(value: String) = update { copy(address = value, errors = errors - "address") }
     fun updateCity(value: String) = update { copy(city = value, errors = errors - "city") }
-    fun updateBusinessEmail(value: String) = update { copy(businessEmail = value, errors = errors - "businessEmail") }
+    fun updateBusinessEmail(value: String) = update {
+        copy(
+            businessEmail = value,
+            businessEmailOtp = List(6) { "" },
+            verificationError = null,
+            submissionError = null,
+            errors = errors - "businessEmail",
+        )
+    }
     fun updatePhone(value: String) = update { copy(phone = sanitizePhoneNumberInput(value), errors = errors - "phone") }
+    fun updateBusinessEmailOtp(index: Int, value: String) = update {
+        val list = businessEmailOtp.toMutableList()
+        list[index] = value.take(1)
+        copy(businessEmailOtp = list, verificationError = null, submissionError = null)
+    }
     fun updateFullName(value: String) = update { copy(fullName = value, errors = errors - "fullName") }
     fun updateEmail(value: String) = update { copy(email = value, errors = errors - "email", submissionError = null, showExistingEmailDialog = false) }
     fun updatePassword(value: String) = update { copy(password = value, errors = errors - "password") }
@@ -160,7 +180,8 @@ class SignupViewModel @Inject constructor(
     fun back() {
         update {
             when (stage) {
-                SignupFlowStage.ACCOUNT -> copy(step = SignupStep.BUSINESS, stage = SignupFlowStage.BUSINESS)
+                SignupFlowStage.VERIFY_BUSINESS_EMAIL -> copy(step = SignupStep.BUSINESS, stage = SignupFlowStage.BUSINESS, verificationError = null, submissionError = null)
+                SignupFlowStage.ACCOUNT -> copy(step = SignupStep.VERIFY, stage = SignupFlowStage.VERIFY_BUSINESS_EMAIL, errors = emptyMap(), submissionError = null)
                 SignupFlowStage.PIN -> copy(step = SignupStep.ACCOUNT, stage = SignupFlowStage.ACCOUNT)
                 SignupFlowStage.BIOMETRIC -> copy(stage = SignupFlowStage.PIN)
                 SignupFlowStage.STAFF_PROMPT -> copy(
@@ -174,18 +195,94 @@ class SignupViewModel @Inject constructor(
     }
 
     fun continueToAccount() {
-        val errors = mutableMapOf<String, String>()
-        if (uiState.value.businessName.isBlank()) errors["businessName"] = "required_business_name"
-        if (uiState.value.industry.isBlank()) errors["industry"] = "required_industry"
-        if (uiState.value.address.isBlank()) errors["address"] = "required_address"
-        if (uiState.value.city.isBlank()) errors["city"] = "required_city"
-        if (uiState.value.businessEmail.isBlank()) errors["businessEmail"] = "required_email"
-        else if (!Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(uiState.value.businessEmail)) errors["businessEmail"] = "invalid_email"
-        if (!isValidPhoneNumber(uiState.value.phone)) errors["phone"] = "required_phone"
-        if (errors.isEmpty()) {
-            update { copy(step = SignupStep.ACCOUNT, stage = SignupFlowStage.ACCOUNT, errors = emptyMap()) }
-        } else {
+        val errors = validateBusinessFields(uiState.value)
+        if (errors.isNotEmpty()) {
             update { copy(errors = errors) }
+            return
+        }
+        val email = uiState.value.businessEmail.trim().lowercase()
+        viewModelScope.launch {
+            update { copy(isLoading = true, errors = emptyMap(), submissionError = null, verificationError = null) }
+            sendSignupEmailVerificationCodeUseCase(email)
+                .onSuccess {
+                    update {
+                        copy(
+                            isLoading = false,
+                            step = SignupStep.VERIFY,
+                            stage = SignupFlowStage.VERIFY_BUSINESS_EMAIL,
+                            businessEmailOtp = List(6) { "" },
+                            resendCountdownSeconds = RESEND_COUNTDOWN_SECONDS,
+                        )
+                    }
+                    startResendCountdown()
+                }
+                .onFailure { throwable ->
+                    update {
+                        copy(
+                            isLoading = false,
+                            submissionError = throwable.toSignupVerificationDialogMessage(),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun resendBusinessEmailVerificationCode() {
+        if (_uiState.value.resendCountdownSeconds > 0) return
+        viewModelScope.launch {
+            update { copy(isLoading = true, verificationError = null, submissionError = null) }
+            sendSignupEmailVerificationCodeUseCase(_uiState.value.businessEmail.trim().lowercase())
+                .onSuccess {
+                    update {
+                        copy(
+                            isLoading = false,
+                            businessEmailOtp = List(6) { "" },
+                            resendCountdownSeconds = RESEND_COUNTDOWN_SECONDS,
+                        )
+                    }
+                    startResendCountdown()
+                }
+                .onFailure { throwable ->
+                    update { copy(isLoading = false, submissionError = throwable.toSignupVerificationDialogMessage()) }
+                }
+        }
+    }
+
+    fun verifyBusinessEmailAndContinue() {
+        val code = _uiState.value.businessEmailOtp.joinToString(separator = "")
+        if (code.length != 6) {
+            update { copy(verificationError = "code_incomplete") }
+            return
+        }
+        viewModelScope.launch {
+            update { copy(isLoading = true, verificationError = null, submissionError = null) }
+            verifySignupEmailVerificationCodeUseCase(_uiState.value.businessEmail.trim().lowercase(), code)
+                .onSuccess {
+                    update {
+                        copy(
+                            isLoading = false,
+                            step = SignupStep.ACCOUNT,
+                            stage = SignupFlowStage.ACCOUNT,
+                            verificationError = null,
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    val remoteError = throwable as? RemoteException
+                    val inlineError = when (remoteError?.backendCode) {
+                        "AUTH_SIGNUP_EMAIL_INVALID_CODE",
+                        "AUTH_SIGNUP_EMAIL_EXPIRED",
+                        "NOT_FOUND_SIGNUP_EMAIL_VERIFICATION" -> "code_invalid"
+                        else -> null
+                    }
+                    update {
+                        copy(
+                            isLoading = false,
+                            verificationError = inlineError,
+                            submissionError = if (inlineError == null) throwable.toSignupVerificationDialogMessage() else null,
+                        )
+                    }
+                }
         }
     }
 
@@ -232,8 +329,26 @@ class SignupViewModel @Inject constructor(
                     storeId = result.defaultStoreId,
                     pinSetupSkipped = false,
                 )
-            }.onFailure {
-                val resolution = resolveSignupFailure(it)
+            }.onFailure { throwable ->
+                val remoteError = throwable as? RemoteException
+                if (
+                    remoteError?.backendCode == "AUTH_SIGNUP_EMAIL_NOT_VERIFIED" ||
+                    remoteError?.backendCode == "AUTH_SIGNUP_EMAIL_EXPIRED" ||
+                    remoteError?.backendCode == "NOT_FOUND_SIGNUP_EMAIL_VERIFICATION"
+                ) {
+                    update {
+                        copy(
+                            isLoading = false,
+                            step = SignupStep.VERIFY,
+                            stage = SignupFlowStage.VERIFY_BUSINESS_EMAIL,
+                            businessEmailOtp = List(6) { "" },
+                            verificationError = if (remoteError.backendCode == "AUTH_SIGNUP_EMAIL_EXPIRED") "code_invalid" else null,
+                            submissionError = throwable.toSignupVerificationDialogMessage(),
+                        )
+                    }
+                    return@launch
+                }
+                val resolution = resolveSignupFailure(throwable)
                 update {
                     copy(
                         isLoading = false,
@@ -437,10 +552,37 @@ class SignupViewModel @Inject constructor(
     private fun update(block: SignupUiState.() -> SignupUiState) {
         _uiState.value = _uiState.value.block()
     }
+
+    private fun startResendCountdown() {
+        resendCountdownJob?.cancel()
+        resendCountdownJob = viewModelScope.launch {
+            while (_uiState.value.resendCountdownSeconds > 0) {
+                delay(1_000)
+                update { copy(resendCountdownSeconds = (resendCountdownSeconds - 1).coerceAtLeast(0)) }
+            }
+        }
+    }
+
+    private fun validateBusinessFields(state: SignupUiState): Map<String, String> {
+        val errors = mutableMapOf<String, String>()
+        if (state.businessName.isBlank()) errors["businessName"] = "required_business_name"
+        if (state.industry.isBlank()) errors["industry"] = "required_industry"
+        if (state.address.isBlank()) errors["address"] = "required_address"
+        if (state.city.isBlank()) errors["city"] = "required_city"
+        if (state.businessEmail.isBlank()) errors["businessEmail"] = "required_email"
+        else if (!Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(state.businessEmail)) errors["businessEmail"] = "invalid_email"
+        if (!isValidPhoneNumber(state.phone)) errors["phone"] = "required_phone"
+        return errors
+    }
+
+    private companion object {
+        const val RESEND_COUNTDOWN_SECONDS = 30
+    }
 }
 
 enum class SignupFlowStage {
     BUSINESS,
+    VERIFY_BUSINESS_EMAIL,
     ACCOUNT,
     PIN,
     BIOMETRIC,
@@ -464,6 +606,7 @@ private fun SignupFlowStage.toDomainStage(): SignupOnboardingStage = when (this)
     SignupFlowStage.STAFF_FORM -> SignupOnboardingStage.STAFF_FORM
     SignupFlowStage.COMPLETE -> SignupOnboardingStage.COMPLETE
     SignupFlowStage.BUSINESS,
+    SignupFlowStage.VERIFY_BUSINESS_EMAIL,
     SignupFlowStage.ACCOUNT,
     -> SignupOnboardingStage.PIN
 }
@@ -476,6 +619,7 @@ data class SignupUiState(
     val address: String = "",
     val city: String = "",
     val businessEmail: String = "",
+    val businessEmailOtp: List<String> = List(6) { "" },
     val phone: String = defaultPhoneNumberInput(),
     val fullName: String = "",
     val email: String = "",
@@ -500,9 +644,11 @@ data class SignupUiState(
     val staffPermissions: com.vector.verevcodex.domain.model.common.StaffPermissions = StaffRole.STAFF.defaultPermissions(),
     val staffError: String? = null,
     val pinError: String? = null,
+    val verificationError: String? = null,
     val errors: Map<String, String> = emptyMap(),
     val isLoading: Boolean = false,
     val submissionError: String? = null,
+    val resendCountdownSeconds: Int = 0,
     val shouldNavigateToApp: Boolean = false,
 )
 
@@ -553,4 +699,18 @@ private fun resolveSignupFailure(throwable: Throwable): SignupFailureResolution 
         else -> message.ifBlank { "invalid_credentials" }
     }
     return SignupFailureResolution(submissionError = submissionError)
+}
+
+private fun Throwable.toSignupVerificationDialogMessage(): String {
+    val remote = this as? RemoteException
+    return when (remote?.backendCode) {
+        "CONFLICT_ORGANIZATION_EMAIL" -> "This business email is already linked to another business."
+        "AUTH_SIGNUP_EMAIL_NOT_VERIFIED" -> "Verify your business email before continuing."
+        "NOT_FOUND_SIGNUP_EMAIL_VERIFICATION" -> "No verification session was found. Request a new code and try again."
+        else -> when (remote?.kind) {
+            RemoteException.Kind.Connectivity,
+            RemoteException.Kind.Timeout -> "connection_failed"
+            else -> message?.takeIf { it.isNotBlank() } ?: "invalid_credentials"
+        }
+    }
 }

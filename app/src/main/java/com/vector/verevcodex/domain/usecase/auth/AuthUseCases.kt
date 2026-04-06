@@ -82,12 +82,20 @@ class SendQuickPinResetCodeUseCase @Inject constructor(private val repository: A
     suspend operator fun invoke(email: String) = repository.sendQuickPinResetCode(email)
 }
 
+class SendSignupEmailVerificationCodeUseCase @Inject constructor(private val repository: AuthRepository) {
+    suspend operator fun invoke(email: String) = repository.sendSignupEmailVerificationCode(email)
+}
+
 class VerifyPasswordResetCodeUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend operator fun invoke(email: String, code: String) = repository.verifyPasswordResetCode(email, code)
 }
 
 class VerifyQuickPinResetCodeUseCase @Inject constructor(private val repository: AuthRepository) {
     suspend operator fun invoke(email: String, code: String) = repository.verifyQuickPinResetCode(email, code)
+}
+
+class VerifySignupEmailVerificationCodeUseCase @Inject constructor(private val repository: AuthRepository) {
+    suspend operator fun invoke(email: String, code: String) = repository.verifySignupEmailVerificationCode(email, code)
 }
 
 class ResetPasswordUseCase @Inject constructor(private val repository: AuthRepository) {

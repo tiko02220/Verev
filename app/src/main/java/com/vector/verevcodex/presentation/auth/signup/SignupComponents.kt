@@ -77,10 +77,12 @@ import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.auth.StaffOnboardingMember
 import com.vector.verevcodex.domain.model.common.StaffRole
 import com.vector.verevcodex.domain.model.common.StaffPermissions
+import com.vector.verevcodex.presentation.auth.common.AuthEmailChip
 import com.vector.verevcodex.presentation.auth.common.AuthFormField
 import com.vector.verevcodex.presentation.auth.common.AuthErrorMessage
 import com.vector.verevcodex.presentation.auth.common.AuthHeroIcon
 import com.vector.verevcodex.presentation.auth.common.AuthInfoPanel
+import com.vector.verevcodex.presentation.auth.common.AuthOtpBoxes
 import com.vector.verevcodex.presentation.auth.common.AuthPinBoxes
 import com.vector.verevcodex.presentation.auth.common.AuthPrimaryButton
 import com.vector.verevcodex.presentation.auth.common.AuthProgressPill
@@ -156,6 +158,8 @@ internal fun SignupHeader(step: SignupStep) {
         Text(stringResource(R.string.auth_join_subtitle), color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
             AuthProgressPill(active = step == SignupStep.BUSINESS)
+            Spacer(Modifier.width(8.dp))
+            AuthProgressPill(active = step == SignupStep.VERIFY)
             Spacer(Modifier.width(8.dp))
             AuthProgressPill(active = step == SignupStep.ACCOUNT)
         }
@@ -332,6 +336,92 @@ internal fun SignupFormCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun SignupBusinessEmailVerificationCard(
+    state: SignupUiState,
+    onOtpChanged: (Int, String) -> Unit,
+    onVerify: () -> Unit,
+    onResend: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colorResource(R.color.surface_white)),
+    ) {
+        Column(
+            modifier = Modifier
+                .imePadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AuthHeroIcon(
+                icon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp)) },
+            )
+            Text(
+                text = stringResource(R.string.auth_signup_verify_email_title),
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.auth_signup_verify_email_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colorResource(R.color.text_secondary),
+                textAlign = TextAlign.Center,
+            )
+            AuthEmailChip(email = state.businessEmail)
+            AuthOtpBoxes(
+                values = state.businessEmailOtp,
+                isError = state.verificationError == "code_incomplete" || state.verificationError == "code_invalid",
+                onValueChange = onOtpChanged,
+            )
+            SignupResendCodeRow(
+                countdownSeconds = state.resendCountdownSeconds,
+                onResend = onResend,
+            )
+            AuthErrorMessage(
+                errorKey = state.verificationError,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.auth_verify_code),
+                loading = state.isLoading,
+                onClick = onVerify,
+            )
+            AuthInfoPanel(text = stringResource(R.string.auth_signup_verify_email_note))
+        }
+    }
+}
+
+@Composable
+private fun SignupResendCodeRow(
+    countdownSeconds: Int,
+    onResend: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.auth_resend_in_format, countdownSeconds),
+            color = colorResource(R.color.text_secondary),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(R.string.auth_resend_code),
+            color = if (countdownSeconds == 0) colorResource(R.color.brand_green) else colorResource(R.color.text_hint),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(enabled = countdownSeconds == 0, onClick = onResend)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        )
     }
 }
 

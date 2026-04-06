@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
@@ -65,6 +66,7 @@ fun ReportExportScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var selectedRange by rememberSaveable { mutableStateOf(AnalyticsTimeRange.MONTH) }
     var pendingSaveReport by remember { mutableStateOf<ReportExport?>(null) }
     var saveFeedbackRes by rememberSaveable { mutableStateOf<Int?>(null) }
     val saveReportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
@@ -115,6 +117,20 @@ fun ReportExportScreen(
                 )
             }
             item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(AnalyticsTimeRange.entries.size) { index ->
+                        val range = AnalyticsTimeRange.entries[index]
+                        MerchantFilterChip(
+                            text = stringResource(range.reportRangeLabelRes()),
+                            selected = selectedRange == range,
+                            onClick = { selectedRange = range },
+                        )
+                    }
+                }
+            }
+            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -125,7 +141,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Description,
                         colors = listOf(VerevColors.Gold, VerevColors.Tan),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.DOCX, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
+                        onClick = { viewModel.export(ReportFormat.DOCX, selectedRange, ReportSection.entries.toSet()) },
                     )
                     MerchantActionCard(
                         title = stringResource(R.string.merchant_reports_excel_title),
@@ -133,7 +149,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Payments,
                         colors = listOf(VerevColors.Moss, VerevColors.Forest),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.XLSX, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
+                        onClick = { viewModel.export(ReportFormat.XLSX, selectedRange, ReportSection.entries.toSet()) },
                     )
                     MerchantActionCard(
                         title = stringResource(R.string.merchant_reports_pdf_title),
@@ -141,7 +157,7 @@ fun ReportExportScreen(
                         icon = Icons.Default.Description,
                         colors = listOf(VerevColors.ForestBright, VerevColors.Forest),
                         modifier = Modifier.weight(1f),
-                        onClick = { viewModel.export(ReportFormat.PDF, AnalyticsTimeRange.MONTH, ReportSection.entries.toSet()) },
+                        onClick = { viewModel.export(ReportFormat.PDF, selectedRange, ReportSection.entries.toSet()) },
                     )
                 }
             }
@@ -216,6 +232,14 @@ fun ReportExportScreen(
             )
         }
     }
+}
+
+@Composable
+private fun AnalyticsTimeRange.reportRangeLabelRes(): Int = when (this) {
+    AnalyticsTimeRange.WEEK -> R.string.merchant_range_week
+    AnalyticsTimeRange.MONTH -> R.string.merchant_range_month
+    AnalyticsTimeRange.QUARTER -> R.string.merchant_range_quarter
+    AnalyticsTimeRange.YEAR -> R.string.merchant_range_year
 }
 
 @Composable

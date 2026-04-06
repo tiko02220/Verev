@@ -65,7 +65,11 @@ fun SignupScreen(
 
     Box {
         AuthGradientScreenScaffold {
-            if (state.stage == SignupFlowStage.BUSINESS || state.stage == SignupFlowStage.ACCOUNT) {
+            if (
+                state.stage == SignupFlowStage.BUSINESS ||
+                state.stage == SignupFlowStage.VERIFY_BUSINESS_EMAIL ||
+                state.stage == SignupFlowStage.ACCOUNT
+            ) {
                 AuthCenteredSection {
                     SignupHeader(step = state.step)
                 }
@@ -86,8 +90,7 @@ fun SignupScreen(
             AuthCenteredSection {
                 when (state.stage) {
                     SignupFlowStage.BUSINESS,
-                    SignupFlowStage.ACCOUNT,
-                    -> SignupFormCard(
+                    SignupFlowStage.ACCOUNT -> SignupFormCard(
                         state = state,
                         viewModel = viewModel,
                         onOpenIndustrySheet = {
@@ -98,6 +101,12 @@ fun SignupScreen(
                         onPasswordVisibleChange = { passwordVisible = !passwordVisible },
                         confirmPasswordVisible = confirmPasswordVisible,
                         onConfirmPasswordVisibleChange = { confirmPasswordVisible = !confirmPasswordVisible },
+                    )
+                    SignupFlowStage.VERIFY_BUSINESS_EMAIL -> SignupBusinessEmailVerificationCard(
+                        state = state,
+                        onOtpChanged = viewModel::updateBusinessEmailOtp,
+                        onVerify = viewModel::verifyBusinessEmailAndContinue,
+                        onResend = viewModel::resendBusinessEmailVerificationCode,
                     )
 
                     SignupFlowStage.PIN -> PinSetupCard(state = state, viewModel = viewModel)
@@ -144,8 +153,8 @@ fun SignupScreen(
             title = stringResource(
                 when (state.stage) {
                     SignupFlowStage.BUSINESS,
-                    SignupFlowStage.ACCOUNT,
-                    -> R.string.auth_loader_register_title
+                    SignupFlowStage.ACCOUNT -> R.string.auth_loader_register_title
+                    SignupFlowStage.VERIFY_BUSINESS_EMAIL -> R.string.auth_loader_verify_email_title
                     SignupFlowStage.PIN,
                     SignupFlowStage.BIOMETRIC,
                     -> R.string.auth_loader_security_title
@@ -158,8 +167,8 @@ fun SignupScreen(
             subtitle = stringResource(
                 when (state.stage) {
                     SignupFlowStage.BUSINESS,
-                    SignupFlowStage.ACCOUNT,
-                    -> R.string.auth_loader_register_subtitle
+                    SignupFlowStage.ACCOUNT -> R.string.auth_loader_register_subtitle
+                    SignupFlowStage.VERIFY_BUSINESS_EMAIL -> R.string.auth_loader_verify_email_subtitle
                     SignupFlowStage.PIN,
                     SignupFlowStage.BIOMETRIC,
                     -> R.string.auth_loader_security_subtitle

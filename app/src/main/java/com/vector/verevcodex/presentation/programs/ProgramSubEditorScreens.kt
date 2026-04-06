@@ -40,6 +40,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,6 +60,7 @@ import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.TierBenefitType
 import com.vector.verevcodex.domain.model.loyalty.TierThresholdBasis
+import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.theme.VerevColors
@@ -169,6 +174,7 @@ internal fun AvailabilityEditScreen(
     onBenefitResetCustomDaysChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
+    var pendingActiveChange by remember(editorState.active, editorState.autoScheduleEnabled) { mutableStateOf<Boolean?>(null) }
     ProgramSubEditorLayout(
         title = stringResource(R.string.merchant_program_availability_edit_action),
         subtitle = stringResource(R.string.merchant_program_editor_schedule_subtitle),
@@ -185,7 +191,13 @@ internal fun AvailabilityEditScreen(
                     title = stringResource(R.string.merchant_program_form_enabled),
                     subtitle = stringResource(R.string.merchant_program_enabled_toggle_subtitle),
                     checked = editorState.active,
-                    onCheckedChange = onActiveChanged,
+                    onCheckedChange = { checked ->
+                        if (editorState.autoScheduleEnabled && editorState.active != checked) {
+                            pendingActiveChange = checked
+                        } else {
+                            onActiveChanged(checked)
+                        }
+                    },
                 )
                 ProgramScheduleSection(
                     editorState = editorState,
@@ -205,6 +217,25 @@ internal fun AvailabilityEditScreen(
                 )
             }
         }
+    }
+    pendingActiveChange?.let { pendingEnabled ->
+        MerchantConfirmationDialog(
+            title = stringResource(R.string.merchant_program_auto_schedule_override_title),
+            message = stringResource(R.string.merchant_program_auto_schedule_override_message),
+            confirmLabel = stringResource(
+                if (pendingEnabled) {
+                    R.string.merchant_program_manual_enable_action
+                } else {
+                    R.string.merchant_program_manual_disable_action
+                },
+            ),
+            dismissLabel = stringResource(R.string.auth_cancel),
+            onConfirm = {
+                onActiveChanged(pendingEnabled)
+                pendingActiveChange = null
+            },
+            onDismiss = { pendingActiveChange = null },
+        )
     }
 }
 

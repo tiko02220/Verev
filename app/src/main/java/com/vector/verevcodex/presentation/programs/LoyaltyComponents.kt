@@ -598,6 +598,7 @@ internal fun ProgramListItem(
     onDelete: (() -> Unit)?,
     canManagePrograms: Boolean = true,
 ) {
+    val status = program.statusPresentation()
     val density = LocalDensity.current
     val revealWidthPx = with(density) { 104.dp.toPx() }
     val defaultShape = RoundedCornerShape(20.dp)
@@ -745,9 +746,9 @@ internal fun ProgramListItem(
                         }
                     }
                     MerchantStatusPill(
-                        text = if (program.active) stringResource(R.string.merchant_program_active) else stringResource(R.string.merchant_program_disabled),
-                        backgroundColor = if (program.active) VerevColors.Moss.copy(alpha = 0.14f) else Color(0xFFF3F4F6),
-                        contentColor = if (program.active) VerevColors.Moss else VerevColors.Inactive,
+                        text = stringResource(status.textRes),
+                        backgroundColor = status.backgroundColor,
+                        contentColor = status.contentColor,
                     )
                 }
 
@@ -797,98 +798,49 @@ internal fun ProgramListItem(
 
 @Composable
 private fun ProgramLifecycleSummary(program: RewardProgram) {
+    val today = LocalDate.now()
+    val status = program.statusPresentation(today)
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val today = LocalDate.now()
-        when {
-            !program.active -> {
-                MerchantStatusPill(
-                    text = stringResource(R.string.merchant_programs_status_paused),
-                    backgroundColor = Color(0xFFF3F4F6),
-                    contentColor = VerevColors.Inactive,
-                )
-            }
-            program.autoScheduleEnabled && program.scheduleStartDate != null && program.scheduleEndDate != null -> {
+        MerchantStatusPill(
+            text = stringResource(status.textRes),
+            backgroundColor = status.backgroundColor,
+            contentColor = status.contentColor,
+        )
+        if (!program.autoScheduleEnabled) {
+            MerchantStatusPill(
+                text = stringResource(R.string.merchant_programs_status_always_on),
+                backgroundColor = VerevColors.Moss.copy(alpha = 0.14f),
+                contentColor = VerevColors.Moss,
+            )
+        } else {
+            if (program.repeatType == ProgramRepeatType.CUSTOM) {
                 val start = program.scheduleStartDate
                 val end = program.scheduleEndDate
-                val statusRes = when {
-                    isProgramScheduledOn(program, today) -> R.string.merchant_programs_status_live
-                    today.isBefore(start) -> R.string.merchant_programs_status_scheduled
-                    today.isAfter(end) -> R.string.merchant_programs_status_completed
-                    else -> R.string.merchant_programs_status_scheduled
-                }
-                MerchantStatusPill(
-                    text = stringResource(statusRes),
-                    backgroundColor = program.type.gradient().first().copy(alpha = 0.14f),
-                    contentColor = VerevColors.Forest,
-                )
-                MerchantStatusPill(
-                    text = stringResource(
-                        R.string.merchant_programs_schedule_window,
-                        start.format(ProgramDateFormatter),
-                        end.format(ProgramDateFormatter),
-                    ),
-                    backgroundColor = VerevColors.AppBackground,
-                    contentColor = VerevColors.Forest.copy(alpha = 0.78f),
-                )
-                if (program.repeatType != ProgramRepeatType.NONE) {
+                if (start != null && end != null) {
                     MerchantStatusPill(
-                        text = repeatTypeLabel(program.repeatType),
-                        backgroundColor = VerevColors.Gold.copy(alpha = 0.12f),
-                        contentColor = VerevColors.Gold,
+                        text = stringResource(
+                            R.string.merchant_programs_schedule_window,
+                            start.format(ProgramDateFormatter),
+                            end.format(ProgramDateFormatter),
+                        ),
+                        backgroundColor = VerevColors.AppBackground,
+                        contentColor = VerevColors.Forest.copy(alpha = 0.78f),
                     )
                 }
             }
-            else -> {
+            if (program.repeatType != ProgramRepeatType.NONE) {
                 MerchantStatusPill(
-                    text = stringResource(R.string.merchant_programs_status_always_on),
-                    backgroundColor = VerevColors.Moss.copy(alpha = 0.14f),
-                    contentColor = VerevColors.Moss,
+                    text = repeatTypeLabel(program.repeatType),
+                    backgroundColor = VerevColors.Gold.copy(alpha = 0.12f),
+                    contentColor = VerevColors.Gold,
                 )
             }
         }
     }
-}
-
-private fun isProgramScheduledOn(
-    program: RewardProgram,
-    date: LocalDate,
-): Boolean {
-    if (!program.autoScheduleEnabled) return true
-    val start = program.scheduleStartDate ?: return false
-    val end = program.scheduleEndDate ?: return false
-    if (date.isBefore(start) || date.isAfter(end)) return false
-    return when (program.repeatType) {
-        ProgramRepeatType.WEEKDAYS -> program.repeatDaysOfWeek.contains(date.dayOfWeek.value)
-        ProgramRepeatType.SEASONAL -> program.seasons.flatMap { it.months }.contains(date.monthValue)
-        ProgramRepeatType.CUSTOM -> if (program.scheduleStartDate != null && program.scheduleEndDate != null) {
-            isLegacyAnnualWindowActive(program.scheduleStartDate, program.scheduleEndDate, date)
-        } else {
-            false
-        }
-        ProgramRepeatType.NONE -> true
-    }
-}
-
-private fun isLegacyAnnualWindowActive(
-    start: LocalDate,
-    end: LocalDate,
-    date: LocalDate,
-): Boolean {
-    val startMonthDay = java.time.MonthDay.from(start)
-    val endMonthDay = java.time.MonthDay.from(end)
-    val dateMonthDay = java.time.MonthDay.from(date)
-    val window = if (!endMonthDay.isBefore(startMonthDay)) {
-        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year)
-    } else if (!dateMonthDay.isBefore(startMonthDay)) {
-        startMonthDay.atYear(date.year) to endMonthDay.atYear(date.year + 1)
-    } else {
-        startMonthDay.atYear(date.year - 1) to endMonthDay.atYear(date.year)
-    }
-    return !date.isBefore(window.first) && !date.isAfter(window.second)
 }
 
 @Composable
@@ -2465,7 +2417,11 @@ private fun ProgramRepeatSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ProgramRepeatType.entries.forEach { option ->
+            listOf(
+                ProgramRepeatType.WEEKDAYS,
+                ProgramRepeatType.SEASONAL,
+                ProgramRepeatType.CUSTOM,
+            ).forEach { option ->
                 MerchantFilterChip(
                     text = stringResource(option.labelRes()),
                     selected = editorState.repeatType == option,

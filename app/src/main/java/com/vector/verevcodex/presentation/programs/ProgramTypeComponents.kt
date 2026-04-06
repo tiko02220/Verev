@@ -348,6 +348,7 @@ internal fun ProgramTypeProgramCard(
     onDelete: (() -> Unit)?,
     canManagePrograms: Boolean = true,
 ) {
+    val status = program.statusPresentation()
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(26.dp),
@@ -390,9 +391,9 @@ internal fun ProgramTypeProgramCard(
                     )
                 }
                 MerchantStatusPill(
-                    text = if (program.active) stringResource(R.string.merchant_program_active) else stringResource(R.string.merchant_program_disabled),
-                    backgroundColor = if (program.active) VerevColors.Moss.copy(alpha = 0.16f) else Color(0xFFF3F4F6),
-                    contentColor = if (program.active) VerevColors.Moss else VerevColors.Inactive,
+                    text = stringResource(status.textRes),
+                    backgroundColor = status.backgroundColor,
+                    contentColor = status.contentColor,
                 )
             }
             Column(

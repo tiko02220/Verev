@@ -42,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
+import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantSuccessDialog
 import com.vector.verevcodex.presentation.navigation.ShellViewModel
@@ -390,18 +391,35 @@ fun ProgramTypeManagementScreen(
         )
         }
     }
-    state.enableCandidate?.let { program ->
-        ProgramEnableGuardrailDialog(
-            program = program,
-            selectedStoreName = state.selectedStoreName,
-            snapshot = program.toOperationalSnapshot(
-                existingPrograms = state.programs,
-                campaigns = state.campaigns,
-                activeScanActions = state.activeScanActions,
-            ),
-            onDismiss = viewModel::dismissProgramEnableDialog,
-            onConfirm = viewModel::confirmProgramEnable,
-        )
+    state.programToggleCandidate?.let { candidate ->
+        if (candidate.autoScheduleWarning) {
+            MerchantConfirmationDialog(
+                title = stringResource(R.string.merchant_program_auto_schedule_override_title),
+                message = stringResource(R.string.merchant_program_auto_schedule_override_message),
+                confirmLabel = stringResource(
+                    if (candidate.enabled) {
+                        R.string.merchant_program_manual_enable_action
+                    } else {
+                        R.string.merchant_program_manual_disable_action
+                    },
+                ),
+                dismissLabel = stringResource(R.string.auth_cancel),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        } else if (candidate.enabled) {
+            ProgramEnableGuardrailDialog(
+                program = candidate.program,
+                selectedStoreName = state.selectedStoreName,
+                snapshot = candidate.program.toOperationalSnapshot(
+                    existingPrograms = state.programs,
+                    campaigns = state.campaigns,
+                    activeScanActions = state.activeScanActions,
+                ),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        }
     }
     state.deleteCandidate?.let { program ->
         ProgramDeleteDialog(

@@ -93,7 +93,11 @@ fun RewardProgram.toEditorState(): ProgramEditorState = ProgramEditorState(
     scheduleStartDate = scheduleStartDate?.toString().orEmpty(),
     scheduleEndDate = scheduleEndDate?.toString().orEmpty(),
     annualRepeatEnabled = annualRepeatEnabled,
-    repeatType = repeatType,
+    repeatType = if (autoScheduleEnabled && repeatType == ProgramRepeatType.NONE) {
+        ProgramRepeatType.WEEKDAYS
+    } else {
+        repeatType
+    },
     repeatDaysOfWeek = repeatDaysOfWeek,
     repeatDaysOfMonth = repeatDaysOfMonth,
     repeatMonths = repeatMonths,

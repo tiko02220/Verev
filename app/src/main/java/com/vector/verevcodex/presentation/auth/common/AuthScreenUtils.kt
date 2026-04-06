@@ -20,6 +20,7 @@ fun authErrorRes(errorKey: String?): Int? = when (errorKey) {
     "required_full_name" -> R.string.auth_error_required_full_name
     "invalid_credentials" -> R.string.auth_error_invalid_credentials
     "connection_failed" -> R.string.auth_error_connection_failed
+    "signup_email_not_verified" -> R.string.auth_error_signup_email_not_verified
     "code_incomplete" -> R.string.auth_error_code_incomplete
     "code_invalid" -> R.string.auth_error_code_invalid
     "reset_failed" -> R.string.auth_error_reset_failed

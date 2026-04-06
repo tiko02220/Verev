@@ -90,6 +90,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vector.verevcodex.R
 import com.vector.verevcodex.domain.model.common.LoyaltyProgramType
 import com.vector.verevcodex.presentation.merchant.common.MerchantBackHeader
+import com.vector.verevcodex.presentation.merchant.common.MerchantConfirmationDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantErrorDialog
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.merchant.common.MerchantInlineToggle
@@ -349,7 +350,7 @@ fun LoyaltyProgramManagementScreen(
                                 program = program,
                                 isBusy = state.busyProgramId == program.id,
                                 onEdit = if (canManagePrograms) ({ openProgram(program.type) }) else null,
-                                onToggleEnabled = { enabled -> viewModel.toggleProgramEnabled(program.id, enabled) },
+                                onToggleEnabled = { enabled -> viewModel.requestProgramToggle(program.id, enabled) },
                                 onDelete = if (canManagePrograms) ({ viewModel.requestDelete(program.id) }) else null,
                                 canManagePrograms = canManagePrograms,
                             )
@@ -397,6 +398,36 @@ fun LoyaltyProgramManagementScreen(
             message = stringResource(errorRes),
             onDismiss = viewModel::clearMessage,
         )
+    }
+    state.programToggleCandidate?.let { candidate ->
+        if (candidate.autoScheduleWarning) {
+            MerchantConfirmationDialog(
+                title = stringResource(R.string.merchant_program_auto_schedule_override_title),
+                message = stringResource(R.string.merchant_program_auto_schedule_override_message),
+                confirmLabel = stringResource(
+                    if (candidate.enabled) {
+                        R.string.merchant_program_manual_enable_action
+                    } else {
+                        R.string.merchant_program_manual_disable_action
+                    },
+                ),
+                dismissLabel = stringResource(R.string.auth_cancel),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        } else if (candidate.enabled) {
+            ProgramEnableGuardrailDialog(
+                program = candidate.program,
+                selectedStoreName = state.selectedStoreName,
+                snapshot = candidate.program.toOperationalSnapshot(
+                    existingPrograms = state.programs,
+                    campaigns = state.campaigns,
+                    activeScanActions = state.activeScanActions,
+                ),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        }
     }
 }
 
@@ -661,6 +692,36 @@ fun ConfiguredProgramsScreen(
             onConfirm = viewModel::confirmDeleteProgram,
         )
     }
+    state.programToggleCandidate?.let { candidate ->
+        if (candidate.autoScheduleWarning) {
+            MerchantConfirmationDialog(
+                title = stringResource(R.string.merchant_program_auto_schedule_override_title),
+                message = stringResource(R.string.merchant_program_auto_schedule_override_message),
+                confirmLabel = stringResource(
+                    if (candidate.enabled) {
+                        R.string.merchant_program_manual_enable_action
+                    } else {
+                        R.string.merchant_program_manual_disable_action
+                    },
+                ),
+                dismissLabel = stringResource(R.string.auth_cancel),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        } else if (candidate.enabled) {
+            ProgramEnableGuardrailDialog(
+                program = candidate.program,
+                selectedStoreName = state.selectedStoreName,
+                snapshot = candidate.program.toOperationalSnapshot(
+                    existingPrograms = state.programs,
+                    campaigns = state.campaigns,
+                    activeScanActions = state.activeScanActions,
+                ),
+                onDismiss = viewModel::dismissProgramToggleDialog,
+                onConfirm = viewModel::confirmProgramToggle,
+            )
+        }
+    }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = VerevColors.AppBackground,
@@ -693,7 +754,7 @@ fun ConfiguredProgramsScreen(
                     programs = state.programs,
                     busyProgramId = state.busyProgramId,
                     onEdit = { if (canManagePrograms) viewModel.openEditProgram(it) },
-                    onToggleEnabled = viewModel::toggleProgramEnabled,
+                    onToggleEnabled = viewModel::requestProgramToggle,
                     onDelete = viewModel::requestDelete,
                     canManagePrograms = canManagePrograms,
                 )

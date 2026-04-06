@@ -54,11 +54,17 @@ interface VerevAuthApi {
     @POST("v1/auth/quick-pin-resets/email/request")
     suspend fun quickPinResetRequestByEmail(@Body request: EmailQuickPinResetRequestDto): Response<ApiEnvelope<PasswordResetRequestResponseDto>>
 
+    @POST("v1/auth/signup/email-verification/request")
+    suspend fun signupEmailVerificationRequest(@Body request: EmailSignupVerificationRequestDto): Response<ApiEnvelope<PasswordResetRequestResponseDto>>
+
     @POST("v1/auth/password-resets/email/verify")
     suspend fun passwordResetVerifyByEmail(@Body request: EmailPasswordResetVerifyRequestDto): Response<ApiEnvelope<PasswordResetRequestResponseDto>>
 
     @POST("v1/auth/quick-pin-resets/email/verify")
     suspend fun quickPinResetVerifyByEmail(@Body request: EmailQuickPinResetVerifyRequestDto): Response<ApiEnvelope<PasswordResetRequestResponseDto>>
+
+    @POST("v1/auth/signup/email-verification/verify")
+    suspend fun signupEmailVerificationVerify(@Body request: EmailSignupVerificationVerifyRequestDto): Response<ApiEnvelope<PasswordResetRequestResponseDto>>
 
     @POST("v1/auth/password-resets/email/confirm")
     suspend fun passwordResetConfirmByEmail(@Body request: EmailPasswordResetConfirmRequestDto): Response<ApiEnvelope<Map<String, Boolean>>>

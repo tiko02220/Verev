@@ -349,12 +349,20 @@ class AuthRepositoryImpl @Inject constructor(
         return authRemote.requestQuickPinResetByEmail(email.trim().lowercase())
     }
 
+    override suspend fun sendSignupEmailVerificationCode(email: String): Result<Unit> {
+        return authRemote.requestSignupEmailVerification(email.trim().lowercase())
+    }
+
     override suspend fun verifyPasswordResetCode(email: String, code: String): Result<Unit> {
         return authRemote.verifyPasswordResetByEmail(email.trim().lowercase(), code)
     }
 
     override suspend fun verifyQuickPinResetCode(email: String, code: String): Result<Unit> {
         return authRemote.verifyQuickPinResetByEmail(email.trim().lowercase(), code)
+    }
+
+    override suspend fun verifySignupEmailVerificationCode(email: String, code: String): Result<Unit> {
+        return authRemote.verifySignupEmailVerificationByEmail(email.trim().lowercase(), code)
     }
 
     override suspend fun resetPassword(email: String, newPassword: String): Result<Unit> {
