@@ -675,6 +675,7 @@ private fun GiveawayListItem(
     onToggleEnabled: (String, Boolean) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    val actionSent = giveawayHasBeenSent(campaign)
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = Color.White,
@@ -711,11 +712,11 @@ private fun GiveawayListItem(
                 MerchantStatusPill(
                     text = giveawayStatusLabel(campaign),
                     backgroundColor = when {
-                        !campaign.active -> VerevColors.Forest.copy(alpha = 0.08f)
                         giveawayIsExpired(campaign) -> VerevColors.Forest.copy(alpha = 0.08f)
-                        campaign.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED &&
-                            (campaign.scheduledDate ?: campaign.startDate).isAfter(LocalDate.now()) -> VerevColors.Gold.copy(alpha = 0.18f)
-                        else -> VerevColors.Moss.copy(alpha = 0.18f)
+                        actionSent -> VerevColors.Moss.copy(alpha = 0.18f)
+                        !campaign.active -> VerevColors.Forest.copy(alpha = 0.08f)
+                        giveawaySendDate(campaign).isAfter(LocalDate.now()) -> VerevColors.Gold.copy(alpha = 0.18f)
+                        else -> VerevColors.Forest.copy(alpha = 0.08f)
                     },
                     contentColor = VerevColors.Forest,
                 )
@@ -772,11 +773,20 @@ private fun GiveawayListItem(
                 TextButton(onClick = { onDelete(campaign.id) }) {
                     Text(stringResource(R.string.merchant_delete_action), color = VerevColors.Forest)
                 }
-                MerchantInlineToggle(
-                    checked = campaign.active,
-                    onCheckedChange = { if (!isBusy) onToggleEnabled(campaign.id, it) },
-                    enabled = !isBusy,
-                )
+                if (actionSent || giveawayIsExpired(campaign)) {
+                    Text(
+                        text = if (giveawayIsExpired(campaign)) "Expired" else "Action sent",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VerevColors.Forest.copy(alpha = 0.72f),
+                        fontWeight = FontWeight.Medium,
+                    )
+                } else {
+                    MerchantInlineToggle(
+                        checked = campaign.active,
+                        onCheckedChange = { if (!isBusy) onToggleEnabled(campaign.id, it) },
+                        enabled = !isBusy,
+                    )
+                }
             }
         }
     }
@@ -1328,15 +1338,23 @@ private fun matchesGiveawayAudience(
 }
 
 private fun giveawayStatusLabel(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): String = when {
-    !campaign.active -> "Paused"
-    giveawayIsExpired(campaign) -> "Ended"
-    campaign.sendMode == com.vector.verevcodex.domain.model.promotions.GiveawaySendMode.SCHEDULED &&
-        (campaign.scheduledDate ?: campaign.startDate).isAfter(LocalDate.now()) -> "Scheduled"
-    else -> "Live"
+    giveawayIsExpired(campaign) -> "Expired"
+    giveawayHasBeenSent(campaign) && campaign.giveawayType == com.vector.verevcodex.domain.model.promotions.GiveawayType.BONUS_POINTS -> "Completed"
+    giveawayHasBeenSent(campaign) -> "Sent"
+    !campaign.active -> "Disabled"
+    giveawaySendDate(campaign).isAfter(LocalDate.now()) -> "Scheduled"
+    else -> "Ready"
 }
 
 private fun giveawayIsExpired(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): Boolean =
     campaign.expirationEnabled && (campaign.expirationDate?.isBefore(LocalDate.now()) == true)
+
+private fun giveawaySendDate(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): LocalDate =
+    campaign.scheduledDate ?: campaign.startDate
+
+private fun giveawayHasBeenSent(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): Boolean =
+    giveawaySendDate(campaign).isBefore(LocalDate.now()) ||
+        giveawaySendDate(campaign).isEqual(LocalDate.now())
 
 private fun giveawayOutcomeSummary(campaign: com.vector.verevcodex.domain.model.promotions.Campaign): String = when (campaign.giveawayType) {
     com.vector.verevcodex.domain.model.promotions.GiveawayType.BONUS_POINTS -> "${campaign.bonusPointsAmount ?: 0} bonus points"
@@ -1720,14 +1738,20 @@ fun RewardManagementScreen(
                     ProgramsFeedbackBanner(message = stringResource(messageRes))
                 }
             }
-            rewardsCatalogItems(
-                state = state,
-                onCreateReward = viewModel::openCreateReward,
-                onEditReward = viewModel::openEditReward,
-                onRefreshReward = viewModel::openCreateReward,
-                onToggleRewardEnabled = viewModel::toggleRewardEnabled,
-                onDeleteReward = viewModel::requestDeleteReward,
-            )
+            if (state.isLoading) {
+                item {
+                    ProgramsListSkeleton(canManagePrograms = true)
+                }
+            } else {
+                rewardsCatalogItems(
+                    state = state,
+                    onCreateReward = viewModel::openCreateReward,
+                    onEditReward = viewModel::openEditReward,
+                    onRefreshReward = viewModel::openCreateReward,
+                    onToggleRewardEnabled = viewModel::toggleRewardEnabled,
+                    onDeleteReward = viewModel::requestDeleteReward,
+                )
+            }
         }
     }
     state.formErrorRes?.let { errorRes ->

@@ -1115,9 +1115,10 @@ class LoyaltyViewModel @Inject constructor(
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
+                    isLoading = true,
                     giveawayEditorState = null,
                     giveawayEditorFieldErrors = emptyMap(),
-                    messageRes = R.string.merchant_giveaway_saved_message,
+                    messageRes = null,
                 )
             }.onFailure {
                 _uiState.value = _uiState.value.copy(
@@ -1205,6 +1206,7 @@ class LoyaltyViewModel @Inject constructor(
             }.onSuccess {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,
+                    isLoading = true,
                     rewardEditorState = null,
                     rewardEditorFieldErrors = emptyMap(),
                     formErrorRes = null,
