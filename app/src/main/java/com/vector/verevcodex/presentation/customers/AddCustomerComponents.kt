@@ -1,5 +1,6 @@
 package com.vector.verevcodex.presentation.customers
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,10 +22,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,18 +40,22 @@ import com.vector.verevcodex.domain.model.customer.CustomerGender
 import com.vector.verevcodex.presentation.merchant.common.MerchantFilterChip
 import com.vector.verevcodex.presentation.merchant.common.MerchantFormField
 import com.vector.verevcodex.presentation.theme.VerevColors
+import java.time.LocalDate
 
 @Composable
 internal fun AddCustomerFormSheet(
     state: AddCustomerUiState,
     onFirstNameChanged: (String) -> Unit,
     onLastNameChanged: (String) -> Unit,
+    onBirthDateChanged: (String) -> Unit,
     onGenderSelected: (CustomerGender?) -> Unit,
     onEmailChanged: (String) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onCreateCustomer: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val context = LocalContext.current
+    var showBirthDatePicker by remember { mutableStateOf(false) }
     val firstNameError = state.errorRes == R.string.merchant_add_customer_error_first_name
     val lastNameError = state.errorRes == R.string.merchant_add_customer_error_last_name
     val emailError = state.errorRes == R.string.merchant_add_customer_error_email
@@ -95,6 +106,10 @@ internal fun AddCustomerFormSheet(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
                         imeAction = androidx.compose.ui.text.input.ImeAction.Next,
                     ),
+                )
+                CustomerBirthDateField(
+                    value = state.birthDate,
+                    onClick = { showBirthDatePicker = true },
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -183,6 +198,18 @@ internal fun AddCustomerFormSheet(
             }
         }
     }
+
+    if (showBirthDatePicker) {
+        CustomerBirthDatePickerDialog(
+            context = context,
+            currentValue = state.birthDate,
+            onDismiss = { showBirthDatePicker = false },
+            onDateSelected = {
+                onBirthDateChanged(it.toString())
+                showBirthDatePicker = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -238,5 +265,86 @@ internal fun AddCustomerErrorCard(text: String) {
             style = MaterialTheme.typography.bodySmall,
             color = VerevColors.ErrorText,
         )
+    }
+}
+
+@Composable
+private fun CustomerBirthDateField(
+    value: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = VerevColors.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, VerevColors.Forest.copy(alpha = 0.12f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.CalendarMonth,
+                contentDescription = null,
+                tint = VerevColors.Gold,
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.merchant_add_customer_birth_date),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = VerevColors.Forest.copy(alpha = 0.56f),
+                )
+                Text(
+                    text = value.ifBlank { stringResource(R.string.merchant_add_customer_birth_date_placeholder) },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (value.isBlank()) VerevColors.Forest.copy(alpha = 0.62f) else VerevColors.Forest,
+                    fontWeight = if (value.isBlank()) FontWeight.Normal else FontWeight.Medium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+            }
+            OutlinedButton(
+                onClick = onClick,
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(stringResource(R.string.merchant_add_customer_birth_date_pick))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomerBirthDatePickerDialog(
+    context: android.content.Context,
+    currentValue: String,
+    onDismiss: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
+) {
+    val initialDate = runCatching { LocalDate.parse(currentValue) }.getOrElse { LocalDate.now().minusYears(18) }
+    DisposableEffect(context, currentValue) {
+        val dialog = DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                onDateSelected(LocalDate.of(year, month + 1, dayOfMonth))
+            },
+            initialDate.year,
+            initialDate.monthValue - 1,
+            initialDate.dayOfMonth,
+        )
+        dialog.datePicker.maxDate = System.currentTimeMillis()
+        dialog.setOnDismissListener { onDismiss() }
+        dialog.show()
+        onDispose {
+            dialog.setOnDismissListener(null)
+            dialog.dismiss()
+        }
     }
 }

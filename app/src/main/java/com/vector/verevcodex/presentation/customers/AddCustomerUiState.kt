@@ -13,6 +13,7 @@ data class AddCustomerUiState(
     val selectedStoreName: String = "",
     val firstName: String = "",
     val lastName: String = "",
+    val birthDate: String = "",
     val gender: CustomerGender? = null,
     val email: String = "",
     val phoneNumber: String = defaultPhoneNumberInput(),

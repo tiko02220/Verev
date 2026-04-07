@@ -327,6 +327,9 @@
     <string name="merchant_add_customer_hero_subtitle">Create the customer profile locally and generate an activation link instantly.</string>
     <string name="merchant_add_customer_first_name">First name</string>
     <string name="merchant_add_customer_last_name">Last name</string>
+    <string name="merchant_add_customer_birth_date">Birth date</string>
+    <string name="merchant_add_customer_birth_date_placeholder">Optional</string>
+    <string name="merchant_add_customer_birth_date_pick">Pick date</string>
     <string name="merchant_add_customer_gender">Gender</string>
     <string name="merchant_add_customer_gender_female">Female</string>
     <string name="merchant_add_customer_gender_male">Male</string>

@@ -37,7 +37,7 @@ class CustomerRemoteDataSource @Inject constructor(
             phoneNumber = normalizedPhoneNumber,
             email = draft.email.trim().takeIf { it.isNotBlank() },
             gender = draft.gender?.name,
-            birthDate = null,
+            birthDate = draft.birthDate?.toString(),
             homeStoreId = storeId,
             tags = emptyList(),
             notes = null

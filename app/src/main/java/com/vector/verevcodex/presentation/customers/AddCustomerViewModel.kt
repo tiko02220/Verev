@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @HiltViewModel
 class AddCustomerViewModel @Inject constructor(
@@ -96,6 +97,10 @@ class AddCustomerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(lastName = sanitize(value), errorRes = null)
     }
 
+    fun onBirthDateChanged(value: String) {
+        _uiState.value = _uiState.value.copy(birthDate = value, errorRes = null)
+    }
+
     fun onGenderSelected(value: CustomerGender?) {
         _uiState.value = _uiState.value.copy(gender = value, errorRes = null)
     }
@@ -129,6 +134,7 @@ class AddCustomerViewModel @Inject constructor(
                                 phoneNumber = normalizedPhoneNumber,
                                 email = state.email,
                                 gender = state.gender,
+                                birthDate = state.birthDate.takeIf { it.isNotBlank() }?.let(LocalDate::parse),
                             ),
                             storeId,
                         )

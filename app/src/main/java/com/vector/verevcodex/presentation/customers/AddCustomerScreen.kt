@@ -115,6 +115,7 @@ fun AddCustomerScreen(
                     state = state,
                     onFirstNameChanged = viewModel::onFirstNameChanged,
                     onLastNameChanged = viewModel::onLastNameChanged,
+                    onBirthDateChanged = viewModel::onBirthDateChanged,
                     onGenderSelected = viewModel::onGenderSelected,
                     onEmailChanged = viewModel::onEmailChanged,
                     onPhoneChanged = viewModel::onPhoneChanged,
