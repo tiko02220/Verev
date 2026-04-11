@@ -47,7 +47,7 @@ class TransactionRepositoryImpl @Inject constructor(
             }
     }
 
-    override suspend fun recordTransaction(transaction: Transaction, incrementVisit: Boolean) {
+    override suspend fun recordTransaction(transaction: Transaction, incrementVisit: Boolean, rewardId: String?) {
         val idempotencyKey = buildRemoteIdempotencyKey(
             domain = RemoteIdempotencyDomain.TRANSACTION,
             action = RemoteIdempotencyAction.CREATE,
@@ -56,7 +56,11 @@ class TransactionRepositoryImpl @Inject constructor(
             transaction.timestamp.toString(),
             transaction.amount.toString(),
         )
-        transactionRemote.commit(transaction.copy(countsAsVisit = incrementVisit), idempotencyKey).getOrThrow()
+        transactionRemote.commit(
+            transaction = transaction.copy(countsAsVisit = incrementVisit),
+            idempotencyKey = idempotencyKey,
+            rewardId = rewardId,
+        ).getOrThrow()
     }
 
     override suspend fun requestVoidTransaction(transactionId: String, reason: String): TransactionApprovalRequest =

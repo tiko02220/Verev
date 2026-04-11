@@ -43,8 +43,12 @@ fun ScanScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
-    val amount = rememberSaveable { mutableStateOf("") }
-    val points = rememberSaveable { mutableStateOf("") }
+    val customerKey = state.customer?.id ?: "scan-checkout"
+    val amount = rememberSaveable(customerKey) { mutableStateOf("") }
+    val points = rememberSaveable(customerKey) { mutableStateOf("") }
+    var useBenefits by rememberSaveable(customerKey) { mutableStateOf(false) }
+    var spendMode by rememberSaveable(customerKey) { mutableStateOf(ScanSpendMode.POINTS) }
+    var selectedCouponId by rememberSaveable(customerKey) { mutableStateOf<String?>(null) }
     var finishAfterDialogDismiss by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(initialMethod) {
@@ -55,6 +59,16 @@ fun ScanScreen(
         if (finishAfterDialogDismiss && state.successDialogMessageRes == null) {
             finishAfterDialogDismiss = false
             onBack()
+        }
+    }
+
+    LaunchedEffect(state.successDialogMessageRes) {
+        if (state.successDialogMessageRes != null) {
+            amount.value = ""
+            points.value = ""
+            useBenefits = false
+            spendMode = ScanSpendMode.POINTS
+            selectedCouponId = null
         }
     }
 
@@ -113,7 +127,7 @@ fun ScanScreen(
                     }
 
                     state.contentMode == ScanContentMode.CUSTOMER && state.customer != null -> {
-                        val activeTierProgram = state.activePrograms.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
+                        val activeTierProgram = state.livePrograms.firstOrNull { it.active && it.configuration.tierTrackingEnabled }
                         val displayCustomer = state.customer!!.resolveDisplayedTier(activeTierProgram?.configuration?.tierRule)
                         val tierDiscountPercent = activeTierProgram
                             ?.configuration
@@ -125,19 +139,38 @@ fun ScanScreen(
                                 customer = displayCustomer,
                                 showTier = displayCustomer.loyaltyTierLabel.isNotBlank(),
                                 discountPercent = tierDiscountPercent,
+                                onClick = { onOpenCustomer(state.customer!!.id) },
                             )
                         }
+                        val availableCoupons = state.storeRewards.availableScanCheckoutCoupons(
+                            customer = state.customer!!,
+                            activePrograms = state.livePrograms,
+                        )
+                        val checkoutPreview = computeScanCheckoutPreview(
+                            customer = state.customer!!,
+                            activePrograms = state.livePrograms,
+                            availableCoupons = availableCoupons,
+                            amountInput = amount.value,
+                            useBenefits = useBenefits,
+                            spendMode = spendMode,
+                            pointsInput = points.value,
+                            selectedCouponId = selectedCouponId,
+                        )
                         item {
-                            ScanActionComposerCard(
-                                activePrograms = state.activePrograms,
+                            ScanCheckoutComposerCard(
+                                activePrograms = state.livePrograms,
                                 rewardHighlights = state.customerRewardHighlights,
-                                availableActions = state.availableActions,
-                                selectedAction = state.selectedAction,
+                                availableCoupons = availableCoupons,
+                                checkoutPreview = checkoutPreview,
+                                primaryInactiveReason = state.primaryInactiveReason,
                                 customer = state.customer!!,
                                 currencyCode = state.currencyCode,
                                 amount = amount.value,
+                                useBenefits = useBenefits,
+                                spendMode = spendMode,
                                 points = points.value,
                                 customerPoints = state.customer!!.currentPoints,
+                                selectedCouponId = selectedCouponId,
                                 fieldErrors = state.fieldErrors,
                                 isSubmitting = state.isSubmitting,
                                 onAmountChanged = {
@@ -148,15 +181,38 @@ fun ScanScreen(
                                     points.value = it
                                     viewModel.clearFieldErrors(SCAN_FIELD_POINTS)
                                 },
-                                onActionSelected = viewModel::selectAction,
+                                onBenefitsToggled = { enabled ->
+                                    useBenefits = enabled
+                                    if (!enabled) {
+                                        points.value = ""
+                                        selectedCouponId = null
+                                    }
+                                },
+                                onSpendModeChanged = { mode ->
+                                    spendMode = mode
+                                    points.value = ""
+                                    selectedCouponId = null
+                                },
+                                onCouponSelected = { rewardId ->
+                                    selectedCouponId = if (selectedCouponId == rewardId) null else rewardId
+                                },
                                 onApply = {
                                     focusManager.clearFocus(force = true)
-                                    viewModel.submitAction(amountInput = amount.value, pointsInput = points.value)
+                                    viewModel.submitCheckout(
+                                        amountInput = amount.value,
+                                        useBenefits = useBenefits,
+                                        spendMode = spendMode,
+                                        pointsInput = points.value,
+                                        selectedCouponId = selectedCouponId,
+                                    )
                                 },
                                 onClose = onBack,
                                 onScanAnother = {
                                     amount.value = ""
                                     points.value = ""
+                                    useBenefits = false
+                                    spendMode = ScanSpendMode.POINTS
+                                    selectedCouponId = null
                                     focusManager.clearFocus(force = true)
                                     viewModel.requestScan()
                                 },

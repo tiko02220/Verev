@@ -10,6 +10,7 @@ import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.domain.usecase.customer.ObserveCustomerBonusActionsUseCase
 import com.vector.verevcodex.domain.usecase.customer.FindCustomerByLoyaltyIdUseCase
+import com.vector.verevcodex.domain.usecase.loyalty.ObserveRewardsUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveActiveScanActionsUseCase
 import com.vector.verevcodex.domain.usecase.loyalty.ObserveProgramsUseCase
 import com.vector.verevcodex.domain.usecase.scan.ClearScanPreferenceUseCase
@@ -20,7 +21,12 @@ import com.vector.verevcodex.domain.usecase.scan.ValidateScanActionUseCase
 import com.vector.verevcodex.domain.usecase.scan.ScanValidationError
 import com.vector.verevcodex.domain.usecase.store.ObserveSelectedStoreUseCase
 import com.vector.verevcodex.domain.usecase.auth.ObserveSessionUseCase
+import com.vector.verevcodex.domain.usecase.transactions.RecordTransactionUseCase
+import com.vector.verevcodex.domain.model.transactions.Transaction
+import com.vector.verevcodex.domain.model.transactions.TransactionItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,13 +48,15 @@ class ScanViewModel @Inject constructor(
     private val observeSelectedStoreUseCase: ObserveSelectedStoreUseCase,
     private val observeSessionUseCase: ObserveSessionUseCase,
     private val observeProgramsUseCase: ObserveProgramsUseCase,
+    private val observeRewardsUseCase: ObserveRewardsUseCase,
+    private val recordTransactionUseCase: RecordTransactionUseCase,
     private val observeScanPreferencesUseCase: ObserveScanPreferencesUseCase,
     private val observeActiveScanActionsUseCase: ObserveActiveScanActionsUseCase,
     private val saveScanPreferenceUseCase: SaveScanPreferenceUseCase,
     private val clearScanPreferenceUseCase: ClearScanPreferenceUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ScanUiState())
-    val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
+    internal val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
     private val scannedCustomerId = MutableStateFlow<String?>(null)
 
     init {
@@ -73,13 +81,9 @@ class ScanViewModel @Inject constructor(
             .flatMapLatest { store -> observeActiveScanActionsUseCase(store?.id) }
             .onEach { remoteActions ->
                 val current = _uiState.value
-                val resolvedActions = resolveAvailableActions(
-                    remoteActions = remoteActions,
+                _uiState.value = current.withResolvedPrograms(
                     activePrograms = current.activePrograms,
-                )
-                _uiState.value = current.copy(
-                    availableActions = resolvedActions,
-                    selectedAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull(),
+                    remoteActions = remoteActions,
                 )
             }
             .launchIn(viewModelScope)
@@ -88,16 +92,17 @@ class ScanViewModel @Inject constructor(
             .flatMapLatest { store -> observeProgramsUseCase(store?.id) }
             .onEach { programs ->
                 val current = _uiState.value
-                val activePrograms = programs.filter { it.active }
-                val resolvedActions = resolveAvailableActions(
-                    remoteActions = current.availableActions,
-                    activePrograms = activePrograms,
+                _uiState.value = current.withResolvedPrograms(
+                    activePrograms = programs.filter { it.active },
+                    remoteActions = current.remoteActiveScanActions,
                 )
-                _uiState.value = current.copy(
-                    activePrograms = activePrograms,
-                    availableActions = resolvedActions,
-                    selectedAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull(),
-                )
+            }
+            .launchIn(viewModelScope)
+
+        observeSelectedStoreUseCase()
+            .flatMapLatest { store -> observeRewardsUseCase(store?.id) }
+            .onEach { rewards ->
+                _uiState.value = _uiState.value.copy(storeRewards = rewards)
             }
             .launchIn(viewModelScope)
 
@@ -133,7 +138,7 @@ class ScanViewModel @Inject constructor(
         }
         val resolvedActions = resolveAvailableActions(
             remoteActions = current.availableActions,
-            activePrograms = current.activePrograms,
+            activePrograms = current.livePrograms,
         )
         val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
         _uiState.value = current.copy(
@@ -160,7 +165,7 @@ class ScanViewModel @Inject constructor(
             val current = _uiState.value
             val resolvedActions = resolveAvailableActions(
                 remoteActions = current.availableActions,
-                activePrograms = current.activePrograms,
+                activePrograms = current.livePrograms,
             )
             val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
             _uiState.value = current.copy(
@@ -193,7 +198,7 @@ class ScanViewModel @Inject constructor(
         val current = _uiState.value
         val resolvedActions = resolveAvailableActions(
             remoteActions = current.availableActions,
-            activePrograms = current.activePrograms,
+            activePrograms = current.livePrograms,
         )
         val nextAction = current.selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull()
         _uiState.value = current.copy(
@@ -307,34 +312,10 @@ class ScanViewModel @Inject constructor(
         remoteActions: List<RewardProgramScanAction>,
         activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
     ): List<RewardProgramScanAction> {
-        val activeProgramActions = activePrograms
-            .asSequence()
-            .filter { it.active }
-            .flatMap { it.configuration.scanActions.asSequence() }
-            .distinct()
-            .toList()
-        val resolvedActions = (remoteActions + activeProgramActions)
-            .distinct()
-            .filterNot { action ->
-                action == RewardProgramScanAction.TRACK_TIER_PROGRESS
-            }
-        val actionableWithoutCheckIn = resolvedActions.filterNot { it == RewardProgramScanAction.CHECK_IN }
-        val visibleActions = if (
-            RewardProgramScanAction.CHECK_IN in resolvedActions &&
-            actionableWithoutCheckIn.isNotEmpty()
-        ) {
-            actionableWithoutCheckIn
-        } else {
-            resolvedActions
-        }
-        return visibleActions.sortedBy { action ->
-            when (action) {
-                RewardProgramScanAction.EARN_POINTS -> 0
-                RewardProgramScanAction.REDEEM_REWARDS -> 1
-                RewardProgramScanAction.CHECK_IN -> 2
-                RewardProgramScanAction.TRACK_TIER_PROGRESS -> 3
-            }
-        }
+        return resolveScanAvailableActions(
+            livePrograms = activePrograms,
+            remoteActions = remoteActions,
+        )
     }
 
     fun submitAction(amountInput: String, pointsInput: String) {
@@ -352,7 +333,7 @@ class ScanViewModel @Inject constructor(
             amount = amountInput.toDoubleOrNull(),
             points = pointsInput.toIntOrNull(),
             customerPoints = customer.currentPoints,
-            activePrograms = state.activePrograms
+            activePrograms = state.livePrograms
         )
 
         if (validationError != null) {
@@ -396,13 +377,160 @@ class ScanViewModel @Inject constructor(
                 amount = amountInput.toDoubleOrNull(),
                 points = pointsInput.toIntOrNull(),
                 customer = customer,
-                activePrograms = state.activePrograms,
+                activePrograms = state.livePrograms,
                 visitAlreadyCounted = state.visitCountedForCurrentScan
             ).onSuccess {
-                if (selectedAction.countsVisitFor(state.activePrograms)) {
+                if (selectedAction.countsVisitFor(state.livePrograms)) {
                     markVisitCountedForCurrentScan()
                 }
                 refreshCustomerAfterAction(customer.loyaltyId, getSuccessMessage(selectedAction))
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSubmitting = false,
+                    successDialogMessageRes = null,
+                    errorRes = R.string.merchant_scan_error_action_failed,
+                    messageRes = null,
+                )
+            }
+        }
+    }
+
+    internal fun submitCheckout(
+        amountInput: String,
+        useBenefits: Boolean,
+        spendMode: ScanSpendMode,
+        pointsInput: String,
+        selectedCouponId: String?,
+    ) {
+        val state = _uiState.value
+        val storeId = state.selectedStoreId
+        val customer = state.customer
+        if (storeId.isNullOrBlank() || customer == null) {
+            _uiState.value = state.copy(
+                contentMode = ScanContentMode.CUSTOMER,
+                errorRes = R.string.merchant_scan_error_missing_customer,
+                messageRes = null,
+                fieldErrors = emptyMap(),
+            )
+            return
+        }
+
+        val availableCoupons = state.storeRewards.availableScanCheckoutCoupons(
+            customer = customer,
+            activePrograms = state.livePrograms,
+        )
+        val preview = computeScanCheckoutPreview(
+            customer = customer,
+            activePrograms = state.livePrograms,
+            availableCoupons = availableCoupons,
+            amountInput = amountInput,
+            useBenefits = useBenefits,
+            spendMode = spendMode,
+            pointsInput = pointsInput,
+            selectedCouponId = selectedCouponId,
+        )
+
+        val rawPoints = pointsInput.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val pointsFieldError = when {
+            useBenefits && spendMode == ScanSpendMode.POINTS && rawPoints > customer.currentPoints ->
+                R.string.merchant_scan_error_points_exceeds_balance
+            useBenefits && spendMode == ScanSpendMode.POINTS && rawPoints > preview.maxRedeemablePoints ->
+                R.string.merchant_scan_error_points_exceeds_amount
+            useBenefits &&
+                spendMode == ScanSpendMode.POINTS &&
+                rawPoints in 1 until preview.minimumRedeemPoints ->
+                R.string.merchant_scan_error_points_minimum_required
+            else -> null
+        }
+
+        when {
+            !preview.checkoutAvailable -> {
+                _uiState.value = state.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSubmitting = false,
+                    errorRes = R.string.merchant_scan_error_no_program_actions,
+                    messageRes = null,
+                    fieldErrors = emptyMap(),
+                )
+                return
+            }
+            preview.purchaseAmount <= 0.0 -> {
+                _uiState.value = state.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSubmitting = false,
+                    errorRes = R.string.merchant_scan_error_amount,
+                    messageRes = null,
+                    fieldErrors = mapOf(SCAN_FIELD_AMOUNT to R.string.merchant_scan_error_amount),
+                )
+                return
+            }
+            pointsFieldError != null -> {
+                _uiState.value = state.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSubmitting = false,
+                    errorRes = pointsFieldError,
+                    messageRes = null,
+                    fieldErrors = mapOf(SCAN_FIELD_POINTS to pointsFieldError),
+                )
+                return
+            }
+        }
+
+        viewModelScope.launch {
+            _uiState.value = state.copy(
+                contentMode = ScanContentMode.CUSTOMER,
+                isSubmitting = true,
+                errorRes = null,
+                messageRes = null,
+                fieldErrors = emptyMap(),
+            )
+            val session = observeSessionUseCase().first()
+            val staffId = session?.user?.relatedEntityId ?: session?.user?.id
+            if (staffId.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    contentMode = ScanContentMode.CUSTOMER,
+                    isSubmitting = false,
+                    errorRes = R.string.merchant_scan_error_missing_staff_session,
+                    messageRes = null,
+                )
+                return@launch
+            }
+
+            runCatching {
+                val transactionId = UUID.randomUUID().toString()
+                recordTransactionUseCase(
+                    transaction = Transaction(
+                        id = transactionId,
+                        customerId = customer.id,
+                        storeId = storeId,
+                        staffId = staffId,
+                        amount = preview.finalAmount,
+                        pointsEarned = preview.totalEarnedPoints,
+                        pointsRedeemed = preview.totalSpentPoints(),
+                        timestamp = LocalDateTime.now(),
+                        metadata = buildCheckoutMetadata(preview),
+                        items = listOf(
+                            TransactionItem(
+                                id = UUID.randomUUID().toString(),
+                                transactionId = transactionId,
+                                name = "Scanned checkout",
+                                quantity = 1,
+                                unitPrice = preview.finalAmount,
+                            ),
+                        ),
+                    ),
+                    incrementVisit = !state.visitCountedForCurrentScan,
+                    rewardId = preview.selectedCoupon?.id,
+                )
+            }.onSuccess {
+                if (!state.visitCountedForCurrentScan) {
+                    markVisitCountedForCurrentScan()
+                }
+                refreshCustomerAfterAction(
+                    loyaltyId = customer.loyaltyId,
+                    successMessageRes = R.string.merchant_scan_message_checkout_applied,
+                )
             }.onFailure {
                 _uiState.value = _uiState.value.copy(
                     contentMode = ScanContentMode.CUSTOMER,
@@ -495,7 +623,11 @@ class ScanViewModel @Inject constructor(
                     successDialogMessageRes = null,
                     errorRes = if (customer == null) R.string.merchant_scan_error_not_found else null,
                     messageRes = successMessageRes ?: if (customer != null) {
-                        R.string.merchant_scan_message_member_found
+                        if (_uiState.value.availableActions.isEmpty()) {
+                            R.string.merchant_scan_message_member_found_no_actions
+                        } else {
+                            R.string.merchant_scan_message_member_found
+                        }
                     } else {
                         null
                     },
@@ -571,6 +703,28 @@ class ScanViewModel @Inject constructor(
     }
 }
 
+private fun ScanUiState.withResolvedPrograms(
+    activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>,
+    remoteActions: List<RewardProgramScanAction>,
+): ScanUiState {
+    val availability = resolveScanProgramAvailability(
+        programs = activePrograms,
+        remoteActions = remoteActions,
+    )
+    val resolvedActions = resolveScanAvailableActions(
+        livePrograms = availability.livePrograms,
+        remoteActions = remoteActions,
+    )
+    return copy(
+        activePrograms = activePrograms,
+        livePrograms = availability.livePrograms,
+        remoteActiveScanActions = remoteActions,
+        primaryInactiveReason = availability.primaryInactiveReason,
+        availableActions = resolvedActions,
+        selectedAction = selectedAction?.takeIf { it in resolvedActions } ?: resolvedActions.firstOrNull(),
+    )
+}
+
 private fun RewardProgramScanAction.countsVisitFor(activePrograms: List<com.vector.verevcodex.domain.model.loyalty.RewardProgram>): Boolean =
     this == RewardProgramScanAction.EARN_POINTS ||
         this == RewardProgramScanAction.CHECK_IN ||
@@ -595,3 +749,22 @@ private fun List<CustomerBonusAction>.filterRewardHighlights(): List<CustomerBon
             CustomerBonusActionType.DISCOUNT_APPLIED,
         )
     }.take(3)
+
+private fun buildCheckoutMetadata(preview: ScanCheckoutPreview): String =
+    buildString {
+        append("Scan checkout")
+        if (preview.tierDiscountAmount > 0.0) {
+            append(" • tier -")
+            append(preview.tierDiscountPercent)
+            append('%')
+        }
+        if (preview.selectedCoupon != null) {
+            append(" • coupon ")
+            append(preview.selectedCoupon.name)
+        }
+        if (preview.appliedRedeemPoints > 0) {
+            append(" • redeemed ")
+            append(preview.appliedRedeemPoints)
+            append(" pts")
+        }
+    }

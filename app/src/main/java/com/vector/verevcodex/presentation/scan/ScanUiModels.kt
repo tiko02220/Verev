@@ -3,10 +3,12 @@ package com.vector.verevcodex.presentation.scan
 import androidx.annotation.StringRes
 import com.vector.verevcodex.domain.model.customer.Customer
 import com.vector.verevcodex.domain.model.customer.CustomerBonusAction
+import com.vector.verevcodex.domain.model.loyalty.Reward
 import com.vector.verevcodex.domain.model.loyalty.RewardProgram
 import com.vector.verevcodex.domain.model.loyalty.RewardProgramScanAction
 import com.vector.verevcodex.domain.model.scan.ScanMethod
 import com.vector.verevcodex.domain.model.scan.ScanPreferences
+import com.vector.verevcodex.presentation.programs.ProgramInactiveReason
 
 internal const val SCAN_FIELD_AMOUNT = "scan_amount"
 internal const val SCAN_FIELD_POINTS = "scan_points"
@@ -25,7 +27,7 @@ enum class BarcodeScanFailureReason {
     CANCELLED,
 }
 
-data class ScanUiState(
+internal data class ScanUiState(
     val selectedStoreId: String? = null,
     val selectedStoreName: String = "",
     val currencyCode: String = "AMD",
@@ -33,12 +35,16 @@ data class ScanUiState(
     val contentMode: ScanContentMode = ScanContentMode.ACTIVE_SCAN,
     val scanSessionToken: Int = 0,
     val activePrograms: List<RewardProgram> = emptyList(),
+    val livePrograms: List<RewardProgram> = emptyList(),
+    val remoteActiveScanActions: List<RewardProgramScanAction> = emptyList(),
+    val primaryInactiveReason: ProgramInactiveReason? = null,
     val availableActions: List<RewardProgramScanAction> = emptyList(),
     val activeScanMethod: ScanMethod? = null,
     val scannedLoyaltyId: String? = null,
     val visitCountedForCurrentScan: Boolean = false,
     val customer: Customer? = null,
     val customerRewardHighlights: List<CustomerBonusAction> = emptyList(),
+    val storeRewards: List<Reward> = emptyList(),
     val selectedAction: RewardProgramScanAction? = null,
     val isSearching: Boolean = false,
     val isSubmitting: Boolean = false,

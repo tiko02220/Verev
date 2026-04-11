@@ -55,7 +55,6 @@ class StoreRepositoryImpl @Inject constructor(
                 emit(storeRemote.list(ownerId).getOrElse { emptyList() })
             }
         }
-        .distinctUntilChanged()
         .stateIn(
             scope = repositoryScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),

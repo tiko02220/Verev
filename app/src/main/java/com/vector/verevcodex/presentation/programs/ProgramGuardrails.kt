@@ -180,6 +180,16 @@ private fun buildProgramOperationalSnapshot(
         when {
             !active -> add(ProgramInactiveReason.Disabled)
             autoScheduleEnabled &&
+                repeatType != ProgramRepeatType.CUSTOM &&
+                scheduleStartDate != null &&
+                scheduleStartDate.isAfter(today) ->
+                add(ProgramInactiveReason.StartsLater(scheduleStartDate))
+            autoScheduleEnabled &&
+                repeatType != ProgramRepeatType.CUSTOM &&
+                scheduleEndDate != null &&
+                scheduleEndDate.isBefore(today) ->
+                add(ProgramInactiveReason.Ended(scheduleEndDate))
+            autoScheduleEnabled &&
                 repeatType == ProgramRepeatType.CUSTOM &&
                 scheduleStartDate != null &&
                 scheduleEndDate != null &&

@@ -55,13 +55,13 @@ class TransactionRemoteDataSource @Inject constructor(
         response.unwrap { it.toDomain() }
     }
 
-    suspend fun commit(transaction: Transaction, idempotencyKey: String): Result<Transaction> = remoteResult {
+    suspend fun commit(transaction: Transaction, idempotencyKey: String, rewardId: String? = null): Result<Transaction> = remoteResult {
         val request = TransactionCommitRequestDto(
             storeId = transaction.storeId,
             customerId = transaction.customerId,
             amount = transaction.amount,
             redeemPoints = transaction.pointsRedeemed,
-            rewardId = null,
+            rewardId = rewardId,
             // The backend expects an ISO-8601 instant, while the app keeps a zone-less LocalDateTime.
             occurredAt = transaction.timestamp.atOffset(ZoneOffset.UTC).toInstant().toString(),
             items = transaction.items.map {

@@ -123,85 +123,29 @@ class AnalyticsRepositoryImpl @Inject constructor(
     }
 
     override fun observeDashboardSnapshot(): Flow<DashboardSnapshot> {
-        val storeSelectionFlow: Flow<Pair<Store?, List<Store>>> = combine(
-            storeRepository.observeSelectedStore(),
-            storeRepository.observeStores(),
-        ) { selectedStore, stores ->
-            selectedStore to stores
-        }
-
-        val activeStoreFlow: Flow<Store?> = storeSelectionFlow
-            .map { (selectedStore, stores) -> selectedStore ?: stores.firstOrNull() }
-            .distinctUntilChanged()
-
-        val commerceFlow: Flow<DashboardCommerceBundle?> = activeStoreFlow.flatMapLatest { activeStore ->
-            activeStore?.id?.let { selectedStoreId ->
-                combine(
-                    observeBusinessAnalytics(selectedStoreId, WEEK),
-                    loyaltyRepository.observePrograms(selectedStoreId),
-                    loyaltyRepository.observeCampaigns(selectedStoreId),
-                    transactionRepository.observeTransactions(selectedStoreId),
-                ) { analytics, programs, campaigns, transactions ->
-                    DashboardCommerceBundle(analytics, programs, campaigns, transactions)
-                }
-            } ?: flowOf<DashboardCommerceBundle?>(null)
-        }
-
-        val staffFlow: Flow<DashboardStaffBundle?> = activeStoreFlow.flatMapLatest { activeStore ->
-            activeStore?.id?.let { selectedStoreId ->
-                combine(
-                    staffRepository.observeStaff(selectedStoreId),
-                    staffRepository.observeStaffAnalytics(selectedStoreId),
-                ) { staff, staffAnalytics ->
-                    DashboardStaffBundle(staff, staffAnalytics)
-                }
-            } ?: flowOf<DashboardStaffBundle?>(null)
-        }
-
-        val healthFlow: Flow<DashboardHealth> = activeStoreFlow.flatMapLatest { activeStore ->
+        return combine(
+            authRepository.observeSession(),
+            storeRepository.observeSelectedStore().map { it?.id }.distinctUntilChanged(),
+        ) { session, selectedStoreId ->
+            session to selectedStoreId
+        }.flatMapLatest { (session, selectedStoreId) ->
+            if (session == null) return@flatMapLatest flowOf()
             realtimeRepository.observeRefreshSignals()
                 .onStart { emit(Unit) }
-                .map {
-                    activeStore?.id?.let { selectedStoreId ->
-                        analyticsRemote.dashboardSnapshot(selectedStoreId, WEEK)
-                            .mapCatching { snapshot -> snapshot.health.toDomain() }
-                            .getOrElse { DashboardHealth() }
-                    } ?: DashboardHealth()
+                .mapNotNull {
+                    analyticsRemote.dashboardSnapshot(selectedStoreId, WEEK)
+                        .getOrNull()
+                        ?.let { snapshotDto ->
+                            runCatching {
+                                analyticsRemote.buildDashboardSnapshot(
+                                    dto = snapshotDto,
+                                    owner = resolveOwner(session),
+                                    ownerId = session.user.relatedEntityId,
+                                    staffList = emptyList(),
+                                )
+                            }.getOrNull()
+                        }
                 }
-        }
-
-        val dashboardCoreFlow = combine(
-            authRepository.observeSession(),
-            storeRepository.observeStores(),
-            activeStoreFlow,
-            commerceFlow,
-            staffFlow,
-        ) { session, stores, currentStore, commerce, staffBundle ->
-            if (currentStore == null || commerce == null || staffBundle == null) {
-                return@combine null
-            }
-            val owner = resolveOwner(session)
-            val topStaff = staffBundle.analytics
-                .sortedByDescending(StaffAnalytics::revenueHandled)
-                .take(3)
-                .mapNotNull { analyticsItem ->
-                    staffBundle.staff.firstOrNull { it.id == analyticsItem.staffId }?.let { it to analyticsItem }
-                }
-
-            DashboardSnapshot(
-                owner = owner,
-                selectedStore = currentStore,
-                stores = stores,
-                analytics = commerce.analytics.copy(scopeStoreId = currentStore.id),
-                activePrograms = commerce.programs.filter { it.active && it.storeId == currentStore.id },
-                activeCampaigns = commerce.campaigns.filter { it.active && it.storeId == currentStore.id },
-                topStaff = topStaff,
-                recentTransactions = commerce.transactions.filter { it.storeId == currentStore.id }.take(5),
-            )
-        }.mapNotNull { it }
-
-        return combine(dashboardCoreFlow, healthFlow) { snapshot, health ->
-            snapshot.copy(health = health)
         }
     }
 
